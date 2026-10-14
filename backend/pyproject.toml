@@ -1,0 +1,17 @@
+[project]
+name = "trolleymate-backend"
+version = "0.2.0"
+description = "Trolley Mate — multi-agent AI grocery personal shopper (ELEC5620 Group 5)"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B008", "B024", "B027"]  # long lines OK; Depends() in defaults; abstract Agent & optional hooks are by design
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

@@ -1,0 +1,65 @@
+.agent-trace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.agent-trace ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.trace-step {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  animation: trace-in 0.25s ease-out;
+}
+.trace-step .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+.trace-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--step--1);
+}
+.trace-action {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.trace-decision {
+  font-size: var(--step--1);
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+.trace-meta {
+  margin-top: 6px;
+}
+.trace-meta .chip {
+  font-size: 0.68rem;
+  padding: 1px 7px;
+}
+.trace-step.working .trace-decision,
+.trace-step.working p {
+  font-size: var(--step--1);
+}
+.trace-empty {
+  padding: 12px 0;
+}
+@keyframes trace-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

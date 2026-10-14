@@ -1,0 +1,57 @@
+# Each area's owner is requested automatically as a reviewer on PRs that touch it.
+# Replace the @handles with each teammate's GitHub username (see docs/TEAM_GUIDE.md).
+
+# Platform & Governance — Maaz
+*                                         @cout-maze
+/backend/app/core/                        @cout-maze
+/backend/app/api/auth.py                  @cout-maze
+/backend/app/api/households.py            @cout-maze
+/backend/app/api/escalations.py           @cout-maze
+/backend/app/api/audit.py                 @cout-maze
+/backend/app/agents/technical_manager.py  @cout-maze
+/backend/app/workflows/escalation.py      @cout-maze
+/frontend/src/features/profile/           @cout-maze
+/frontend/src/features/review/            @cout-maze
+/frontend/src/features/admin/             @cout-maze
+/frontend/src/features/explain/           @cout-maze
+/.github/                                 @cout-maze
+/Dockerfile                               @cout-maze
+
+# Intake & Optimisation — Sanskar
+/backend/app/workflows/intake.py          @SANSKAR_GITHUB
+/backend/app/workflows/basket_builder.py  @SANSKAR_GITHUB
+/backend/app/workflows/meal_planning.py   @SANSKAR_GITHUB
+/backend/app/optimisation/                @SANSKAR_GITHUB
+/backend/app/services/meal_planner.py     @SANSKAR_GITHUB
+/backend/app/llm/tasks/extract_constraints.py @SANSKAR_GITHUB
+/frontend/src/features/intake/            @SANSKAR_GITHUB
+/frontend/src/features/basket/            @SANSKAR_GITHUB
+/frontend/src/features/mealplan/          @SANSKAR_GITHUB
+
+# Negotiation, Substitution & Buy-timing — Peter
+/backend/app/workflows/negotiation.py     @PETER_GITHUB
+/backend/app/workflows/substitution.py    @PETER_GITHUB
+/backend/app/services/buy_timing.py       @PETER_GITHUB
+/backend/app/llm/tasks/tradeoff.py        @PETER_GITHUB
+/backend/app/llm/tasks/negotiation_message.py @PETER_GITHUB
+/frontend/src/features/negotiation/       @PETER_GITHUB
+/frontend/src/features/substitution/      @PETER_GITHUB
+/frontend/src/features/buytiming/         @PETER_GITHUB
+
+# Pricing & Conversational editing — Chester
+/backend/app/agents/market_analyst.py     @CHESTER_GITHUB
+/backend/app/services/pricing/            @CHESTER_GITHUB
+/backend/app/workflows/basket_editing.py  @CHESTER_GITHUB
+/backend/app/llm/tasks/parse_edit.py      @CHESTER_GITHUB
+/backend/app/llm/tasks/market_insight.py  @CHESTER_GITHUB
+/backend/app/seed/catalogue.json          @CHESTER_GITHUB
+/frontend/src/features/pricing/           @CHESTER_GITHUB
+
+# Compliance, Nutrition & Preferences — Reyon
+/backend/app/agents/nutrition_compliance.py @REYON_GITHUB
+/backend/app/services/dietary_rules.py    @REYON_GITHUB
+/backend/app/api/compliance.py            @REYON_GITHUB
+/backend/app/api/preferences.py           @REYON_GITHUB
+/backend/app/llm/tasks/assess_ingredient.py @REYON_GITHUB
+/frontend/src/features/compliance/        @REYON_GITHUB
+/frontend/src/features/preferences/       @REYON_GITHUB

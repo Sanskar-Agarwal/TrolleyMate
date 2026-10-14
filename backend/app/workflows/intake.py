@@ -1,0 +1,288 @@
+"""UC-01 — Natural-language intake & constraint confirmation (Activity 7.1, Sequence 8.1,
+State machine 9.1). Owner: Intake & Optimisation.
+
+Draft constraints never become active until `confirm` commits them atomically.
+Clarification answers do not count as corrections; the third correction switches
+the request to a structured form. Household mandatory restrictions can never be
+removed from a draft.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import datetime
+
+from sqlalchemy import func, select
+
+from app.core.config import get_settings
+from app.domain import ConstraintSetRecord, ShoppingRequest, ShoppingSession
+from app.domain.enums import InputMode, IntakeStage, RequestStatus
+from app.services.dietary_rules import label, normalise_restriction
+from app.services.session_state import household_of
+
+REQUIRED = ("budget", "household_size", "meals_per_day", "days")
+QUESTIONS = {
+    "budget": "What's your budget for this shop?",
+    "household_size": "How many people are you shopping for?",
+    "meals_per_day": "Which meals should I cover each day — dinner only, lunch and dinner, or all three?",
+    "days": "How many days should this shop last?",
+}
+
+
+class IntakeError(ValueError):
+    pass
+
+
+# --------------------------------------------------------------------------- helpers
+
+
+def _merge(draft: dict, extracted: dict) -> dict:
+    """Fields present in `extracted` override the draft; lists are unioned."""
+    out = dict(draft)
+    for key in REQUIRED + ("goal_hint",):
+        if extracted.get(key) is not None:
+            out[key] = extracted[key]
+    restrictions = {r["restriction"]: r for r in out.get("restrictions", [])}
+    for r in extracted.get("restrictions", []):
+        rid = normalise_restriction(r["restriction"])
+        restrictions.setdefault(rid, {"restriction": rid, "severity": r.get("severity", "severe"), "source": "request", "label": label(rid)})
+    out["restrictions"] = list(restrictions.values())
+    targets = {t["nutrient"]: t for t in out.get("nutritional_targets", [])}
+    for t in extracted.get("nutritional_targets", []):
+        targets[t["nutrient"]] = {"nutrient": t["nutrient"], "minimum_per_day": float(t["minimum_per_day"])}
+    out["nutritional_targets"] = list(targets.values())
+    out["preferences"] = sorted(set(out.get("preferences", [])) | set(extracted.get("preferences", [])))
+    return out
+
+
+def _apply_household(session: ShoppingSession, draft: dict, db) -> dict:
+    household = household_of(db, session)
+    out = dict(draft)
+    assumptions = list(out.get("assumptions", []))
+    if out.get("household_size") is None and household.members:
+        out["household_size"] = household.size
+        note = f"Shopping for {household.size} (from your household profile)."
+        if note not in assumptions:
+            assumptions.append(note)
+    restrictions = {r["restriction"]: r for r in out.get("restrictions", [])}
+    for r in household.mandatory_restrictions():
+        restrictions[r["restriction"]] = {**r, "label": label(r["restriction"]), "locked": True}
+    out["restrictions"] = list(restrictions.values())
+    saved_prefs = {f"{p.kind}:{p.value}" for p in household.preferences}
+    out["preferences"] = sorted(set(out.get("preferences", [])) | saved_prefs)
+    out["assumptions"] = assumptions
+    return out
+
+
+def _questions(draft: dict, ambiguities: list[dict]) -> list[dict]:
+    qs = [{"field": f, "question": QUESTIONS[f]} for f in REQUIRED if draft.get(f) in (None, 0)]
+    answered = set(draft.get("answered", []))
+    for a in ambiguities:
+        if a["field"] not in answered and not any(q["field"] == a["field"] for q in qs):
+            if a["field"] == "nutritional_targets" and draft.get("nutritional_targets"):
+                continue
+            qs.append({"field": a["field"], "question": a["question"]})
+    return qs
+
+
+def _stage_after_update(req: ShoppingRequest) -> None:
+    if req.pending_questions:
+        req.stage = IntakeStage.awaiting_clarification
+    elif req.mode == InputMode.form:
+        req.stage = IntakeStage.awaiting_form
+    else:
+        req.stage = IntakeStage.awaiting_confirmation
+
+
+def _household_context(session: ShoppingSession, db) -> dict:
+    h = household_of(db, session)
+    return {"size": h.size, "restrictions": [r["restriction"] for r in h.mandatory_restrictions()]}
+
+
+def _summary(draft: dict) -> str:
+    parts = []
+    if draft.get("budget") is not None:
+        parts.append(f"${draft['budget']:g}")
+    if draft.get("meals_per_day") and draft.get("days"):
+        parts.append(f"{draft['meals_per_day']:g} meals/day × {draft['days']} days")
+    if draft.get("household_size"):
+        parts.append(f"{draft['household_size']} people")
+    if draft.get("restrictions"):
+        parts.append("no " + ", ".join(r["restriction"].replace("_", " ") for r in draft["restrictions"]))
+    return "; ".join(parts) or "nothing extracted yet"
+
+
+# --------------------------------------------------------------------------- operations
+
+
+def start(agent, session: ShoppingSession, text: str) -> ShoppingRequest:
+    db = agent.db
+    for old in session.requests:
+        if old.status == RequestStatus.draft:
+            old.status, old.stage = RequestStatus.cancelled, IntakeStage.ended
+
+    req = ShoppingRequest(raw_text=text)
+    session.requests.append(req)  # via the collection, so session.requests stays current
+    db.flush()
+    result = agent.think("extract_constraints", {"text": text, "household": _household_context(session, db)})
+    data = result.data
+
+    if not data.get("interpretation_ok", True):
+        req.mode, req.stage = InputMode.form, IntakeStage.awaiting_form
+        req.draft_payload = _apply_household(session, {}, db)
+        req.pending_questions = []
+        agent.log("extract_constraints", "Could not interpret the request; offered the structured form",
+                  session_id=session.id, llm=result, confidence=0.2)
+        return req
+
+    draft = _apply_household(session, _merge({}, data), db)
+    req.draft_payload = draft
+    req.pending_questions = _questions(draft, data.get("ambiguities", []))
+    _stage_after_update(req)
+    agent.log(
+        "extract_constraints", f"Interpreted: {_summary(draft)}",
+        rationale=f"{len(req.pending_questions)} question(s) outstanding" if req.pending_questions else "Ready for confirmation",
+        confidence=0.6 if req.pending_questions else 0.9, session_id=session.id, llm=result,
+        payload={"raw_text": text, "draft": draft},
+    )
+    return req
+
+
+def clarify(agent, req: ShoppingRequest, answer: str) -> ShoppingRequest:
+    _ensure_draft(req)
+    session = req.session
+    pending = [q["field"] for q in req.pending_questions]
+    result = agent.think(
+        "extract_constraints",
+        {"text": answer, "draft": req.draft_payload, "pending_fields": pending, "household": _household_context(session, agent.db)},
+    )
+    draft = _merge(req.draft_payload, result.data)
+    declined = bool(re.search(r"\b(no|none|skip|don't|dont|not sure|no target)\b", answer.lower()))
+    answered = {f for f in pending if declined or draft.get(f) not in (None, 0, [])}
+    draft["answered"] = sorted(set(draft.get("answered", [])) | answered)
+    draft = _apply_household(session, draft, agent.db)
+    req.clarifications = list(req.clarifications) + [{"questions": req.pending_questions, "answer": answer}]
+    req.draft_payload = draft
+    still_open = [q for q in req.pending_questions if q["field"] not in answered and q["field"] not in REQUIRED]
+    new_ambiguities = [a for a in result.data.get("ambiguities", []) if a["field"] not in pending]
+    req.pending_questions = _questions(draft, still_open + new_ambiguities)
+    _stage_after_update(req)
+    agent.log("clarify_constraints", f"Updated: {_summary(draft)}", session_id=session.id, llm=result,
+              confidence=0.6 if req.pending_questions else 0.9)
+    return req
+
+
+def correct(agent, req: ShoppingRequest, *, text: str | None = None, patch: dict | None = None) -> ShoppingRequest:
+    """4a — a correction. The third one moves the request into structured-form mode."""
+    _ensure_draft(req)
+    session = req.session
+    req.correction_count += 1
+    draft = dict(req.draft_payload)
+    result = None
+    if text:
+        result = agent.think("extract_constraints", {"text": text, "draft": draft, "household": _household_context(session, agent.db)})
+        draft = _merge(draft, result.data)
+    if patch:
+        draft = _apply_patch(draft, patch)
+    draft = _apply_household(session, draft, agent.db)
+    req.draft_payload = draft
+    req.pending_questions = _questions(draft, [])
+    if req.mode == InputMode.text and req.correction_count >= get_settings().max_corrections:
+        req.mode = InputMode.form
+    _stage_after_update(req)
+    agent.log(
+        "correct_constraints",
+        f"Correction {req.correction_count}: {_summary(draft)}" + (" — switched to structured form" if req.mode == InputMode.form else ""),
+        session_id=session.id, llm=result,
+    )
+    return req
+
+
+def submit_form(agent, req: ShoppingRequest, form: dict) -> ShoppingRequest:
+    _ensure_draft(req)
+    req.mode = InputMode.form
+    draft = _apply_household(req.session, _apply_patch(dict(req.draft_payload), form), agent.db)
+    req.draft_payload = draft
+    req.pending_questions = _questions(draft, [])
+    _stage_after_update(req)
+    if not req.pending_questions:
+        req.stage = IntakeStage.awaiting_confirmation
+    agent.log("submit_form", f"Form submitted: {_summary(draft)}", session_id=req.session_id)
+    return req
+
+
+def confirm(agent, req: ShoppingRequest) -> ConstraintSetRecord:
+    """Step 5 — save the version, activate it and confirm the request as one commit."""
+    _ensure_draft(req)
+    missing = [f for f in REQUIRED if req.draft_payload.get(f) in (None, 0)]
+    if missing:
+        raise IntakeError("Still need: " + ", ".join(missing))
+    db = agent.db
+    session = req.session
+    # All three changes ride on the request's single DB transaction (committed by the
+    # API layer), so either the version, the active link and the request status are
+    # all saved, or none are.
+    try:
+        version = (db.scalar(select(func.max(ConstraintSetRecord.version)).where(ConstraintSetRecord.session_id == session.id)) or 0) + 1
+        payload = {k: v for k, v in req.draft_payload.items() if k != "answered"}
+        cs = ConstraintSetRecord(session_id=session.id, request_id=req.id, version=version, confirmed_at=datetime.now(), payload=payload)
+        db.add(cs)
+        db.flush()
+        session.activate(cs)
+        if payload.get("goal_hint"):
+            session.goal = payload["goal_hint"]
+        req.confirm()
+    except Exception as exc:  # 5a: report, keep the previous active set
+        db.rollback()
+        raise IntakeError("Saving failed — your previous constraints are unchanged. Try again.") from exc
+    agent.log("confirm_constraints", f"Constraint set v{cs.version} active: {_summary(cs.payload)}", session_id=session.id, confidence=1.0)
+    return cs
+
+
+def cancel(agent, req: ShoppingRequest) -> ShoppingRequest:
+    if req.status == RequestStatus.draft:
+        req.status, req.stage = RequestStatus.cancelled, IntakeStage.ended
+        agent.log("cancel_request", "Request cancelled; previous constraints preserved", session_id=req.session_id)
+    return req
+
+
+def state(req: ShoppingRequest) -> dict:
+    draft = req.draft_payload or {}
+    return {
+        "request_id": req.id,
+        "raw_text": req.raw_text,
+        "status": req.status,
+        "stage": req.stage,
+        "mode": req.mode,
+        "correction_count": req.correction_count,
+        "max_corrections": get_settings().max_corrections,
+        "draft": draft,
+        "questions": req.pending_questions,
+        "missing_fields": [f for f in REQUIRED if draft.get(f) in (None, 0)],
+        "assumptions": draft.get("assumptions", []),
+    }
+
+
+def _ensure_draft(req: ShoppingRequest) -> None:
+    if req.status != RequestStatus.draft:
+        raise IntakeError(f"This request is already {req.status}.")
+
+
+def _apply_patch(draft: dict, patch: dict) -> dict:
+    out = dict(draft)
+    for key in REQUIRED:
+        if key in patch and patch[key] is not None:
+            out[key] = patch[key]
+    if "restrictions" in patch and patch["restrictions"] is not None:
+        out["restrictions"] = [
+            {"restriction": normalise_restriction(r["restriction"]), "severity": r.get("severity", "severe"),
+             "source": r.get("source", "request"), "label": label(r["restriction"])}
+            for r in patch["restrictions"]
+        ]  # household-locked ones are re-added by _apply_household
+    if "nutritional_targets" in patch and patch["nutritional_targets"] is not None:
+        out["nutritional_targets"] = patch["nutritional_targets"]
+    if "preferences" in patch and patch["preferences"] is not None:
+        out["preferences"] = patch["preferences"]
+    if "goal_hint" in patch:
+        out["goal_hint"] = patch["goal_hint"]
+    return out

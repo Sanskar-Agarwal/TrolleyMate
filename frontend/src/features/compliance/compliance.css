@@ -1,0 +1,26 @@
+.nutrient .bar {
+  position: relative;
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  margin-top: 4px;
+}
+.nutrient .bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.nutrient .bar span.ok {
+  background: var(--produce);
+}
+.nutrient .bar span.short {
+  background: var(--amber);
+}
+.nutrient .bar i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.5;
+}

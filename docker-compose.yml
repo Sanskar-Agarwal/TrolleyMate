@@ -1,0 +1,31 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Inside Docker, "localhost" is the container — reach a host Ollama via host.docker.internal.
+      CORS_ORIGINS: http://localhost:8000
+    volumes:
+      - trolleymate-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Optional local LLM (advanced-tech story: local model, no key, works offline).
+  #   docker compose --profile local-llm up --build
+  #   docker compose exec ollama ollama pull qwen2.5:7b
+  #   then set LLM_PROVIDER=openai_compatible, LLM_BASE_URL=http://ollama:11434/v1, LLM_MODEL=qwen2.5:7b
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local-llm"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  trolleymate-data:
+  ollama-models:

@@ -1,0 +1,73 @@
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+.topbar nav {
+  display: flex;
+  gap: 4px;
+}
+.navlink {
+  padding: 6px 12px;
+  border-radius: var(--radius-s);
+  color: var(--muted);
+  font-weight: 700;
+  text-decoration: none;
+}
+.navlink:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.navlink.active {
+  color: var(--ink);
+  background: var(--produce-soft);
+}
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.shell-main {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+  .topbar-right {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .who {
+    display: none;
+  }
+}

@@ -1,0 +1,60 @@
+.pricing {
+  max-width: 980px;
+}
+.compare-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.compare-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 260px) 1fr 90px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+}
+.compare-row.best {
+  background: var(--produce-soft);
+}
+.compare-name {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.compare-bar {
+  height: 12px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.compare-bar span {
+  display: block;
+  height: 100%;
+  background: var(--line-strong);
+}
+.compare-row.best .compare-bar span {
+  background: var(--produce);
+}
+.compare-total {
+  text-align: right;
+  font-weight: 700;
+}
+.saving {
+  color: var(--produce);
+  font-weight: 700;
+}
+td.cheapest {
+  background: var(--tag-soft);
+  font-weight: 700;
+}
+@media (max-width: 700px) {
+  .compare-row {
+    grid-template-columns: 1fr auto;
+  }
+  .compare-bar {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}

@@ -1,0 +1,69 @@
+.review-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.case-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.case-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.case-row.on {
+  border-color: var(--produce);
+  box-shadow: inset 3px 0 0 var(--produce);
+}
+.case-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.findings {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.thread li {
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  background: var(--surface-2);
+}
+.thread li.agent {
+  border-left: 3px solid var(--agent-compliance);
+}
+.thread li.reviewer {
+  border-left: 3px solid var(--agent-human);
+}
+@media (max-width: 860px) {
+  .review-grid,
+  .case-grid {
+    grid-template-columns: 1fr;
+  }
+}

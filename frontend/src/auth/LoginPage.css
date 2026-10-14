@@ -1,0 +1,126 @@
+.login {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+}
+.login-hero {
+  background: var(--produce);
+  color: var(--produce-ink);
+  padding: 40px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  justify-content: center;
+}
+.login-hero .logo-word {
+  color: var(--produce-ink);
+}
+.login-hero h1 {
+  font-size: clamp(2rem, 3.4vw, 3.1rem);
+  max-width: 16ch;
+  font-weight: 700;
+}
+.login-hero h1 em {
+  font-style: normal;
+  background: var(--tag);
+  color: var(--tag-ink);
+  padding: 0 0.15em;
+  border-radius: 3px;
+}
+
+/* The docket: a till receipt, perforated top and bottom */
+.docket {
+  --tooth: 7px;
+  position: relative;
+  background: #fbfcf9;
+  color: #16201a;
+  width: min(420px, 100%);
+  padding: 22px 22px 20px;
+  transform: rotate(-1.2deg);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.25);
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--tooth) * 2) var(--tooth) repeat-x,
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth)) no-repeat;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--tooth) * 2) var(--tooth) repeat-x,
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth)) no-repeat;
+}
+.docket-quote {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.docket-rule {
+  border-top: 2px dashed #c9d3cb;
+  margin: 14px 0;
+}
+.docket-lines {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.docket-lines div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.docket-lines dt {
+  color: #5b6b61;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+}
+.docket-lines dd {
+  margin: 0;
+  text-align: right;
+}
+.docket-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.login-panel {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  max-width: 460px;
+  width: 100%;
+  margin: 0 auto;
+}
+.demo-account {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.demo-account:hover:not(:disabled) {
+  border-color: var(--produce);
+}
+
+@media (max-width: 860px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+  .login-hero {
+    padding: 28px 16px;
+    gap: 24px;
+  }
+  .login-panel {
+    padding: 24px 16px 40px;
+  }
+}

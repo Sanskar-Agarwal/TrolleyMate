@@ -1,0 +1,450 @@
+/* Shared primitives. Feature-specific styles live next to each feature. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-size: var(--step-4);
+  font-weight: 700;
+}
+h2 {
+  font-size: var(--step-3);
+  font-weight: 650;
+}
+h3 {
+  font-size: var(--step-2);
+  font-weight: 600;
+}
+h4 {
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+p {
+  margin: 0;
+}
+a {
+  color: var(--produce);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+}
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: var(--step--1);
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap, 12px);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap, 10px);
+  flex-wrap: wrap;
+}
+.spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  --bg: var(--surface);
+  --fg: var(--ink);
+  --bd: var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--bd);
+  border-radius: var(--radius-s);
+  background: var(--bg);
+  color: var(--fg);
+  font: 600 var(--step-0) / 1 var(--font-body);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.05s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--produce);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn:focus-visible,
+.input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.btn-primary {
+  --bg: var(--produce);
+  --fg: var(--produce-ink);
+  --bd: var(--produce);
+}
+.btn-primary:hover:not(:disabled) {
+  --bg: color-mix(in srgb, var(--produce) 88%, black);
+}
+.btn-danger {
+  --fg: var(--beet);
+  --bd: color-mix(in srgb, var(--beet) 45%, transparent);
+}
+.btn-ghost {
+  --bd: transparent;
+  --bg: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  --bg: var(--surface-2);
+  border-color: transparent;
+}
+.btn-sm {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: var(--step--1);
+}
+
+/* ---------- Inputs ---------- */
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+textarea.input {
+  resize: vertical;
+  min-height: 72px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field > span {
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* ---------- Surfaces ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 18px;
+  box-shadow: var(--shadow-1);
+}
+.card-flat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 14px;
+}
+.divider {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 4px 0;
+}
+
+/* ---------- Chips & status ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: var(--step--1);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chip-produce {
+  background: var(--produce-soft);
+  border-color: transparent;
+  color: var(--produce);
+}
+.chip-beet {
+  background: var(--beet-soft);
+  border-color: transparent;
+  color: var(--beet);
+}
+.chip-amber {
+  background: var(--amber-soft);
+  border-color: transparent;
+  color: var(--amber);
+}
+.chip-sky {
+  background: var(--sky-soft);
+  border-color: transparent;
+  color: var(--sky);
+}
+button.chip {
+  cursor: pointer;
+  font-family: inherit;
+}
+button.chip:hover {
+  border-color: var(--produce);
+}
+
+.notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  background: var(--surface-2);
+  border-left: 3px solid var(--line-strong);
+  font-size: var(--step--1);
+}
+.notice-beet {
+  background: var(--beet-soft);
+  border-left-color: var(--beet);
+}
+.notice-amber {
+  background: var(--amber-soft);
+  border-left-color: var(--amber);
+}
+.notice-produce {
+  background: var(--produce-soft);
+  border-left-color: var(--produce);
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.tab {
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 700 var(--step-0) var(--font-body);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--produce);
+}
+
+/* ---------- Shelf tag: the price label, Trolley Mate's signature ---------- */
+.shelf-tag {
+  display: inline-grid;
+  grid-template-columns: auto;
+  min-width: 92px;
+  background: var(--tag);
+  color: var(--tag-ink);
+  border-radius: 3px;
+  padding: 4px 8px 5px;
+  font-family: var(--font-mono);
+  line-height: 1.05;
+  text-align: right;
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.08);
+  position: relative;
+}
+.shelf-tag::before {
+  /* the punched hole of a hanging tag */
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tag-ink) 25%, transparent);
+}
+.shelf-tag .price {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.shelf-tag .unit {
+  font-size: 0.68rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.shelf-tag.special {
+  background: var(--beet);
+  color: #fff;
+}
+.shelf-tag.muted-tag {
+  background: var(--surface-2);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+/* ---------- Drawer / dialog ---------- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(10 16 12 / 0.4);
+  z-index: 40;
+  animation: fade 0.15s ease-out;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(460px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-2);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  animation: slide 0.2s ease-out;
+}
+.drawer header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer .drawer-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.empty {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-m);
+  padding: 28px;
+  text-align: center;
+  color: var(--muted);
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+}
+table.data th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+table.data td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

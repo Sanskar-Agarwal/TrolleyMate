@@ -1,0 +1,48 @@
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  color: var(--ink);
+  font: inherit;
+}
+button.stat {
+  cursor: pointer;
+}
+.stat.on {
+  background: var(--surface-2);
+  outline: 2px solid var(--produce);
+}
+.stat-n {
+  font-size: var(--step-3);
+  font-weight: 700;
+}
+.agent-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.trace-json {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-2);
+  padding: 12px;
+  border-radius: var(--radius-s);
+  max-height: 60vh;
+  overflow-y: auto;
+}

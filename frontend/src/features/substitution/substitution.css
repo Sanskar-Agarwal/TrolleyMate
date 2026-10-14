@@ -1,0 +1,13 @@
+/* Before → after comparison in the substitution drawer */
+.swap {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.swap-arrow {
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  color: var(--muted);
+  padding-top: 28px;
+}

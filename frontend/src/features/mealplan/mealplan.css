@@ -1,0 +1,31 @@
+.week {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.day h4 {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+.meal {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--produce);
+  border-radius: var(--radius-s);
+}
+.meal.gap {
+  border-left-color: var(--amber);
+  background: var(--amber-soft);
+}
