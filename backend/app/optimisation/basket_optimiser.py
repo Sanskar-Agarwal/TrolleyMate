@@ -136,8 +136,9 @@ class BasketOptimiser:
         )
         elapsed = int((time.perf_counter() - started) * 1000)
         if result.x is None:
-            message = "Timed out before finding a basket." if result.status == 1 else "No basket satisfies every constraint."
-            return OptimisationResult(False, message=message, solver_ms=elapsed, requirements=req)
+            timed_out = result.status == 1
+            message = "Timed out before finding a basket." if timed_out else "No basket satisfies every constraint."
+            return OptimisationResult(False, message=message, solver_ms=elapsed, requirements=req, timed_out=timed_out)
 
         items = [(c, int(round(q))) for c, q in zip(pool, result.x, strict=True) if round(q) > 0]
         total = round(sum(c.price * q for c, q in items), 2)

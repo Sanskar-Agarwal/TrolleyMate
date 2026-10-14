@@ -155,3 +155,5 @@ class OptimisationResult:
     message: str = ""
     solver_ms: int = 0
     requirements: Requirements | None = None
+    # The solver hit its time limit: no answer, which is not proof of infeasibility (UC-02 ext 2b/3b).
+    timed_out: bool = False
