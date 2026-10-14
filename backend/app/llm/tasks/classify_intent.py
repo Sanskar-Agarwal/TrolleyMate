@@ -69,7 +69,7 @@ def mock(ctx: dict) -> dict:
         return result("meal_plan", 0.85, "Planning meals from your basket.")
     if re.search(r"compare|cheaper elsewhere|which store|retailer|savings?", text):
         return result("compare_prices", 0.8, "Comparing retailers.")
-    if re.search(r"replace|swap|instead|remove|drop|add|more|less|fewer|cheaper|without|no more|under \$", text):
+    if re.search(r"replace|swap|instead|remove|drop|add|more|less|fewer|cheaper|without|no more|under \$|make it \$|budget (?:of|to) \$", text):
         return result("edit_basket", 0.85, "Updating your basket.")
     return result("chat", 0.5, "")
 

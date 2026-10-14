@@ -48,6 +48,19 @@ class MarketAnalystAgent(Agent):
             .order_by(PriceQuote.captured_at.desc())
             .limit(1)
         )
+        return self._usable(quote, product, retailer, refresh)
+
+    def _latest_quotes(self, product_ids: list[int]) -> dict[tuple[int, int], PriceQuote]:
+        """Every product's current quote at every retailer, in one query: (product_id, retailer_id) → quote."""
+        rows = self.db.scalars(
+            select(PriceQuote)
+            .where(PriceQuote.product_id.in_(product_ids), PriceQuote.status != QuoteStatus.superseded)
+            .order_by(PriceQuote.captured_at)
+        )
+        return {(q.product_id, q.retailer_id): q for q in rows}  # ascending, so the latest wins
+
+    def _usable(self, quote: PriceQuote | None, product: Product, retailer: Retailer, refresh: bool) -> PriceQuote | None:
+        """None if there's no price; a refreshed quote if this one is stale (State machine 9.3)."""
         if quote is None or quote.status == QuoteStatus.unavailable:
             return None
         max_age = get_settings().price_max_age_hours
@@ -76,10 +89,11 @@ class MarketAnalystAgent(Agent):
     def offers(self, products: list[Product], compliance: dict[int, str] | None = None) -> list[Candidate]:
         """Cheapest current offer per product across retailers (the solver's candidate set)."""
         out: list[Candidate] = []
+        latest = self._latest_quotes([p.id for p in products])
         for product in products:
             best: tuple[PriceQuote, Retailer] | None = None
             for retailer in self.retailers:
-                quote = self.current_quote(product, retailer)
+                quote = self._usable(latest.get((product.id, retailer.id)), product, retailer, refresh=True)
                 if quote and quote.unit_price is not None and (best is None or quote.price < best[0].price):
                     best = (quote, retailer)
             if best:
@@ -100,13 +114,14 @@ class MarketAnalystAgent(Agent):
         baseline = next((r for r in retailers if r.id == baseline_id), retailers[0])
         rows, totals, unpriced = [], {r.id: 0.0 for r in retailers}, {r.id: [] for r in retailers}
         split_total, winners = 0.0, {r.name: 0 for r in retailers}
+        latest = self._latest_quotes([i.product_id for i in b.items])
 
         for item in b.items:
             if item.withheld:
                 continue
             prices = {}
             for r in retailers:
-                q = self.current_quote(item.product, r)
+                q = self._usable(latest.get((item.product_id, r.id)), item.product, r, refresh=True)
                 if q is None:
                     unpriced[r.id].append(item.product.name)
                     continue

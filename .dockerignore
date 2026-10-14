@@ -4,5 +4,6 @@
 **/node_modules
 **/__pycache__
 **/*.db
+**/.secret_key
 frontend/dist
 .claude

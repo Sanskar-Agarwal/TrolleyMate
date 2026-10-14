@@ -12,6 +12,9 @@ venv/
 .ruff_cache/
 *.egg-info/
 
+# Generated token-signing key (see backend/app/core/config.py)
+backend/.secret_key
+
 # Local databases
 *.db
 *.db-journal

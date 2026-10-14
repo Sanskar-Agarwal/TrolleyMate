@@ -45,6 +45,15 @@ async def domain_error(_: Request, exc: ValueError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+def spa_file(dist: Path, path: str) -> Path:
+    """The file to serve for a frontend URL: a real file inside dist/, else index.html.
+    Resolved first, so an encoded "../" can never reach files outside dist/."""
+    target = (dist / path).resolve()
+    if path and target.is_relative_to(dist) and target.is_file():
+        return target
+    return dist / "index.html"
+
+
 # Serve the built React app (production / single-container deploy).
 dist = (Path(__file__).resolve().parents[1] / settings.frontend_dist).resolve()
 if (dist / "index.html").exists():
@@ -52,5 +61,4 @@ if (dist / "index.html").exists():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str) -> FileResponse:
-        target = dist / path
-        return FileResponse(target if path and target.is_file() else dist / "index.html")
+        return FileResponse(spa_file(dist, path))

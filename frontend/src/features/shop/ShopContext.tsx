@@ -30,7 +30,8 @@ interface ShopValue {
   setBasket: (b: Basket) => void;
   run: <T extends { trace?: TraceStep[] }>(label: string, fn: () => Promise<T>, opts?: RunOptions<T>) => Promise<T | undefined>;
   refresh: () => Promise<void>;
-  chat: (text: string) => Promise<void>;
+  /** Resolves true once the message was handled, false if sending failed. */
+  chat: (text: string) => Promise<boolean>;
   correct: (patch: Partial<ConstraintDraft>) => Promise<void>;
   clarify: (answer: string) => Promise<void>;
   submitForm: (form: Partial<ConstraintDraft>) => Promise<void>;
@@ -123,7 +124,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       refresh,
       setBasket: (b) => setState((s) => (s ? { ...s, basket: b } : s)),
       chat: async (text) => {
-        if (!sid) return;
+        if (!sid) return false;
         setPendingMessage(text);
         const r = await run("Your shopper is reading that", () => sessions.chat(sid, text), {
           refresh: false,
@@ -147,6 +148,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
             setNegotiation({ message: edit.message ?? "", options: edit.suggestions, blocked_roles: [], budget: null, days: 0, person_meals: 0, shortfall: null });
           }
         }
+        return r !== undefined;
       },
       correct: async (patch) => {
         if (requestId) await run("Revising your details", () => intake.correct(requestId, patch), { toast: () => ["Correction applied"] });

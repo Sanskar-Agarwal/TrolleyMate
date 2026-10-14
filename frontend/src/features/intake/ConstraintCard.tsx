@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ConstraintDraft } from "../../api/types";
 import { useShop } from "../shop/ShopContext";
 
@@ -31,11 +31,33 @@ function toPatch(f: Fields): Partial<ConstraintDraft> {
 export default function ConstraintCard() {
   const { state, busy, correct, clarify, submitForm, confirm, cancel } = useShop();
   const intake = state!.intake!;
-  const [fields, setFields] = useState<Fields>(toFields(intake.draft));
+  const serverFields = toFields(intake.draft);
+  const [fields, setFields] = useState<Fields>(serverFields);
   const [answer, setAnswer] = useState("");
-  const dirty = JSON.stringify(toPatch(fields)) !== JSON.stringify(toPatch(toFields(intake.draft)));
+  const dirty = JSON.stringify(toPatch(fields)) !== JSON.stringify(toPatch(serverFields));
 
-  useEffect(() => setFields(toFields(intake.draft)), [intake.draft]);
+  // When the server draft changes (an answer, a correction), take only the fields whose
+  // server value actually changed, so unsaved edits to other fields survive. A new
+  // request starts the card over.
+  const lastServer = useRef({ requestId: intake.request_id, fields: serverFields });
+  const serverKey = JSON.stringify(serverFields);
+  useEffect(() => {
+    const prev = lastServer.current;
+    lastServer.current = { requestId: intake.request_id, fields: serverFields };
+    if (prev.requestId !== intake.request_id) {
+      setFields(serverFields);
+      return;
+    }
+    setFields((local) => {
+      const next = { ...local };
+      for (const k of Object.keys(serverFields) as (keyof Fields)[]) {
+        if (serverFields[k] !== prev.fields[k]) next[k] = serverFields[k];
+      }
+      return next;
+    });
+    // serverKey captures every value serverFields is built from
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverKey, intake.request_id]);
 
   const formMode = intake.mode === "form";
   const left = Math.max(0, intake.max_corrections - intake.correction_count);

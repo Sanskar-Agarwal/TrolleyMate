@@ -83,7 +83,7 @@ def mock(ctx: dict) -> dict:
     budget = None
     if m := re.search(r"\$\s?(\d+(?:\.\d+)?) cheaper", text):
         budget = {"mode": "delta", "amount": -float(m.group(1))}
-    elif m := re.search(r"(?:under|below|at most|max(?:imum)?) \$\s?(\d+(?:\.\d+)?)", text):
+    elif m := re.search(r"(?:under|below|at most|max(?:imum)?|make it|budget (?:of|to)|change (?:it|the budget) to) \$\s?(\d+(?:\.\d+)?)", text):
         budget = {"mode": "absolute", "amount": float(m.group(1))}
     elif m := re.search(r"\$\s?(\d+(?:\.\d+)?) more", text):
         budget = {"mode": "delta", "amount": float(m.group(1))}

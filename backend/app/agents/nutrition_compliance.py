@@ -75,7 +75,7 @@ class NutritionComplianceAgent(Agent):
         if not restrictions:
             return f
 
-        prior = self._prior_decision(product.id, household_id) if household_id else None
+        prior = self._prior_decision(product.id, household_id, restrictions) if household_id else None
         if prior is not None:
             status = ItemCompliance.compliant if prior.resolution == VerdictStatus.passed else ItemCompliance.violation
             f.add(status, 1.0, kind="human_review", detail=f"Dietitian decision: {prior.resolution} — {prior.resolution_note or 'no note'}")
@@ -223,8 +223,12 @@ class NutritionComplianceAgent(Agent):
             )
         return _INGREDIENT_CACHE[key]
 
-    def _prior_decision(self, product_id: int, household_id: int) -> EscalationCase | None:
-        return self.db.scalar(
+    def _prior_decision(self, product_id: int, household_id: int, restrictions: list[dict]) -> EscalationCase | None:
+        """Latest dietitian decision for this product and household — only if it was made
+        against every restriction that applies now. A decision reviewed before a new
+        allergy was added says nothing about that allergy, so it must not be reused."""
+        current = {r["restriction"] for r in restrictions}
+        cases = self.db.scalars(
             select(EscalationCase)
             .where(
                 EscalationCase.product_id == product_id,
@@ -232,8 +236,11 @@ class NutritionComplianceAgent(Agent):
                 EscalationCase.status == CaseStatus.resolved,
             )
             .order_by(EscalationCase.resolved_at.desc())
-            .limit(1)
         )
+        for case in cases:
+            if current <= {r["restriction"] for r in case.requirements}:
+                return case
+        return None
 
 
 def _gap_suggestion(nutrient: str) -> str:

@@ -25,7 +25,8 @@ class NegotiationError(ValueError):
 def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirements, strategy: OptimisationStrategy,
             candidates: list[Candidate], solver_message: str = "") -> dict:
     optimiser = BasketOptimiser()
-    cheapest = optimiser.solve(req, LowestCost(), candidates, enforce_budget=False)
+    # Price the goal's own bar (e.g. Best Nutrition asks for more veg), cheapest way, no budget cap.
+    cheapest = optimiser.solve(strategy.adjust(req), LowestCost(), candidates, enforce_budget=False)
     options: list[dict] = []
     blocked: list[str] = []
 

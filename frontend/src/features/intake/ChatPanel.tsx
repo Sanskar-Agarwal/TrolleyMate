@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import type { Basket } from "../../api/types";
 import { FOCUS_CHAT_EVENT, useShop } from "../shop/ShopContext";
 import "./intake.css";
 
-const BASKET_PROMPTS = ["Replace the lentils with chicken", "Make it $5 cheaper", "Why did you pick these?", "Plan my meals", "Which store is cheapest?"];
+/** "Turkey Mince 500g" → "turkey mince", the way a shopper would say it. */
+const spoken = (name: string) => name.replace(/\s*\d.*$/, "").toLowerCase();
+
+/** Quick replies built from what's actually in the basket, so they always refer to real items. */
+function basketPrompts(basket: Basket): string[] {
+  const items = basket.items.filter((i) => !i.withheld);
+  const protein = items.find((i) => i.product.category === "protein");
+  const veg = items.find((i) => i.product.category === "veg");
+  const prompts: string[] = [];
+  if (protein) {
+    const name = spoken(protein.product.name);
+    prompts.push(`Replace the ${name} with ${name.includes("chicken") ? "turkey" : "chicken"}`);
+  }
+  if (veg) prompts.push(`More ${spoken(veg.product.name)}`);
+  return [...prompts, "Make it $5 cheaper", "Why did you pick these?", "Plan my meals", "Which store is cheapest?"];
+}
 
 /** Conversation with the AI Personal Shopper. Every message goes through supervisor routing (/chat). */
 export default function ChatPanel() {
@@ -42,7 +58,8 @@ export default function ChatPanel() {
     const v = value.trim();
     if (!v || busy) return;
     setText("");
-    await chat(v);
+    const sent = await chat(v);
+    if (!sent) setText((t) => t || v); // keep the message so it can be resent
   }
 
   const hasBasket = !!state?.basket;
@@ -82,7 +99,7 @@ export default function ChatPanel() {
 
       {hasBasket && (
         <div className="chat-suggestions">
-          {BASKET_PROMPTS.map((p) => (
+          {basketPrompts(state!.basket!).map((p) => (
             <button key={p} className="chip" onClick={() => send(p)} disabled={!!busy}>
               {p}
             </button>

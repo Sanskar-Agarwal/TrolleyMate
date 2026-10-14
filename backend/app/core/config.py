@@ -4,6 +4,7 @@ Every value here can be overridden without touching code. See `.env.example`
 at the repository root for the full list and what each one does.
 """
 
+import secrets
 from functools import lru_cache
 from pathlib import Path
 
@@ -20,7 +21,8 @@ class Settings(BaseSettings):
     app_name: str = "Trolley Mate"
     environment: str = "development"
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'trolleymate.db').as_posix()}"
-    secret_key: str = "dev-secret-change-me"
+    # Signs login tokens. Leave unset to auto-generate one (see get_settings).
+    secret_key: str = ""
     token_ttl_hours: int = 12
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     seed_on_startup: bool = True
@@ -59,6 +61,23 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
+_PLACEHOLDER_SECRETS = {"", "dev-secret-change-me", "change-me-to-a-long-random-string"}
+
+
+def _local_secret() -> str:
+    """A random signing key, generated once and kept in a git-ignored file so tokens
+    survive restarts. Never a value anyone else could know."""
+    path = BACKEND_DIR / ".secret_key"
+    if path.exists() and path.read_text().strip():
+        return path.read_text().strip()
+    key = secrets.token_urlsafe(48)
+    path.write_text(key)
+    return key
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    if settings.secret_key.strip() in _PLACEHOLDER_SECRETS:
+        settings.secret_key = _local_secret()
+    return settings

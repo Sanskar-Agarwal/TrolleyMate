@@ -87,10 +87,14 @@ def build(
         from app.workflows import negotiation
 
         info = negotiation.analyse(agent, session, cs, req, strategy, candidates, result.message)
-        for r in session.requests:
-            if r.status == "confirmed" and r.id == record.request_id:
-                r.mark_infeasible()
-        session.status = SessionStatus.open
+        if payload_override is None:
+            # The confirmed request itself can't be met. (A failed edit or trade-off
+            # leaves the request — and the current basket — as they were.)
+            for r in session.requests:
+                if r.status == "confirmed" and r.id == record.request_id:
+                    r.mark_infeasible()
+        has_basket = latest_basket(db, session.id) is not None
+        session.status = SessionStatus.basket_ready if has_basket else SessionStatus.open
         return BuildOutcome(status="infeasible", negotiation=info, excluded=excluded)
 
     # Persist a new constraint version only now that the edit/negotiation is known to be feasible.
