@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pricing } from "../../api/endpoints";
+import Skeleton from "../../components/Skeleton";
 import { money } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 import { useShop } from "../shop/ShopContext";
@@ -17,7 +18,7 @@ export default function PriceComparison() {
   }, `${basketId}:${baseline ?? "default"}`);
 
   if (error) return <div className="notice notice-beet">{error}</div>;
-  if (!data) return <p className="row muted"><span className="spinner" /> Pricing your basket at every store…</p>;
+  if (!data) return <Skeleton rows={5} height={26} label="Pricing your basket at every store" />;
 
   const maxTotal = Math.max(...data.options.map((o) => o.total));
   return (

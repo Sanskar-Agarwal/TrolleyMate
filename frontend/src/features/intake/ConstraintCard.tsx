@@ -65,29 +65,41 @@ export default function ConstraintCard() {
         </span>
       </div>
 
-      <blockquote className="raw-request">“{intake.raw_text}”</blockquote>
-
       {intake.questions.length > 0 && (
         <form
-          className="notice notice-amber questions"
+          className="questions"
           onSubmit={(e) => {
             e.preventDefault();
             if (answer.trim()) void clarify(answer).then(() => setAnswer(""));
           }}
         >
+          <span className="questions-badge" aria-hidden="true">?</span>
           <div className="stack" style={{ flex: 1, "--gap": "8px" } as React.CSSProperties}>
+            <span className="eyebrow">Quick question first</span>
             {intake.questions.map((q) => (
-              <strong key={q.field}>{q.question}</strong>
+              <strong key={q.field} className="question">
+                {q.question}
+              </strong>
             ))}
             <div className="row">
-              <input className="input" style={{ flex: 1, minWidth: 180 }} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Your answer" />
-              <button className="btn btn-sm" disabled={!answer.trim() || !!busy}>
+              <input
+                className="input"
+                style={{ flex: 1, minWidth: 180 }}
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder="Type your answer"
+                aria-label="Your answer"
+                autoFocus
+              />
+              <button className="btn btn-sticker" disabled={!answer.trim() || !!busy}>
                 Answer
               </button>
             </div>
           </div>
         </form>
       )}
+
+      <blockquote className="raw-request">“{intake.raw_text}”</blockquote>
 
       <div className="docket-grid">
         {field("budget", "Budget", "AUD total", { "aria-label": "Budget in dollars" })}

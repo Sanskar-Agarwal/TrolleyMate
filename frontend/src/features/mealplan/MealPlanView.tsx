@@ -7,7 +7,10 @@ export default function MealPlanView() {
   const { state, run, busy } = useShop();
   const basket = state!.basket!;
   const plan = state!.meal_plan;
-  const generate = () => run("Planning meals from your basket", () => mealPlans.generate(basket.id));
+  const generate = () =>
+    run("Planning meals from your basket", () => mealPlans.generate(basket.id), {
+      toast: (r) => [`Meal plan ready: ${r.meal_plan.planned} of ${r.meal_plan.requested} meals`],
+    });
 
   if (!plan) {
     return (

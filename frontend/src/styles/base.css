@@ -1,4 +1,6 @@
-/* Shared primitives. Feature-specific styles live next to each feature. */
+/* Shared primitives — the "market sticker" kit. Feature styles live next to each feature.
+   Rule of thumb: interactive things have an edge + hard shadow; pressing shrinks the shadow
+   (the box itself never moves). Static containers have an edge and a bigger shadow. */
 
 *,
 *::before,
@@ -20,6 +22,9 @@ body {
   font-size: var(--step-0);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
 }
 
 h1,
@@ -27,31 +32,53 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  line-height: 1.15;
+  line-height: 1.1;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 h1 {
   font-size: var(--step-4);
-  font-weight: 700;
+  font-weight: 800;
 }
 h2 {
   font-size: var(--step-3);
-  font-weight: 650;
+  font-weight: 700;
 }
 h3 {
   font-size: var(--step-2);
-  font-weight: 600;
+  font-weight: 700;
 }
 h4 {
   font-size: var(--step-1);
-  font-weight: 600;
+  font-weight: 700;
 }
 p {
   margin: 0;
 }
 a {
   color: var(--produce);
+  font-weight: 700;
+}
+::selection {
+  background: var(--tag);
+  color: var(--tag-ink);
+}
+
+/* WebKit-only scrollbar: the standard properties make Chromium add arrow buttons. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--paper);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 2px solid var(--paper);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .mono {
@@ -67,6 +94,7 @@ a {
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -98,73 +126,124 @@ a {
   white-space: nowrap;
 }
 
+/* Highlighter: one phrase per heading, marked like a price sticker */
+.hl {
+  background: var(--tag);
+  color: var(--tag-ink);
+  padding: 0 0.18em;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* ---------- Focus ---------- */
+:focus-visible {
+  outline: 3px solid var(--produce);
+  outline-offset: 2px;
+}
+
 /* ---------- Buttons ---------- */
 .btn {
   --bg: var(--surface);
   --fg: var(--ink);
-  --bd: var(--line-strong);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--bd);
+  min-height: 40px;
+  padding: 0 16px;
+  border: var(--bd) solid var(--edge);
   border-radius: var(--radius-s);
   background: var(--bg);
   color: var(--fg);
-  font: 600 var(--step-0) / 1 var(--font-body);
+  font: 700 var(--step-0) / 1 var(--font-body);
   cursor: pointer;
+  box-shadow: var(--lift-sm);
   transition:
-    background 0.15s,
-    border-color 0.15s,
-    transform 0.05s;
+    box-shadow 0.08s ease,
+    background 0.15s ease;
   text-decoration: none;
   white-space: nowrap;
 }
 .btn:hover:not(:disabled) {
-  border-color: var(--produce);
+  box-shadow: var(--lift-press);
+  --bg: var(--tag-soft);
 }
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  box-shadow: none;
 }
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-}
-.btn:focus-visible,
-.input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-button:focus-visible,
-a:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
 }
 .btn-primary {
   --bg: var(--produce);
   --fg: var(--produce-ink);
-  --bd: var(--produce);
+  box-shadow: var(--lift);
 }
 .btn-primary:hover:not(:disabled) {
-  --bg: color-mix(in srgb, var(--produce) 88%, black);
+  --bg: var(--produce);
+  box-shadow: var(--lift-press);
+}
+.btn-sticker {
+  --bg: var(--tag);
+  --fg: var(--tag-ink);
+  box-shadow: var(--lift);
+}
+.btn-sticker:hover:not(:disabled) {
+  --bg: var(--tag);
 }
 .btn-danger {
+  --bg: var(--beet-soft);
   --fg: var(--beet);
-  --bd: color-mix(in srgb, var(--beet) 45%, transparent);
+}
+.btn-danger:hover:not(:disabled) {
+  --bg: var(--beet);
+  --fg: var(--beet-ink);
 }
 .btn-ghost {
-  --bd: transparent;
+  border-color: transparent;
+  box-shadow: none;
   --bg: transparent;
 }
 .btn-ghost:hover:not(:disabled) {
-  --bg: var(--surface-2);
-  border-color: transparent;
+  border-color: var(--edge);
+  box-shadow: var(--lift-press);
+  --bg: var(--surface);
 }
 .btn-sm {
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 32px;
+  padding: 0 11px;
   font-size: var(--step--1);
+}
+.btn-lg {
+  min-height: 50px;
+  padding: 0 22px;
+  font-size: var(--step-1);
+}
+
+/* ---------- Theme toggle ---------- */
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: var(--bd) solid var(--edge);
+  border-radius: 50%;
+  background: var(--tag);
+  color: var(--tag-ink);
+  cursor: pointer;
+  box-shadow: var(--lift-sm);
+  transition: box-shadow 0.08s;
+}
+.theme-toggle svg {
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.theme-toggle:hover {
+  box-shadow: var(--lift-press);
+}
+.theme-toggle:hover svg {
+  transform: rotate(-25deg);
 }
 
 /* ---------- Inputs ---------- */
@@ -172,151 +251,177 @@ a:focus-visible {
 select.input,
 textarea.input {
   width: 100%;
-  min-height: 38px;
-  padding: 8px 10px;
-  border: 1px solid var(--line-strong);
+  min-height: 40px;
+  padding: 8px 11px;
+  border: var(--bd) solid var(--edge);
   border-radius: var(--radius-s);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
+  transition: box-shadow 0.1s;
+}
+.input:focus-visible,
+select.input:focus-visible,
+textarea.input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 textarea.input {
   resize: vertical;
-  min-height: 72px;
+  min-height: 76px;
 }
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .field > span {
   font-size: var(--step--1);
   font-weight: 700;
-  color: var(--muted);
 }
 
 /* ---------- Surfaces ---------- */
 .card {
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: var(--bd-thick) solid var(--edge);
   border-radius: var(--radius-m);
-  padding: 18px;
-  box-shadow: var(--shadow-1);
+  padding: 20px;
+  box-shadow: var(--lift-lg);
 }
 .card-flat {
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: var(--bd) solid var(--edge);
   border-radius: var(--radius-m);
   padding: 14px;
+  box-shadow: var(--lift);
 }
 .divider {
-  height: 1px;
-  background: var(--line);
+  height: 0;
   border: 0;
+  border-top: 2px dashed var(--line-strong);
   margin: 4px 0;
 }
 
-/* ---------- Chips & status ---------- */
+/* ---------- Chips (little stickers) ---------- */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
+  padding: 2px 9px;
+  border-radius: var(--radius-s);
+  border: 1.5px solid var(--edge);
+  background: var(--surface);
+  color: var(--ink);
   font-size: var(--step--1);
   font-weight: 700;
   white-space: nowrap;
 }
 .chip-produce {
   background: var(--produce-soft);
-  border-color: transparent;
   color: var(--produce);
+  border-color: var(--produce);
 }
 .chip-beet {
   background: var(--beet-soft);
-  border-color: transparent;
   color: var(--beet);
+  border-color: var(--beet);
 }
 .chip-amber {
   background: var(--amber-soft);
-  border-color: transparent;
   color: var(--amber);
+  border-color: var(--amber);
 }
 .chip-sky {
   background: var(--sky-soft);
-  border-color: transparent;
   color: var(--sky);
+  border-color: var(--sky);
+}
+.chip-tag {
+  background: var(--tag);
+  color: var(--tag-ink);
+  border-color: var(--tag-ink);
 }
 button.chip {
   cursor: pointer;
   font-family: inherit;
+  box-shadow: var(--lift-sm);
+  transition: box-shadow 0.08s;
 }
-button.chip:hover {
-  border-color: var(--produce);
+button.chip:hover:not(:disabled) {
+  box-shadow: var(--lift-press);
+  background: var(--tag-soft);
 }
 
+/* ---------- Notices ---------- */
 .notice {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  padding: 10px 12px;
+  padding: 11px 13px;
   border-radius: var(--radius-s);
-  background: var(--surface-2);
-  border-left: 3px solid var(--line-strong);
+  background: var(--surface);
+  border: var(--bd) solid var(--edge);
   font-size: var(--step--1);
 }
 .notice-beet {
   background: var(--beet-soft);
-  border-left-color: var(--beet);
+  border-color: var(--beet);
 }
 .notice-amber {
   background: var(--amber-soft);
-  border-left-color: var(--amber);
+  border-color: var(--amber);
 }
 .notice-produce {
   background: var(--produce-soft);
-  border-left-color: var(--produce);
+  border-color: var(--produce);
 }
 
-/* ---------- Tabs ---------- */
+/* ---------- Tabs (sticker buttons) ---------- */
 .tabs {
   display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
   overflow-x: auto;
+  padding: 2px 6px 6px 2px;
 }
 .tab {
-  padding: 10px 14px;
-  border: 0;
-  background: none;
-  color: var(--muted);
+  padding: 8px 15px;
+  border: var(--bd) solid var(--edge);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--ink);
   font: 700 var(--step-0) var(--font-body);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: var(--lift-sm);
+  transition:
+    box-shadow 0.08s,
+    background 0.15s;
+}
+.tab:hover {
+  box-shadow: var(--lift-press);
 }
 .tab[aria-selected="true"] {
-  color: var(--ink);
-  border-bottom-color: var(--produce);
-}
-
-/* ---------- Shelf tag: the price label, Trolley Mate's signature ---------- */
-.shelf-tag {
-  display: inline-grid;
-  grid-template-columns: auto;
-  min-width: 92px;
   background: var(--tag);
   color: var(--tag-ink);
+  box-shadow: var(--lift-press);
+}
+
+/* ---------- Price sticker: Trolley Mate's signature ---------- */
+.shelf-tag {
+  display: inline-grid;
+  min-width: 96px;
+  background: var(--tag);
+  color: var(--tag-ink);
+  border: var(--bd) solid var(--tag-ink);
   border-radius: 3px;
-  padding: 4px 8px 5px;
+  padding: 5px 9px 6px 16px;
   font-family: var(--font-mono);
   line-height: 1.05;
   text-align: right;
-  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.08);
+  box-shadow: 2px 2px 0 var(--tag-ink);
   position: relative;
+  transform: rotate(var(--tilt, -2deg));
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .shelf-tag::before {
   /* the punched hole of a hanging tag */
@@ -324,59 +429,80 @@ button.chip:hover {
   position: absolute;
   left: 6px;
   top: 50%;
-  width: 5px;
-  height: 5px;
-  margin-top: -2.5px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--tag-ink) 25%, transparent);
+  background: var(--paper);
+  border: 1.5px solid var(--tag-ink);
 }
 .shelf-tag .price {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 700;
 }
 .shelf-tag .unit {
   font-size: 0.68rem;
   font-weight: 500;
-  opacity: 0.8;
 }
 .shelf-tag.special {
   background: var(--beet);
-  color: #fff;
+  color: var(--beet-ink);
+  border-color: var(--edge);
+  box-shadow: 2px 2px 0 var(--edge);
 }
 .shelf-tag.muted-tag {
   background: var(--surface-2);
   color: var(--muted);
+  border-color: var(--line-strong);
   box-shadow: none;
+  transform: none;
+}
+
+/* Tape label — category headings and stamps */
+.tape {
+  display: inline-block;
+  background: color-mix(in srgb, var(--tag) 75%, transparent);
+  color: var(--tag-ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 12px;
+  transform: rotate(-1.5deg);
 }
 
 /* ---------- Drawer / dialog ---------- */
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgb(10 16 12 / 0.4);
+  background: rgb(10 16 12 / 0.45);
   z-index: 40;
   animation: fade 0.15s ease-out;
 }
 .drawer {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(460px, 100vw);
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: min(470px, calc(100vw - 20px));
   background: var(--surface);
-  border-left: 1px solid var(--line);
-  box-shadow: var(--shadow-2);
+  border: var(--bd-thick) solid var(--edge);
+  border-radius: var(--radius-m);
+  box-shadow: var(--lift-lg);
   z-index: 41;
   display: flex;
   flex-direction: column;
-  animation: slide 0.2s ease-out;
+  animation: slide 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .drawer header {
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--line);
+  padding: 16px 18px;
+  border-bottom: var(--bd) solid var(--edge);
+  background: var(--tag-soft);
+  border-radius: var(--radius-m) var(--radius-m) 0 0;
 }
 .drawer .drawer-body {
-  padding: 18px 20px;
+  padding: 18px;
   overflow-y: auto;
   flex: 1;
 }
@@ -387,7 +513,7 @@ button.chip:hover {
 }
 @keyframes slide {
   from {
-    transform: translateX(24px);
+    transform: translateX(28px);
     opacity: 0;
   }
 }
@@ -395,7 +521,7 @@ button.chip:hover {
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid currentColor;
+  border: 2.5px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -407,8 +533,24 @@ button.chip:hover {
   }
 }
 
+/* ---------- Skeletons ---------- */
+.skeleton {
+  border-radius: var(--radius-s);
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--line) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
 .empty {
-  border: 1.5px dashed var(--line-strong);
+  border: var(--bd) dashed var(--line-strong);
   border-radius: var(--radius-m);
   padding: 28px;
   text-align: center;
@@ -427,13 +569,13 @@ table.data th {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  font-weight: 500;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+  padding: 9px 10px;
+  border-bottom: var(--bd) solid var(--edge);
 }
 table.data td {
   padding: 9px 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1.5px dashed var(--line);
   vertical-align: top;
 }
 .table-scroll {
@@ -445,6 +587,7 @@ table.data td {
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
 }

@@ -4,40 +4,54 @@
   grid-template-columns: 1.15fr 1fr;
 }
 .login-hero {
+  /* The hero is always a green field, so its edges stay dark in both themes. */
+  --edge: #0b1a12;
+  --shade: #0b1a12;
   background: var(--produce);
   color: var(--produce-ink);
+  border-right: var(--bd-thick) solid var(--edge);
   padding: 40px 56px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 44px;
   justify-content: center;
+  overflow: hidden;
 }
 .login-hero .logo-word {
   color: var(--produce-ink);
 }
 .login-hero h1 {
-  font-size: clamp(2rem, 3.4vw, 3.1rem);
-  max-width: 16ch;
-  font-weight: 700;
+  font-size: clamp(2.2rem, 3.8vw, 3.5rem);
+  max-width: 15ch;
+  font-weight: 800;
+  line-height: 1.05;
 }
 .login-hero h1 em {
   font-style: normal;
+  display: inline-block;
   background: var(--tag);
   color: var(--tag-ink);
-  padding: 0 0.15em;
-  border-radius: 3px;
+  padding: 0 0.18em;
+  border: var(--bd-thick) solid var(--edge);
+  border-radius: 4px;
+  box-shadow: 4px 4px 0 var(--edge);
+  transform: rotate(-2deg);
 }
 
-/* The docket: a till receipt, perforated top and bottom */
+/* The receipt, with stickers slapped around it */
+.docket-stage {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 18px 0 18px 10px;
+}
 .docket {
   --tooth: 7px;
   position: relative;
   background: #fbfcf9;
   color: #16201a;
-  width: min(420px, 100%);
-  padding: 22px 22px 20px;
-  transform: rotate(-1.2deg);
-  box-shadow: 0 18px 40px rgb(0 0 0 / 0.25);
+  padding: 22px 22px 24px;
+  border: var(--bd-thick) solid #16201a;
+  border-bottom: 0;
   -webkit-mask:
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--tooth) * 2) var(--tooth) repeat-x,
     linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth)) no-repeat;
@@ -45,14 +59,25 @@
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--tooth) * 2) var(--tooth) repeat-x,
     linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth)) no-repeat;
 }
+.docket-shadow {
+  /* the mask on .docket would clip its own shadow, so the shadow lives on this wrapper */
+  transform: rotate(-1.5deg);
+  filter: drop-shadow(7px 7px 0 #0b1a12);
+}
+.docket .shelf-tag {
+  --tilt: 3deg;
+}
+.docket .shelf-tag::before {
+  background: #fbfcf9;
+}
 .docket-quote {
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 500;
+  font-size: 1.2rem;
+  font-weight: 600;
   line-height: 1.35;
 }
 .docket-rule {
-  border-top: 2px dashed #c9d3cb;
+  border-top: 2px dashed #b9c6bc;
   margin: 14px 0;
 }
 .docket-lines {
@@ -67,7 +92,7 @@
   gap: 16px;
 }
 .docket-lines dt {
-  color: #5b6b61;
+  color: #55665b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 0.72rem;
@@ -83,33 +108,112 @@
   font-weight: 700;
   letter-spacing: 0.1em;
 }
+.sticker {
+  position: absolute;
+  z-index: 2;
+  padding: 6px 12px;
+  border: var(--bd-thick) solid #16201a;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #16201a;
+  box-shadow: 3px 3px 0 #0b1a12;
+  white-space: nowrap;
+  animation: stick 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.sticker-a {
+  top: -4px;
+  right: -14px;
+  background: #d6ef7c;
+  transform: rotate(8deg);
+  animation-delay: 0.15s;
+}
+.sticker-b {
+  bottom: 54px;
+  right: -34px;
+  background: #fdf1c7;
+  transform: rotate(-6deg);
+  animation-delay: 0.3s;
+}
+.sticker-c {
+  bottom: -2px;
+  left: -8px;
+  background: #dfe9f4;
+  transform: rotate(4deg);
+  animation-delay: 0.45s;
+}
+@keyframes stick {
+  from {
+    opacity: 0;
+    scale: 1.4;
+  }
+}
 
 .login-panel {
+  position: relative;
   padding: 40px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 24px;
-  max-width: 460px;
+  gap: 26px;
+  max-width: 480px;
   width: 100%;
   margin: 0 auto;
 }
+.login-theme {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+.demo-accounts {
+  --gap: 10px;
+}
 .demo-account {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
+  padding: 11px 14px;
+  border: var(--bd) solid var(--edge);
   border-radius: var(--radius-m);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  box-shadow: var(--lift);
+  transition: box-shadow 0.08s;
 }
 .demo-account:hover:not(:disabled) {
-  border-color: var(--produce);
+  box-shadow: var(--lift-press);
+}
+.demo-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.demo-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: var(--bd) solid var(--edge);
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.role-shopper .demo-avatar {
+  background: var(--lime);
+  color: var(--lime-ink);
+}
+.role-dietitian .demo-avatar {
+  background: var(--sky-soft);
+  color: var(--sky);
+}
+.role-founder .demo-avatar {
+  background: var(--tag);
+  color: var(--tag-ink);
 }
 
 @media (max-width: 860px) {
@@ -117,10 +221,23 @@
     grid-template-columns: 1fr;
   }
   .login-hero {
-    padding: 28px 16px;
-    gap: 24px;
+    border-right: 0;
+    border-bottom: var(--bd-thick) solid var(--edge);
+    padding: 28px 16px 36px;
+    gap: 26px;
+  }
+  .sticker-b {
+    right: -6px;
+  }
+  .sticker-a {
+    right: 0;
   }
   .login-panel {
     padding: 24px 16px 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticker {
+    animation: none;
   }
 }

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import ModelBadge from "./ModelBadge";
+import ThemeToggle from "./ThemeToggle";
 import "./AppShell.css";
 
 const NAV = {
@@ -45,9 +46,20 @@ export default function AppShell() {
         </nav>
         <div className="topbar-right">
           <ModelBadge />
+          <ThemeToggle />
           <span className="who small">
-            <strong>{user.display_name}</strong>
-            <span className="muted"> · {user.role}</span>
+            <span className="avatar" aria-hidden="true">
+              {user.display_name
+                .split(" ")
+                .filter((w) => /^[A-Z]/.test(w) && w !== "Dr")
+                .map((w) => w[0])
+                .slice(0, 2)
+                .join("")}
+            </span>
+            <span className="who-text">
+              <strong>{user.display_name}</strong>
+              <span className="muted"> · {user.role}</span>
+            </span>
           </span>
           <button className="btn btn-ghost btn-sm" onClick={signOut}>
             Sign out

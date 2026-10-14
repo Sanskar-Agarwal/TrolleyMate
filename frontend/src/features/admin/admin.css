@@ -10,18 +10,23 @@
   text-align: left;
   padding: 12px 14px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-top: 3px solid var(--line-strong);
-  border-radius: var(--radius-s);
+  border: var(--bd) solid var(--edge);
+  border-top-width: 7px;
+  border-radius: var(--radius-m);
   color: var(--ink);
   font: inherit;
+  box-shadow: var(--lift-sm);
 }
 button.stat {
   cursor: pointer;
+  transition: box-shadow 0.08s;
+}
+button.stat:hover {
+  box-shadow: var(--lift-press);
 }
 .stat.on {
-  background: var(--surface-2);
-  outline: 2px solid var(--produce);
+  background: var(--tag-soft);
+  box-shadow: var(--lift);
 }
 .stat-n {
   font-size: var(--step-3);
@@ -29,8 +34,9 @@ button.stat {
 }
 .agent-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--edge);
   border-radius: 50%;
   margin-right: 4px;
 }

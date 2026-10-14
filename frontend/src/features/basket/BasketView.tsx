@@ -41,7 +41,7 @@ export default function BasketView() {
           <div className="stack" style={{ "--gap": "4px" } as React.CSSProperties}>
             <span className="eyebrow">Your basket · {GOAL_LABEL[basket.goal]}</span>
             <h2>
-              {basket.items.length} items for {basket.requirements?.person_meals ?? "?"} meals
+              {basket.items.length} items for <span className="hl">{basket.requirements?.person_meals ?? "?"} meals</span>
             </h2>
           </div>
           <div className="row">
@@ -54,7 +54,12 @@ export default function BasketView() {
           </div>
         </div>
 
-        {basket.summary && <p className="basket-summary">{basket.summary}</p>}
+        {basket.summary && (
+          <div className="basket-summary">
+            <span className="summary-badge" aria-hidden="true">i</span>
+            <p>{basket.summary}</p>
+          </div>
+        )}
 
         {rebuild && (
           <div className="card-flat stack">
@@ -85,7 +90,10 @@ export default function BasketView() {
 
         {groups.map((g) => (
           <section key={g.cat} className="aisle">
-            <h4 className="aisle-head">{CATEGORY_LABEL[g.cat] ?? titleCase(g.cat)}</h4>
+            <h4 className="aisle-head">
+              <span className="tape">{CATEGORY_LABEL[g.cat] ?? titleCase(g.cat)}</span>
+              <span className="small muted">{g.items.length}</span>
+            </h4>
             <ul className="items">
               {g.items.map((item) => (
                 <li key={item.id} className={`item${item.withheld ? " withheld" : ""}`}>
@@ -108,7 +116,7 @@ export default function BasketView() {
                       </button>
                     </div>
                   </div>
-                  <ShelfTag price={item.pack_price} unit={item.unit_price_label} special={item.on_special} muted={item.withheld} />
+                  <ShelfTag price={item.pack_price} unit={item.unit_price_label} special={item.on_special} muted={item.withheld} seed={item.id} />
                 </li>
               ))}
             </ul>
@@ -134,7 +142,7 @@ export default function BasketView() {
       <div className="stack basket-side" style={{ "--gap": "16px" } as React.CSSProperties}>
         <Docket
           basket={basket}
-          onAccept={() => run("Accepting basket", () => baskets.accept(basket.id)).then((r) => r && setBasket(r.basket))}
+          onAccept={() => run("Accepting basket", () => baskets.accept(basket.id), { toast: () => ["Basket accepted. Happy shopping!"] }).then((r) => r && setBasket(r.basket))}
           busy={!!busy}
         />
         {basket.nutrition && <NutritionPanel nutrition={basket.nutrition} />}

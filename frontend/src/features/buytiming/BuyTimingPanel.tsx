@@ -1,4 +1,5 @@
 import { timing } from "../../api/endpoints";
+import Skeleton from "../../components/Skeleton";
 import { money } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 import { useShop } from "../shop/ShopContext";
@@ -14,7 +15,7 @@ export default function BuyTimingPanel() {
   }, basketId);
 
   if (error) return <div className="notice notice-beet">{error}</div>;
-  if (!advice) return <p className="row muted"><span className="spinner" /> Reading eight weeks of price history…</p>;
+  if (!advice) return <Skeleton rows={4} height={40} label="Reading eight weeks of price history" />;
 
   const waits = advice.filter((a) => a.action === "wait");
   const rest = advice.filter((a) => a.action !== "wait");

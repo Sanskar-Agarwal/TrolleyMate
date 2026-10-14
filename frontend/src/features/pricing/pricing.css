@@ -1,21 +1,29 @@
 .pricing {
-  max-width: 980px;
+  max-width: 1000px;
 }
 .compare-bars {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 .compare-row {
   display: grid;
-  grid-template-columns: minmax(160px, 260px) 1fr 90px 120px;
-  gap: 12px;
+  grid-template-columns: minmax(160px, 260px) 1fr 90px 130px;
+  gap: 14px;
   align-items: center;
-  padding: 8px 10px;
-  border-radius: var(--radius-s);
+  padding: 10px 14px;
+  background: var(--surface);
+  border: var(--bd) solid var(--edge);
+  border-radius: var(--radius-m);
+  box-shadow: var(--lift-sm);
 }
 .compare-row.best {
-  background: var(--produce-soft);
+  background: var(--lime);
+  color: var(--lime-ink);
+  box-shadow: var(--lift);
+}
+.compare-row.best .muted {
+  color: inherit;
 }
 .compare-name {
   display: flex;
@@ -24,15 +32,17 @@
   flex-wrap: wrap;
 }
 .compare-bar {
-  height: 12px;
-  background: var(--surface-2);
-  border-radius: 2px;
+  height: 14px;
+  border: var(--bd) solid var(--edge);
+  border-radius: 999px;
+  background: var(--paper);
   overflow: hidden;
 }
 .compare-bar span {
   display: block;
   height: 100%;
   background: var(--line-strong);
+  border-right: var(--bd) solid var(--edge);
 }
 .compare-row.best .compare-bar span {
   background: var(--produce);
@@ -42,7 +52,6 @@
   font-weight: 700;
 }
 .saving {
-  color: var(--produce);
   font-weight: 700;
 }
 td.cheapest {

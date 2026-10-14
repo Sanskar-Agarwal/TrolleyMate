@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useShop } from "../shop/ShopContext";
+import { FOCUS_CHAT_EVENT, useShop } from "../shop/ShopContext";
 import "./intake.css";
 
 const BASKET_PROMPTS = ["Replace the lentils with chicken", "Make it $5 cheaper", "Why did you pick these?", "Plan my meals", "Which store is cheapest?"];
@@ -9,11 +9,34 @@ export default function ChatPanel() {
   const { state, chat, busy, pendingMessage } = useShop();
   const [text, setText] = useState("");
   const listRef = useRef<HTMLOListElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messages = state?.chat ?? [];
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, pendingMessage]);
+
+  // Other panels can ask for the chat ("Change by chatting"); "/" focuses it from anywhere.
+  useEffect(() => {
+    const focus = (prefill?: string) => {
+      if (prefill) setText((t) => t || prefill);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    };
+    const onFocusEvent = (e: Event) => focus((e as CustomEvent<string | undefined>).detail);
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) && !target.isContentEditable) {
+        e.preventDefault();
+        focus();
+      }
+    };
+    window.addEventListener(FOCUS_CHAT_EVENT, onFocusEvent);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener(FOCUS_CHAT_EVENT, onFocusEvent);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   async function send(value: string) {
     const v = value.trim();
@@ -26,8 +49,13 @@ export default function ChatPanel() {
   return (
     <div className="chat">
       <header className="chat-head">
-        <span className="eyebrow">Your personal shopper</span>
-        <p className="small muted">Describe your shop, answer questions, or ask for changes.</p>
+        <span className="chat-avatar" aria-hidden="true">TM</span>
+        <div>
+          <strong>Your personal shopper</strong>
+          <p className="small muted">
+            Describe your shop or ask for changes. Press <kbd>/</kbd> to type.
+          </p>
+        </div>
       </header>
 
       <ol className="chat-list" ref={listRef} aria-live="polite">
@@ -73,6 +101,7 @@ export default function ChatPanel() {
           Message your shopper
         </label>
         <textarea
+          ref={inputRef}
           id="chat-text"
           className="input"
           rows={2}

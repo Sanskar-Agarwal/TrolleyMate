@@ -1,33 +1,48 @@
-/* Trolley Mate design tokens.
-   Palette: produce green (primary), shelf-tag yellow (prices only), beet (allergens/danger),
-   on a cool leaf-white paper. Type: Bricolage Grotesque (display), Atkinson Hyperlegible
-   (body — chosen for legibility of safety-critical text), IBM Plex Mono (prices, receipts, logs). */
+/* Trolley Mate design tokens — "market sticker" (neo-brutalist, hardened).
+   Palette: produce green (primary), shelf-tag yellow (prices + highlights), beet (allergens),
+   lime (signature blocks). Structure: solid edges, hard offset shadows, 4px corners.
+   Calibration follows the portfolio's hardened layer: warm near-black edges, a softer shadow
+   tone instead of pure black, ~2px borders, and a press that shrinks the shadow (the box
+   never moves, so hover can't bounce). */
 
 :root {
   --paper: #f3f6f2;
   --surface: #ffffff;
-  --surface-2: #eaf0eb;
+  --surface-2: #e8efe9;
   --ink: #16201a;
-  --muted: #586a5f;
-  --line: #d3ddd5;
-  --line-strong: #b5c4b9;
+  --muted: #55665b;
+  --line: #cfdad2;
+  --line-strong: #a9b9ad;
 
   --produce: #1e5a3c;
   --produce-ink: #ffffff;
-  --produce-soft: #dfeee4;
+  --produce-soft: #dcefe2;
   --tag: #f4c430;
   --tag-ink: #2a2100;
-  --tag-soft: #fdf3cf;
+  --tag-soft: #fdf1c7;
+  --lime: #d6ef7c;
+  --lime-ink: #1d2806;
   --beet: #b0263f;
-  --beet-soft: #f9e2e6;
+  --beet-ink: #ffffff;
+  --beet-soft: #f9e0e5;
   --sky: #2d5a86;
-  --sky-soft: #e1ebf5;
-  --amber: #a86400;
-  --amber-soft: #fbecd5;
+  --sky-soft: #dfe9f4;
+  --amber: #9a5b00;
+  --amber-soft: #fbe9cc;
 
-  /* Agent colours — used consistently in the activity feed, badges and audit log */
+  /* Neo-brutal structure */
+  --edge: #16201a; /* every border */
+  --shade: #34443a; /* hard shadow tone — softer than the edge */
+  --bd: 2px;
+  --bd-thick: 2.5px;
+  --lift-sm: 2px 2px 0 var(--shade);
+  --lift: 4px 4px 0 var(--shade);
+  --lift-lg: 7px 7px 0 var(--shade);
+  --lift-press: 1px 1px 0 var(--shade);
+
+  /* Agent colours — activity feed, badges and audit log */
   --agent-shopper: var(--produce);
-  --agent-analyst: #9a7300;
+  --agent-analyst: #8a6700;
   --agent-compliance: var(--beet);
   --agent-manager: #4a5568;
   --agent-human: var(--sky);
@@ -41,65 +56,72 @@
   --step-1: 1.0625rem;
   --step-2: 1.3125rem;
   --step-3: 1.75rem;
-  --step-4: 2.5rem;
+  --step-4: 2.6rem;
 
-  --radius-s: 6px;
-  --radius-m: 10px;
-  --radius-l: 16px;
-  --shadow-1: 0 1px 2px rgb(22 32 26 / 0.06), 0 1px 1px rgb(22 32 26 / 0.04);
-  --shadow-2: 0 8px 28px rgb(22 32 26 / 0.12);
-  --focus: 0 0 0 3px color-mix(in srgb, var(--produce) 35%, transparent);
+  --radius-s: 4px;
+  --radius-m: 6px;
+  --radius-l: 10px;
+  --shadow-1: var(--lift-sm);
+  --shadow-2: var(--lift-lg);
+  --focus: 3px 3px 0 var(--produce);
   color-scheme: light;
 }
 
+/* Dark: light edges on a deep leaf ground; shadows become a mid sage so they still read. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #0e1411;
-    --surface: #151d18;
-    --surface-2: #1b261f;
-    --ink: #e5ede7;
-    --muted: #9aada1;
-    --line: #2a372f;
-    --line-strong: #3a4a40;
+    --surface: #161f1a;
+    --surface-2: #1d2922;
+    --ink: #e6eee8;
+    --muted: #9fb2a5;
+    --line: #2c3a31;
+    --line-strong: #44574a;
     --produce: #6cc495;
     --produce-ink: #0b1a12;
     --produce-soft: #1b3326;
-    --tag: #f4c430;
-    --tag-ink: #2a2100;
     --tag-soft: #3a3214;
+    --lime: #c4e063;
+    --lime-ink: #182204;
     --beet: #f07a8e;
+    --beet-ink: #2a0910;
     --beet-soft: #3b1c23;
     --sky: #8db8e3;
     --sky-soft: #1a2a3a;
     --amber: #f0b45a;
     --amber-soft: #3a2a12;
+    --edge: #b8c9bd;
+    --shade: #3e5c49;
     --agent-analyst: #e0b43c;
     --agent-manager: #a3b0c2;
-    --shadow-2: 0 8px 28px rgb(0 0 0 / 0.45);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
   --paper: #0e1411;
-  --surface: #151d18;
-  --surface-2: #1b261f;
-  --ink: #e5ede7;
-  --muted: #9aada1;
-  --line: #2a372f;
-  --line-strong: #3a4a40;
+  --surface: #161f1a;
+  --surface-2: #1d2922;
+  --ink: #e6eee8;
+  --muted: #9fb2a5;
+  --line: #2c3a31;
+  --line-strong: #44574a;
   --produce: #6cc495;
   --produce-ink: #0b1a12;
   --produce-soft: #1b3326;
   --tag-soft: #3a3214;
+  --lime: #c4e063;
+  --lime-ink: #182204;
   --beet: #f07a8e;
+  --beet-ink: #2a0910;
   --beet-soft: #3b1c23;
   --sky: #8db8e3;
   --sky-soft: #1a2a3a;
   --amber: #f0b45a;
   --amber-soft: #3a2a12;
+  --edge: #b8c9bd;
+  --shade: #3e5c49;
   --agent-analyst: #e0b43c;
   --agent-manager: #a3b0c2;
-  --shadow-2: 0 8px 28px rgb(0 0 0 / 0.45);
   color-scheme: dark;
 }

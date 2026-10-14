@@ -6,6 +6,13 @@
     <meta name="description" content="Trolley Mate — an AI personal shopper that builds a safe, in-budget grocery basket." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Trolley Mate</title>
+    <!-- Apply a saved light/dark choice before first paint (see src/lib/theme.ts). -->
+    <script>
+      try {
+        var t = localStorage.getItem("trolleymate.theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

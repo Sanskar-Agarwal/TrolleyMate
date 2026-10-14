@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { auth } from "../api/endpoints";
 import { Logo } from "../components/AppShell";
+import ThemeToggle from "../components/ThemeToggle";
 import { useAuth } from "./AuthContext";
 import "./LoginPage.css";
 
@@ -42,26 +43,34 @@ export default function LoginPage() {
         <h1>
           Say what you need.
           <br />
-          Get a basket that's <em>safe</em>, in budget, and explained.
+          Get a basket that's <em>safe</em>, in&nbsp;budget, and explained.
         </h1>
-        <div className="docket" aria-hidden="true">
-          <p className="docket-quote">“$100 for this week, two meals a day for us two. Jamie has a nut allergy.”</p>
-          <div className="docket-rule" />
-          <dl className="docket-lines mono">
-            <div><dt>Budget</dt><dd>$100.00</dd></div>
-            <div><dt>Meals</dt><dd>2/day × 7 days × 2</dd></div>
-            <div><dt>Never</dt><dd>tree nuts · peanuts</dd></div>
-            <div><dt>Checked by</dt><dd>4 agents + a dietitian</dd></div>
-          </dl>
-          <div className="docket-rule" />
-          <div className="docket-total mono">
-            <span>BASKET</span>
-            <span className="shelf-tag"><span className="price">$61.40</span><span className="unit">$38.60 under</span></span>
+        <div className="docket-stage" aria-hidden="true">
+          <span className="sticker sticker-a">Nut-free ✓</span>
+          <span className="sticker sticker-b">Dietitian-checked</span>
+          <span className="sticker sticker-c">3 stores compared</span>
+          <div className="docket-shadow">
+            <div className="docket">
+              <p className="docket-quote">“$100 for this week, two meals a day for us two. Jamie has a nut allergy.”</p>
+              <div className="docket-rule" />
+              <dl className="docket-lines mono">
+                <div><dt>Budget</dt><dd>$100.00</dd></div>
+                <div><dt>Meals</dt><dd>2/day × 7 days × 2</dd></div>
+                <div><dt>Never</dt><dd>tree nuts · peanuts</dd></div>
+                <div><dt>Checked by</dt><dd>4 agents + a dietitian</dd></div>
+              </dl>
+              <div className="docket-rule" />
+              <div className="docket-total mono">
+                <span>BASKET</span>
+                <span className="shelf-tag"><span className="price">$61.40</span><span className="unit">$38.60 under</span></span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="login-panel">
+        <ThemeToggle className="login-theme" />
         <form className="card stack" onSubmit={submit}>
           <h2>Sign in</h2>
           <label className="field">
@@ -82,12 +91,15 @@ export default function LoginPage() {
           <div className="stack demo-accounts">
             <span className="eyebrow">Demo accounts</span>
             {demo.map((d) => (
-              <button key={d.email} className="demo-account" onClick={() => submit(undefined, d.email)} disabled={busy}>
-                <span>
-                  <strong>{d.display_name}</strong>
-                  <span className="small muted"> · {d.role}</span>
+              <button key={d.email} className={`demo-account role-${d.role}`} onClick={() => submit(undefined, d.email)} disabled={busy}>
+                <span className="demo-avatar" aria-hidden="true">
+                  {d.display_name.split(" ").filter((w) => w !== "Dr").map((w) => w[0]).slice(0, 2).join("")}
                 </span>
-                <span className="small muted">{ROLE_COPY[d.role]}</span>
+                <span className="demo-text">
+                  <strong>{d.display_name}</strong>
+                  <span className="small muted">{ROLE_COPY[d.role]}</span>
+                </span>
+                <span className="chip">{d.role}</span>
               </button>
             ))}
           </div>

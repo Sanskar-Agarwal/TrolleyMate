@@ -1,14 +1,15 @@
 .nutrient .bar {
   position: relative;
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: 3px;
-  margin-top: 4px;
+  height: 12px;
+  border: var(--bd) solid var(--edge);
+  border-radius: 999px;
+  background: var(--paper);
+  margin-top: 5px;
+  overflow: hidden;
 }
 .nutrient .bar span {
   display: block;
   height: 100%;
-  border-radius: 3px;
 }
 .nutrient .bar span.ok {
   background: var(--produce);
@@ -18,9 +19,8 @@
 }
 .nutrient .bar i {
   position: absolute;
-  top: -3px;
-  bottom: -3px;
+  top: 0;
+  bottom: 0;
   width: 2px;
-  background: var(--ink);
-  opacity: 0.5;
+  background: var(--edge);
 }

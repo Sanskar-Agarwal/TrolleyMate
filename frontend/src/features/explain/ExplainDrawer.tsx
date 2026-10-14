@@ -1,5 +1,6 @@
 import { explain } from "../../api/endpoints";
 import Drawer from "../../components/Drawer";
+import Skeleton from "../../components/Skeleton";
 import { useLoad } from "../../lib/useLoad";
 import { useShop } from "../shop/ShopContext";
 
@@ -14,7 +15,7 @@ export default function ExplainDrawer({ basketId, itemId, onClose }: { basketId:
 
   return (
     <Drawer title={itemId ? "Why this item?" : "Why this basket?"} eyebrow="Explained by the AI Technical Manager" onClose={onClose}>
-      {!data && !error && <span className="spinner" />}
+      {!data && !error && <Skeleton rows={4} label="Writing up the reasoning" />}
       {error && <div className="notice notice-beet">{error}</div>}
       {data && (
         <div className="stack">

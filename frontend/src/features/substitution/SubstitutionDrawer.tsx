@@ -3,6 +3,7 @@ import { substitutions } from "../../api/endpoints";
 import type { BasketItem, Substitution } from "../../api/types";
 import Drawer from "../../components/Drawer";
 import ShelfTag from "../../components/ShelfTag";
+import Skeleton from "../../components/Skeleton";
 import { money } from "../../lib/format";
 import { useShop } from "../shop/ShopContext";
 import "./substitution.css";
@@ -27,7 +28,9 @@ export default function SubstitutionDrawer({ item, onClose }: { item: BasketItem
 
   async function decide(accept: boolean) {
     if (!sub) return;
-    const r = await run(accept ? "Swapping it in" : "Keeping the original", () => (accept ? substitutions.accept(sub.id) : substitutions.reject(sub.id)));
+    const r = await run(accept ? "Swapping it in" : "Keeping the original", () => (accept ? substitutions.accept(sub.id) : substitutions.reject(sub.id)), {
+      toast: () => (accept ? [`Swapped in ${sub.replacement?.name}`] : ["Kept the original. We won't suggest that swap again.", "info"]),
+    });
     if (r) {
       setBasket(r.basket);
       onClose();
@@ -37,7 +40,7 @@ export default function SubstitutionDrawer({ item, onClose }: { item: BasketItem
   const saving = sub?.facts.saving ?? 0;
   return (
     <Drawer title={`Substitute for ${item.product.name}`} eyebrow="AI Personal Shopper" onClose={onClose}>
-      {!sub && <p className="row muted"><span className="spinner" /> Checking alternatives against your household's dietary rules…</p>}
+      {!sub && <Skeleton rows={3} height={22} label="Checking alternatives against your household's dietary rules" />}
 
       {sub?.status === "discarded" && (
         <div className="stack">
