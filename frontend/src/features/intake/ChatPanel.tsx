@@ -35,7 +35,7 @@ export default function ChatPanel() {
   // Other panels can ask for the chat ("Change by chatting"); "/" focuses it from anywhere.
   useEffect(() => {
     const focus = (prefill?: string) => {
-      if (prefill) setText((t) => t || prefill);
+      if (prefill) setText(prefill);
       requestAnimationFrame(() => inputRef.current?.focus());
     };
     const onFocusEvent = (e: Event) => focus((e as CustomEvent<string | undefined>).detail);
@@ -79,7 +79,7 @@ export default function ChatPanel() {
         {messages.length === 0 && !pendingMessage && (
           <li className="bubble assistant">
             Hi! Tell me your budget, how many meals, for how many days, and anything you can't eat. I'll build a basket that
-            fits — and show you why.
+            fits, and show you why.
           </li>
         )}
         {messages.map((m, i) => (
@@ -126,7 +126,7 @@ export default function ChatPanel() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               void send(text);
             }
@@ -136,6 +136,7 @@ export default function ChatPanel() {
           Send
         </button>
       </form>
+      <p className="chat-hint">Enter to send · Shift + Enter for a new line</p>
     </div>
   );
 }

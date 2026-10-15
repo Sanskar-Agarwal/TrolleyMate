@@ -10,7 +10,7 @@ export const AGENTS: Record<string, { short: string; colour: string }> = {
   human_reviewer: { short: "Dietitian", colour: "var(--agent-human)" },
 };
 
-/** Live feed of what each agent decided during this session — perception, decision, action. */
+/** Live feed of what each agent decided during this session: perception, decision, action. */
 export default function AgentTrace({ steps, busy }: { steps: TraceStep[]; busy?: string | null }) {
   const recent = [...steps].reverse().slice(0, 60);
   return (

@@ -40,7 +40,7 @@ export function useTheme(): [Theme, () => void] {
       try {
         localStorage.setItem(KEY, next);
       } catch {
-        /* private mode — the choice just won't persist */
+        /* private mode: the choice just won't persist */
       }
       return next;
     });

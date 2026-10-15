@@ -11,7 +11,7 @@ const TABS: { id: ShopView; label: string }[] = [
   { id: "timing", label: "When to buy" },
 ];
 
-/** Stage 3/4 — the basket and everything you can do with it. Each tab is owned by a different feature. */
+/** Stage 3/4: the basket and everything you can do with it. Each tab is owned by a different feature. */
 export default function BasketWorkspace() {
   const { view, setView } = useShop();
   return (

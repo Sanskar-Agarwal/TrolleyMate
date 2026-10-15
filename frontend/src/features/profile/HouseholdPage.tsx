@@ -96,7 +96,7 @@ function MemberEditor({
   );
 }
 
-/** UC-10 — household members and their dietary profiles. */
+/** UC-10: household members and their dietary profiles. */
 export default function HouseholdPage() {
   const household = useLoad(() => households.me(), "me");
   const vocab = useLoad(() => households.vocabulary(), "vocab");
@@ -190,7 +190,7 @@ export default function HouseholdPage() {
         <aside className="stack">
           <div className="card-flat stack">
             <span className="eyebrow">Applied to every shop</span>
-            {h.mandatory_restrictions.length === 0 && <span className="small muted">Nothing — every product is allowed.</span>}
+            {h.mandatory_restrictions.length === 0 && <span className="small muted">No saved restrictions.</span>}
             {h.mandatory_restrictions.map((r) => (
               <div key={r.restriction} className="spread small">
                 <span className="chip chip-beet">{vocab.data!.find((v) => v.id === r.restriction)?.label ?? r.restriction}</span>

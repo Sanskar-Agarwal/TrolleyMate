@@ -1,4 +1,4 @@
-/* Trolley Mate design tokens — "market sticker" (neo-brutalist, hardened).
+/* Trolley Mate design tokens: "market sticker" (neo-brutalist, hardened).
    Palette: produce green (primary), shelf-tag yellow (prices + highlights), beet (allergens),
    lime (signature blocks). Structure: solid edges, hard offset shadows, 4px corners.
    Calibration follows the portfolio's hardened layer: warm near-black edges, a softer shadow
@@ -32,7 +32,7 @@
 
   /* Neo-brutal structure */
   --edge: #16201a; /* every border */
-  --shade: #34443a; /* hard shadow tone — softer than the edge */
+  --shade: #34443a; /* hard shadow tone: softer than the edge */
   --bd: 2px;
   --bd-thick: 2.5px;
   --lift-sm: 2px 2px 0 var(--shade);
@@ -40,7 +40,7 @@
   --lift-lg: 7px 7px 0 var(--shade);
   --lift-press: 1px 1px 0 var(--shade);
 
-  /* Agent colours — activity feed, badges and audit log */
+  /* Agent colours: activity feed, badges and audit log */
   --agent-shopper: var(--produce);
   --agent-analyst: #8a6700;
   --agent-compliance: var(--beet);
@@ -58,9 +58,9 @@
   --step-3: 1.75rem;
   --step-4: 2.6rem;
 
-  --radius-s: 4px;
-  --radius-m: 6px;
-  --radius-l: 10px;
+  --radius-s: 6px;
+  --radius-m: 12px;
+  --radius-l: 18px;
   --shadow-1: var(--lift-sm);
   --shadow-2: var(--lift-lg);
   --focus: 3px 3px 0 var(--produce);

@@ -4,7 +4,7 @@ import Skeleton from "../../components/Skeleton";
 import { useLoad } from "../../lib/useLoad";
 import { useShop } from "../shop/ShopContext";
 
-/** "Why this?" — the explainability panel (UC-07). Text is generated only from recorded facts. */
+/** "Why this?": the explainability panel (UC-07). Text is generated only from recorded facts. */
 export default function ExplainDrawer({ basketId, itemId, onClose }: { basketId: number; itemId?: number; onClose: () => void }) {
   const { addTrace } = useShop();
   const { data, error } = useLoad(async () => {

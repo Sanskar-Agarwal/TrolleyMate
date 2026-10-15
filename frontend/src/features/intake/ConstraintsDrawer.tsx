@@ -58,7 +58,7 @@ export default function ConstraintsDrawer({ onClose }: { onClose: () => void }) 
           <p className="small muted">Last changed by {c.origin === "edit" ? "a basket edit" : "a budget trade-off"}.</p>
         )}
         <div className="notice">
-          To change something, just tell your shopper — for example “make it $80” or “make it $10 cheaper”. For a
+          To change something, just tell your shopper: for example “make it $80” or “make it $10 cheaper”. For a
           different number of days or people, start a new shop.
         </div>
         <div className="row">

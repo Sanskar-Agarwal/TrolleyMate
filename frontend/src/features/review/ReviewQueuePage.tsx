@@ -126,10 +126,10 @@ function CaseDetail({ c, onUpdate }: { c: EscalationCase; onUpdate: (c: Escalati
           </label>
           <div className="row">
             <button className="btn btn-primary" onClick={() => act(() => escalations.resolve(c.id, "passed", note))} disabled={busy}>
-              Safe — release to basket
+              Safe: release to basket
             </button>
             <button className="btn btn-danger" onClick={() => act(() => escalations.resolve(c.id, "failed", note))} disabled={busy}>
-              Unsafe — exclude
+              Unsafe: exclude
             </button>
           </div>
         </>
@@ -139,7 +139,7 @@ function CaseDetail({ c, onUpdate }: { c: EscalationCase; onUpdate: (c: Escalati
         <div className={`notice ${c.resolution === "passed" ? "notice-produce" : "notice-beet"}`}>
           <span>
             <strong>{c.resolution === "passed" ? "Released to basket" : "Excluded from basket"}</strong> by {c.assigned_to} · {dateTime(c.resolved_at)}
-            {c.resolution_note ? ` — ${c.resolution_note}` : ""}
+            {c.resolution_note ? `: ${c.resolution_note}` : ""}
           </span>
         </div>
       )}
@@ -147,7 +147,7 @@ function CaseDetail({ c, onUpdate }: { c: EscalationCase; onUpdate: (c: Escalati
   );
 }
 
-/** UC-06 ext — the human approval gate. Dietitians see their queue; the founder sees everything. */
+/** UC-06 ext: the human approval gate. Dietitians see their queue; the founder sees everything. */
 export default function ReviewQueuePage() {
   const { user } = useAuth();
   const [filter, setFilter] = useState<"open" | "">("open");

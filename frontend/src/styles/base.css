@@ -1,4 +1,4 @@
-/* Shared primitives — the "market sticker" kit. Feature styles live next to each feature.
+/* Shared primitives: the "market sticker" kit. Feature styles live next to each feature.
    Rule of thumb: interactive things have an edge + hard shadow; pressing shrinks the shadow
    (the box itself never moves). Static containers have an edge and a bigger shadow. */
 
@@ -283,10 +283,10 @@ textarea.input {
 /* ---------- Surfaces ---------- */
 .card {
   background: var(--surface);
-  border: var(--bd-thick) solid var(--edge);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-m);
-  padding: 20px;
-  box-shadow: var(--lift-lg);
+  padding: 24px;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 4%);
 }
 .card-flat {
   background: var(--surface);
@@ -458,7 +458,7 @@ button.chip:hover:not(:disabled) {
   transform: none;
 }
 
-/* Tape label — category headings and stamps */
+/* Tape label: category headings and stamps */
 .tape {
   display: inline-block;
   background: color-mix(in srgb, var(--tag) 75%, transparent);

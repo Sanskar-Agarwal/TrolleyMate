@@ -25,7 +25,7 @@ export function GoalRadios({ value, onChange }: { value: Goal; onChange: (g: Goa
   );
 }
 
-/** Stage 3a — constraints confirmed; choose what to optimise for (1.2.2 goal selector). */
+/** Stage 3a: constraints confirmed; choose what to optimise for (1.2.2 goal selector). */
 export default function GoalPicker() {
   const { state, build, busy } = useShop();
   const [goal, setGoal] = useState<Goal>(state?.constraints?.payload.goal_hint ?? state?.session.goal ?? "balanced");

@@ -22,7 +22,7 @@ export function setToken(token: string | null): void {
     if (token) localStorage.setItem(TOKEN_KEY, token);
     else localStorage.removeItem(TOKEN_KEY);
   } catch {
-    /* storage unavailable (private mode) — the session just won't persist */
+    /* storage unavailable (private mode): the session just won't persist */
   }
 }
 

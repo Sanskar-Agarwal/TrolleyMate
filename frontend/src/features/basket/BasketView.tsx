@@ -131,7 +131,7 @@ export default function BasketView() {
             <ul className="small">
               {basket.excluded.map((e) => (
                 <li key={e.product}>
-                  <strong>{e.product}</strong> — {e.findings[0]?.detail}
+                  <strong>{e.product}</strong>: {e.findings[0]?.detail}
                 </li>
               ))}
             </ul>

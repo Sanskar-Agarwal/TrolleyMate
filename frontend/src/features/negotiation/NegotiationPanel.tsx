@@ -3,7 +3,7 @@ import { money } from "../../lib/format";
 import { useShop } from "../shop/ShopContext";
 import "./negotiation.css";
 
-/** UC-03 — "Stretch my budget": the request can't be met; offer trade-offs, never on safety. */
+/** UC-03: "Stretch my budget": the request can't be met; offer trade-offs, never on safety. */
 export default function NegotiationPanel() {
   const { negotiation, negotiate, busy, state } = useShop();
   const n = negotiation!;

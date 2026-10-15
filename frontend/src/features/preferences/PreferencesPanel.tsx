@@ -9,7 +9,7 @@ const KINDS = [
   { id: "avoid_brand", label: "Avoid brand" },
 ];
 
-/** 1.2.12 — taste & preference memory. Soft: never overrides allergies or diets. */
+/** 1.2.12: taste & preference memory. Soft: never overrides allergies or diets. */
 export default function PreferencesPanel({ household, onChange }: { household: Household; onChange: (h: Household) => void }) {
   const [kind, setKind] = useState("dislike");
   const [value, setValue] = useState("");

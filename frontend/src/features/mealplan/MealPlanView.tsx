@@ -2,7 +2,7 @@ import { mealPlans } from "../../api/endpoints";
 import { useShop } from "../shop/ShopContext";
 import "./mealplan.css";
 
-/** UC-08 — a day-by-day plan cooked only from what's in the basket. */
+/** UC-08: a day-by-day plan cooked only from what's in the basket. */
 export default function MealPlanView() {
   const { state, run, busy } = useShop();
   const basket = state!.basket!;
@@ -75,7 +75,7 @@ export default function MealPlanView() {
         <div className="notice notice-amber">
           <span>
             <strong>To cook the remaining meals</strong> you'd also need:{" "}
-            {plan.suggested_additions.map((s) => `${s.product} (${s.for})`).join(", ")}. These aren't added automatically — ask your
+            {plan.suggested_additions.map((s) => `${s.product} (${s.for})`).join(", ")}. These aren't added automatically. Ask your
             shopper to add them if you want.
           </span>
         </div>

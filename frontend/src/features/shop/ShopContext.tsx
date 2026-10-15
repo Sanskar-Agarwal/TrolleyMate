@@ -181,8 +181,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       newSession: async () => {
         const r = await run("Starting a new shop", () => sessions.create(), { refresh: false, toast: () => ["New shop started", "info"] });
         if (r) {
-          const { trace: _t, ...s } = r;
-          void _t;
+          const { trace: nextTrace, ...s } = r;
+          setTrace(nextTrace ?? []);
           setState(s);
           setNegotiation(null);
           setView("basket");

@@ -72,7 +72,9 @@ export default function LoginPage() {
       <section className="login-panel">
         <ThemeToggle className="login-theme" />
         <form className="card stack" onSubmit={submit}>
-          <h2>Sign in</h2>
+          <span className="eyebrow">Your next shop starts here</span>
+          <h2>Welcome back</h2>
+          <p className="muted small">Sign in to plan around your household and budget.</p>
           <label className="field">
             <span>Email</span>
             <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -81,7 +83,7 @@ export default function LoginPage() {
             <span>Password</span>
             <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
-          {error && <div className="notice notice-beet">{error}</div>}
+          {error && <div className="notice notice-beet" role="alert">{error}</div>}
           <button className="btn btn-primary" disabled={busy}>
             {busy ? <span className="spinner" /> : "Sign in"}
           </button>
@@ -89,7 +91,8 @@ export default function LoginPage() {
 
         {demo.length > 0 && (
           <div className="stack demo-accounts">
-            <span className="eyebrow">Demo accounts</span>
+            <span className="eyebrow">Take a look around</span>
+            <p className="small muted">Choose a demo account to explore. No setup needed.</p>
             {demo.map((d) => (
               <button key={d.email} className={`demo-account role-${d.role}`} onClick={() => submit(undefined, d.email)} disabled={busy}>
                 <span className="demo-avatar" aria-hidden="true">

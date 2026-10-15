@@ -1,4 +1,4 @@
-export const money = (n: number | null | undefined) => (n == null ? "—" : `$${n.toFixed(2)}`);
+export const money = (n: number | null | undefined) => (n == null ? "N/A" : `$${n.toFixed(2)}`);
 
 export const pct = (n: number) => `${n.toFixed(0)}%`;
 

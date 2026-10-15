@@ -1,4 +1,4 @@
-/** Placeholder blocks while a panel loads — shows the shape of what's coming. */
+/** Placeholder blocks while a panel loads: shows the shape of what's coming. */
 export default function Skeleton({ rows = 3, height = 18, label }: { rows?: number; height?: number; label: string }) {
   return (
     <div className="stack" style={{ "--gap": "10px" } as React.CSSProperties} aria-busy="true" aria-label={label}>

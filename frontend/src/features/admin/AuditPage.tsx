@@ -17,7 +17,7 @@ const KEY_BY_NAME: Record<string, string> = {
 };
 const colour = (agent: string) => AGENTS[KEY_BY_NAME[agent] ?? "human_reviewer"]?.colour ?? "var(--muted)";
 
-/** UC-07 — the founder's view of every agent decision, with raw prompts and responses. */
+/** UC-07: the founder's view of every agent decision, with raw prompts and responses. */
 export default function AuditPage() {
   const [agent, setAgent] = useState("");
   const [open, setOpen] = useState<AuditEntry | null>(null);
@@ -88,7 +88,7 @@ export default function AuditPage() {
                 </td>
                 <td className="mono">{sentence(r.action)}</td>
                 <td>{r.decision}</td>
-                <td className="mono">{r.confidence != null ? `${Math.round(r.confidence * 100)}%` : "—"}</td>
+                <td className="mono">{r.confidence != null ? `${Math.round(r.confidence * 100)}%` : "N/A"}</td>
                 <td className="mono small muted">{r.model_version}</td>
                 <td>
                   <button className="btn btn-ghost btn-sm" onClick={() => setOpen(r)}>
@@ -108,7 +108,7 @@ export default function AuditPage() {
             <p>{open.decision}</p>
             {open.rationale && <p className="small muted">{open.rationale}</p>}
             <p className="small mono muted">
-              {open.model_version} · session {open.session_id ?? "—"} · basket {open.basket_id ?? "—"}
+              {open.model_version} · session {open.session_id ?? "N/A"} · basket {open.basket_id ?? "N/A"}
             </p>
             <pre className="mono small trace-json">{JSON.stringify(open.payload ?? {}, null, 2)}</pre>
           </div>

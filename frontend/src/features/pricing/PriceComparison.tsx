@@ -6,7 +6,7 @@ import { useLoad } from "../../lib/useLoad";
 import { useShop } from "../shop/ShopContext";
 import "./pricing.css";
 
-/** UC-05 — the basket priced at every retailer and as a split basket, against a named baseline. */
+/** UC-05: the basket priced at every retailer and as a split basket, against a named baseline. */
 export default function PriceComparison() {
   const { state, addTrace } = useShop();
   const basketId = state!.basket!.id;
@@ -55,7 +55,7 @@ export default function PriceComparison() {
             </span>
             <span className="mono compare-total">{money(o.total)}</span>
             <span className={`mono small ${o.saving > 0 ? "saving" : "muted"}`}>
-              {o.saving > 0 ? `−${money(o.saving)} (${o.saving_pct}%)` : o.saving < 0 ? `+${money(-o.saving)}` : "—"}
+              {o.saving > 0 ? `−${money(o.saving)} (${o.saving_pct}%)` : o.saving < 0 ? `+${money(-o.saving)}` : "No saving"}
             </span>
           </div>
         ))}

@@ -4,7 +4,7 @@ import { money } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 import { useShop } from "../shop/ShopContext";
 
-/** 1.2.6 — buy-timing advice from price history. Advice only; it never changes the basket. */
+/** 1.2.6: buy-timing advice from price history. Advice only; it never changes the basket. */
 export default function BuyTimingPanel() {
   const { state, addTrace } = useShop();
   const basketId = state!.basket!.id;

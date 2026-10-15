@@ -13,7 +13,7 @@
   height: 64px;
   padding: 0 20px;
   background: var(--paper);
-  border-bottom: var(--bd-thick) solid var(--edge);
+  border-bottom: 1px solid var(--line);
 }
 .logo {
   display: inline-flex;
@@ -97,6 +97,7 @@
     padding: 10px 16px;
   }
   .topbar-right {
+    flex-wrap: wrap;
     width: 100%;
     margin-left: 0;
     justify-content: space-between;

@@ -241,3 +241,11 @@
     animation: none;
   }
 }
+
+@media (max-width: 600px) {
+  .login-hero { padding: 24px; gap: 20px; }
+  .login-hero h1 { font-size: 2rem; max-width: 22ch; }
+  .docket-stage { display: none; }
+  .login-panel { padding-top: 64px; }
+  .login-theme { top: 14px; }
+}

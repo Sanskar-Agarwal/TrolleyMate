@@ -1,4 +1,4 @@
-// One function per backend endpoint, grouped by feature (and by owner — see docs/TEAM_GUIDE.md).
+// One function per backend endpoint, grouped by feature (and by owner: see docs/TEAM_GUIDE.md).
 import { api } from "./client";
 import type {
   AuditEntry,

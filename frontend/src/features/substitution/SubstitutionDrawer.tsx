@@ -8,7 +8,7 @@ import { money } from "../../lib/format";
 import { useShop } from "../shop/ShopContext";
 import "./substitution.css";
 
-/** UC-04 — propose a compliant swap and state its trade-off; the shopper accepts or declines. */
+/** UC-04: propose a compliant swap and state its trade-off; the shopper accepts or declines. */
 export default function SubstitutionDrawer({ item, onClose }: { item: BasketItem; onClose: () => void }) {
   const { state, run, setBasket, busy } = useShop();
   const basketId = state!.basket!.id;
