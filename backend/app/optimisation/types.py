@@ -33,7 +33,8 @@ class Candidate:
         return "breakfast" in self.product.tags
 
     def nutrient(self, key: str) -> float:
-        return float(self.product.nutrition.get(key, 0.0))
+        val = self.product.nutrition.get(key, 0.0)
+        return float(val) if val is not None else 0.0
 
     @property
     def role_units(self) -> float:

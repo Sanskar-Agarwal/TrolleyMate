@@ -1,5 +1,8 @@
 {
   "_comment": "Demo catalogue. Prices are base AUD; each retailer applies its own multipliers (see retailers). Nutrition is per pack. Edit freely — run `python -m app.seed --reset` to reload.",
+  "schema_version": "1.0.0",
+  "generated_at": "2026-10-20",
+  "data_provenance": "synthetic",
   "retailers": [
     {"name": "GreenGrocer Express", "region": "Sydney Metro", "source": "catalogue", "multipliers": {"default": 1.07, "veg": 0.9, "fruit": 0.9}},
     {"name": "ValueMart", "region": "Sydney Metro", "source": "catalogue", "multipliers": {"default": 0.96, "pantry": 0.86, "carb": 0.9, "veg": 1.06}},
@@ -124,6 +127,22 @@
     {"sku": "PAN-PNB-375", "name": "Smooth Peanut Butter 375g", "brand": "Pantry Co", "category": "pantry", "pack_size": 375, "unit": "g", "servings": 15, "nutrition": {"kcal": 2300, "protein_g": 95, "carbs_g": 60, "fat_g": 190, "fibre_g": 25, "veg_serves": 0}, "tags": ["peanut_butter", "breakfast"], "perishable": false, "shelf_life_days": 300, "prep_minutes_per_serving": 0, "substitution_group": "spread", "ingredients": ["peanuts", "salt"], "base_price": 3.8},
     {"sku": "PAN-RCP-200", "name": "Red Curry Paste 200g", "brand": "Lotus", "category": "pantry", "pack_size": 200, "unit": "g", "servings": 5, "nutrition": {"kcal": 220, "protein_g": 4, "carbs_g": 20, "fat_g": 12, "fibre_g": 6, "veg_serves": 0}, "tags": ["curry_paste"], "perishable": false, "shelf_life_days": 300, "prep_minutes_per_serving": 0, "substitution_group": "sauce", "ingredients": ["red curry paste"], "base_price": 3.5},
     {"sku": "PAN-CCM-400", "name": "Coconut Milk 400ml", "brand": "Lotus", "category": "pantry", "pack_size": 400, "unit": "ml", "servings": 3, "nutrition": {"kcal": 760, "protein_g": 7, "carbs_g": 12, "fat_g": 78, "fibre_g": 0, "veg_serves": 0}, "tags": ["coconut_milk"], "perishable": false, "shelf_life_days": 700, "prep_minutes_per_serving": 0, "substitution_group": "sauce", "ingredients": ["coconut", "water"], "base_price": 1.8},
-    {"sku": "SNK-MSB-6", "name": "Honey Muesli Bars 6pk", "brand": "Crumbly", "category": "snack", "pack_size": 6, "unit": "each", "servings": 6, "nutrition": {"kcal": 900, "protein_g": 15, "carbs_g": 130, "fat_g": 30, "fibre_g": 12, "veg_serves": 0}, "tags": ["snack"], "perishable": false, "shelf_life_days": 180, "prep_minutes_per_serving": 0, "substitution_group": "snack", "ingredients": ["oats", "honey", "whey powder", "almonds", "sugar"], "base_price": 4.0}
+    {"sku": "SNK-MSB-6", "name": "Honey Muesli Bars 6pk", "brand": "Crumbly", "category": "snack", "pack_size": 6, "unit": "each", "servings": 6, "nutrition": {"kcal": 900, "protein_g": 15, "carbs_g": 130, "fat_g": 30, "fibre_g": 12, "veg_serves": 0}, "tags": ["snack"], "perishable": false, "shelf_life_days": 180, "prep_minutes_per_serving": 0, "substitution_group": "snack", "ingredients": ["oats", "honey", "whey powder", "almonds", "sugar"], "base_price": 4.0},
+
+    {"_edge_case": "malformed — nutrition panel could not be parsed from retailer feed",
+     "sku": "PRO-MAL-BAR", "name": "Generic Protein Bar 45g", "brand": "NoLabel", "category": "protein",
+     "pack_size": 45, "unit": "g", "servings": 1,
+     "nutrition": {"kcal": null, "protein_g": null, "carbs_g": null, "fat_g": null, "fibre_g": null, "veg_serves": 0},
+     "tags": [], "perishable": false, "shelf_life_days": 180, "prep_minutes_per_serving": 0,
+     "substitution_group": "snack", "ingredients": [], "data_complete": false, "base_price": 2.5},
+
+    {"_edge_case": "stale/discontinued — listed in catalogue but unavailable at every retailer",
+     "sku": "PRO-DIS-STEAK", "name": "Discontinued Premium Steak 300g", "brand": "OldPaddock", "category": "protein",
+     "pack_size": 300, "unit": "g", "servings": 2,
+     "nutrition": {"kcal": 660, "protein_g": 72, "carbs_g": 0, "fat_g": 42, "fibre_g": 0, "veg_serves": 0},
+     "tags": ["beef"], "perishable": true, "shelf_life_days": 3, "prep_minutes_per_serving": 15,
+     "substitution_group": "red_meat", "ingredients": ["beef"],
+     "unavailable_at": ["GreenGrocer Express", "ValueMart", "FreshCo"],
+     "data_complete": true, "base_price": 12.0}
   ]
 }

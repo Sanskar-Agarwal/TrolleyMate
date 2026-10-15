@@ -89,6 +89,15 @@ class QuoteStatus(StrEnum):
     superseded = "superseded"
 
 
+class QuoteSource(StrEnum):
+    """Provenance of a PriceQuote (KAN-13). Allows live/recorded/synthetic data to be
+    distinguished in the catalogue — required by acceptance criteria 1.2.7/1.2.8."""
+
+    synthetic = "synthetic"  # generated directly from seed/catalogue.json for demo
+    recorded = "recorded"    # historical snapshot captured during a past run
+    live = "live"            # fetched from a live retailer adapter at request time
+
+
 class VerdictStatus(StrEnum):
     """State machine 9.4 outcomes."""
 
