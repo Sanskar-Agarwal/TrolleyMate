@@ -18,9 +18,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
+from app.domain.basket_products import Product
 from app.domain.enums import QuoteSource, QuoteStatus
 from app.domain.pricing import PriceQuote, Retailer
-from app.domain.basket_products import Product
 from app.seed import load_catalogue
 
 SEED_DIR = Path(__file__).resolve().parent.parent / "app" / "seed"
@@ -183,8 +183,6 @@ def test_product_schema_validates_all_products():
     schema = json.loads((SEED_DIR / "product_schema.json").read_text())
     cat = load_catalogue()
     product_schema = schema["$defs"]["product"]
-    # Use draft 2020-12 validator
-    validator = jsonschema.Draft202012Validator(schema)
     for product in cat["products"]:
         errors = list(jsonschema.Draft202012Validator(product_schema).iter_errors(product))
         assert errors == [], (

@@ -13,11 +13,10 @@ from __future__ import annotations
 from datetime import datetime
 from types import SimpleNamespace
 
-import pytest
 from sqlalchemy import select
 
 from app.domain.basket_products import Product
-from app.domain.enums import QuoteSource, QuoteStatus
+from app.domain.enums import QuoteStatus
 from app.domain.pricing import PriceQuote, Retailer
 from app.services.pricing.normalisation import UnitPrice, normalise
 from app.services.pricing.price_sources import (
@@ -26,7 +25,6 @@ from app.services.pricing.price_sources import (
     QuoteData,
     source_for,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers — simple namespaces satisfy the adapter's duck-typed interface
