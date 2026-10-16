@@ -2,6 +2,8 @@
 
 import pytest
 
+from tests.test_basket_flow import confirmed_session
+
 from app.domain import Product, Retailer
 from app.domain.requests_constraints import ConstraintSet
 from app.optimisation import BasketOptimiser, Requirements, strategy_for
@@ -28,3 +30,18 @@ def test_invalid_quantity_contract_is_rejected(goal, lower, upper, message):
     result = BasketOptimiser().solve(req, strategy_for(goal), [candidate()], min_qty=lower, max_qty=upper)
     assert not result.feasible
     assert message in result.message
+
+
+def test_replaced_basket_cannot_be_accepted(client, riley):
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    old = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley)
+    assert client.post(f"/api/baskets/{old['id']}/accept", headers=riley).status_code == 400
+
+
+def test_changed_constraints_require_a_rebuilt_basket(client, riley):
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    basket = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    rid = client.post(f"/api/sessions/{sid}/requests", json={"text": "$80 for 5 days, dinner only"}, headers=riley).json()["intake"]["request_id"]
+    assert client.post(f"/api/requests/{rid}/confirm", headers=riley).status_code == 200
+    assert client.post(f"/api/baskets/{basket['id']}/accept", headers=riley).status_code == 400

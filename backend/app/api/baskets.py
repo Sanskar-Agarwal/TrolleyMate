@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from app.agents.context import AgentContext
 from app.api.common import basket_out, done, own_basket, own_item, own_session
 from app.core.deps import agent_context
-from app.domain.enums import BasketStatus, OptimisationGoal
+from app.domain.enums import BasketStatus, ItemCompliance, OptimisationGoal
 from app.optimisation import STRATEGIES
 
 router = APIRouter(tags=["baskets"])
@@ -54,8 +54,16 @@ def get_basket(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> di
 @router.post("/baskets/{basket_id}/accept")
 def accept_basket(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
     b = own_basket(ctx, basket_id)
-    if b.status == BasketStatus.pending_review:
-        raise ValueError("Some items are still waiting for dietitian review.")
+    session = own_session(ctx, b.session_id)
+    if b.status not in (BasketStatus.verified, BasketStatus.accepted):
+        raise ValueError("Only a verified, current basket can be accepted. Resolve any pending review first.")
+    if b.constraint_set_id != session.active_constraint_set_id:
+        raise ValueError("Your constraints changed. Rebuild the basket before accepting it.")
+    if not b.items or any(i.withheld or i.compliance != ItemCompliance.compliant for i in b.items):
+        raise ValueError("Every item must pass compliance before you accept the basket.")
+    b.recalc_total()
+    if b.budget is not None and b.total > b.budget + 0.001:
+        raise ValueError("This basket exceeds your budget. Adjust it before accepting.")
     b.status = BasketStatus.accepted
     ctx.shopper.log("accept_basket", f"Shopper accepted basket #{b.id} (${b.total:.2f})", basket_id=b.id, session_id=b.session_id)
     return done(ctx, {"basket": basket_out(ctx, b)})
