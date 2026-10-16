@@ -48,9 +48,20 @@ class BasketOptimiser:
         `prefer` nudges the solver to keep current items so an edit doesn't reshuffle everything."""
         started = time.perf_counter()
         min_qty, max_qty, prefer = min_qty or {}, max_qty or {}, prefer or set()
-        pool = [c for c in candidates if c.price > 0]
+        pool = [c for c in candidates if math.isfinite(c.price) and c.price > 0 and c.compliance != "violation"]
         if not pool:
             return OptimisationResult(False, message="No priced, compliant products to choose from.", requirements=req)
+
+        available = {c.product.id for c in pool}
+        for pid, minimum in min_qty.items():
+            if minimum > 0 and pid not in available:
+                return OptimisationResult(False, message="A required product is unavailable or excluded.", requirements=req)
+        for pid in min_qty.keys() | max_qty.keys():
+            lo, hi = min_qty.get(pid, 0), max_qty.get(pid)
+            if any(isinstance(q, bool) or not isinstance(q, int) or q < 0 for q in (lo, hi) if q is not None):
+                return OptimisationResult(False, message="Product quantities must be non-negative whole numbers.", requirements=req)
+            if hi is not None and lo > hi:
+                return OptimisationResult(False, message="Minimum quantity exceeds the maximum for a product.", requirements=req)
 
         strategy.prepare(pool)
         req = strategy.adjust(req)
