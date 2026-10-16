@@ -9,6 +9,7 @@ removed from a draft.
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime
 
@@ -24,7 +25,7 @@ REQUIRED = ("budget", "household_size", "meals_per_day", "days")
 QUESTIONS = {
     "budget": "What's your budget for this shop?",
     "household_size": "How many people are you shopping for?",
-    "meals_per_day": "Which meals should I cover each day — dinner only, lunch and dinner, or all three?",
+    "meals_per_day": "Which meals should I cover each day: dinner only, lunch and dinner, or all three?",
     "days": "How many days should this shop last?",
 }
 
@@ -192,7 +193,7 @@ def correct(agent, req: ShoppingRequest, *, text: str | None = None, patch: dict
     _stage_after_update(req)
     agent.log(
         "correct_constraints",
-        f"Correction {req.correction_count}: {_summary(draft)}" + (" — switched to structured form" if req.mode == InputMode.form else ""),
+        f"Correction {req.correction_count}: {_summary(draft)}" + ("; switched to structured form" if req.mode == InputMode.form else ""),
         session_id=session.id, llm=result,
     )
     return req
@@ -217,6 +218,9 @@ def confirm(agent, req: ShoppingRequest) -> ConstraintSetRecord:
     missing = [f for f in REQUIRED if req.draft_payload.get(f) in (None, 0)]
     if missing:
         raise IntakeError("Still need: " + ", ".join(missing))
+    if req.pending_questions:
+        raise IntakeError("Please answer the remaining clarification questions before confirming.")
+    _validate_numbers(req.draft_payload)
     db = agent.db
     session = req.session
     # All three changes ride on the request's single DB transaction (committed by the
@@ -234,7 +238,7 @@ def confirm(agent, req: ShoppingRequest) -> ConstraintSetRecord:
         req.confirm()
     except Exception as exc:  # 5a: report, keep the previous active set
         db.rollback()
-        raise IntakeError("Saving failed — your previous constraints are unchanged. Try again.") from exc
+        raise IntakeError("Saving failed. Your previous constraints are unchanged. Try again.") from exc
     agent.log("confirm_constraints", f"Constraint set v{cs.version} active: {_summary(cs.payload)}", session_id=session.id, confidence=1.0)
     return cs
 
@@ -268,7 +272,22 @@ def _ensure_draft(req: ShoppingRequest) -> None:
         raise IntakeError(f"This request is already {req.status}.")
 
 
+def _validate_numbers(values: dict) -> None:
+    limits = {"budget": (None, False), "household_size": (20, True), "meals_per_day": (5, False), "days": (31, True)}
+    for key, (maximum, whole) in limits.items():
+        value = values.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise IntakeError(f"{key.replace('_', ' ').capitalize()} must be a positive number.")
+        if whole and value != int(value):
+            raise IntakeError(f"{key.replace('_', ' ').capitalize()} must be a whole number.")
+        if maximum is not None and value > maximum:
+            raise IntakeError(f"{key.replace('_', ' ').capitalize()} must be at most {maximum}.")
+
+
 def _apply_patch(draft: dict, patch: dict) -> dict:
+    _validate_numbers(patch)
     out = dict(draft)
     for key in REQUIRED:
         if key in patch and patch[key] is not None:

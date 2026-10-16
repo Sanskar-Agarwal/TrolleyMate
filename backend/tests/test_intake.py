@@ -1,5 +1,7 @@
 """UC-01 — intake and constraint extraction."""
 
+import pytest
+
 from app.llm.tasks.extract_constraints import mock as extract
 
 
@@ -66,3 +68,43 @@ def test_confirm_requires_complete_constraints(client, riley):
     rid = client.post(f"/api/sessions/{s['id']}/requests", json={"text": "food for the week"}, headers=riley).json()["intake"]["request_id"]
     r = client.post(f"/api/requests/{rid}/confirm", headers=riley)
     assert r.status_code == 400
+
+
+def test_unanswered_optional_question_blocks_confirmation(client, riley):
+    sid = client.post("/api/sessions", headers=riley).json()["session"]["id"]
+    draft = client.post(f"/api/sessions/{sid}/requests", json={"text": "$80 for the week, dinners for two, high protein"}, headers=riley).json()["intake"]
+    assert draft["missing_fields"] == []
+    assert draft["questions"]
+    rid = draft["request_id"]
+    assert client.post(f"/api/requests/{rid}/confirm", headers=riley).status_code == 400
+    clarified = client.post(f"/api/requests/{rid}/clarify", json={"text": "No target"}, headers=riley)
+    assert clarified.json()["intake"]["questions"] == []
+    assert client.post(f"/api/requests/{rid}/confirm", headers=riley).status_code == 200
+
+
+@pytest.mark.parametrize("patch", [
+    {"budget": -10}, {"budget": "cheap"}, {"budget": True},
+    {"household_size": 1.5}, {"household_size": 21}, {"days": 0},
+    {"days": 32}, {"meals_per_day": 6},
+])
+def test_invalid_correction_does_not_change_draft(client, riley, patch):
+    sid = client.post("/api/sessions", headers=riley).json()["session"]["id"]
+    before = client.post(f"/api/sessions/{sid}/requests", json={"text": "$90 for 5 days, dinner only"}, headers=riley).json()["intake"]
+    response = client.post(f"/api/requests/{before['request_id']}/correct", json={"patch": patch}, headers=riley)
+    assert response.status_code == 400
+    after = client.get(f"/api/sessions/{sid}", headers=riley).json()["intake"]
+    assert after["draft"] == before["draft"]
+    assert after["correction_count"] == before["correction_count"]
+
+
+def test_form_and_cancel_preserve_confirmed_constraints(client, alex):
+    sid = client.post("/api/sessions", headers=alex).json()["session"]["id"]
+    rid = client.post(f"/api/sessions/{sid}/requests", json={"text": "$90 for 5 days, dinner only"}, headers=alex).json()["intake"]["request_id"]
+    active = client.post(f"/api/requests/{rid}/confirm", headers=alex).json()["constraints"]
+    next_id = client.post(f"/api/sessions/{sid}/requests", json={"text": "food for the week"}, headers=alex).json()["intake"]["request_id"]
+    form = client.post(f"/api/requests/{next_id}/form", json={"budget": 60, "days": 3, "meals_per_day": 2, "household_size": 2, "restrictions": []}, headers=alex).json()["intake"]
+    assert form["mode"] == "form"
+    assert {"tree_nuts", "lactose"} <= {r["restriction"] for r in form["draft"]["restrictions"] if r.get("locked")}
+    assert client.post(f"/api/requests/{next_id}/cancel", headers=alex).status_code == 200
+    current = client.get(f"/api/sessions/{sid}", headers=alex).json()["constraints"]
+    assert current == active

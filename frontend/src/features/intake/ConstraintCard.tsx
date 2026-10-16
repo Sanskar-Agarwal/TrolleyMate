@@ -15,7 +15,7 @@ function toFields(d: ConstraintDraft): Fields {
   };
 }
 
-function toPatch(f: Fields): Partial<ConstraintDraft> {
+function toPatch(f: Fields, draft: ConstraintDraft): Partial<ConstraintDraft> {
   const num = (s: string) => (s.trim() === "" ? null : Number(s));
   const patch: Partial<ConstraintDraft> = {
     budget: num(f.budget),
@@ -23,18 +23,19 @@ function toPatch(f: Fields): Partial<ConstraintDraft> {
     meals_per_day: num(f.meals_per_day),
     days: num(f.days),
   };
-  if (f.protein.trim()) patch.nutritional_targets = [{ nutrient: "protein_g", minimum_per_day: Number(f.protein) }];
+  patch.nutritional_targets = (draft.nutritional_targets ?? []).filter((t) => t.nutrient !== "protein_g");
+  if (f.protein.trim()) patch.nutritional_targets.push({ nutrient: "protein_g", minimum_per_day: Number(f.protein) });
   return patch;
 }
 
-/** Stage 2 — review the interpreted constraints (UC-01 steps 3–5, extensions 2a and 4a). */
+/** Stage 2: review the interpreted constraints (UC-01 steps 3–5, extensions 2a and 4a). */
 export default function ConstraintCard() {
   const { state, busy, correct, clarify, submitForm, confirm, cancel } = useShop();
   const intake = state!.intake!;
   const serverFields = toFields(intake.draft);
   const [fields, setFields] = useState<Fields>(serverFields);
   const [answer, setAnswer] = useState("");
-  const dirty = JSON.stringify(toPatch(fields)) !== JSON.stringify(toPatch(serverFields));
+  const dirty = JSON.stringify(toPatch(fields, intake.draft)) !== JSON.stringify(toPatch(serverFields, intake.draft));
 
   // When the server draft changes (an answer, a correction), take only the fields whose
   // server value actually changed, so unsaved edits to other fields survive. A new
@@ -59,6 +60,14 @@ export default function ConstraintCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverKey, intake.request_id]);
 
+  const invalid = (Object.keys(fields) as (keyof Fields)[]).filter((key) => {
+    if (!fields[key].trim()) return key !== "protein";
+    const n = Number(fields[key]);
+    return !Number.isFinite(n) || n <= 0 ||
+      (key === "household_size" && (!Number.isInteger(n) || n > 20)) ||
+      (key === "days" && (!Number.isInteger(n) || n > 31)) ||
+      (key === "meals_per_day" && n > 5);
+  });
   const formMode = intake.mode === "form";
   const left = Math.max(0, intake.max_corrections - intake.correction_count);
   const missing = new Set([...intake.missing_fields, ...intake.questions.map((q) => q.field)]);
@@ -69,7 +78,7 @@ export default function ConstraintCard() {
       <span className="eyebrow">{label}</span>
       <span className="docket-input">
         {k === "budget" && <span className="mono">$</span>}
-        <input className="mono" inputMode="decimal" value={fields[k]} onChange={set(k)} placeholder="?" {...attrs} />
+        <input className="mono" inputMode={k === "days" || k === "household_size" ? "numeric" : "decimal"} aria-invalid={invalid.includes(k)} aria-describedby={invalid.includes(k) ? "intake-validation" : undefined} value={fields[k]} onChange={set(k)} placeholder="?" {...attrs} />
         <span className="small muted">{suffix}</span>
       </span>
     </label>
@@ -136,7 +145,7 @@ export default function ConstraintCard() {
         <div className="row" style={{ "--gap": "6px" } as React.CSSProperties}>
           {(intake.draft.restrictions ?? []).length === 0 && <span className="small muted">No restrictions.</span>}
           {(intake.draft.restrictions ?? []).map((r) => (
-            <span key={r.restriction} className="chip chip-beet" title={r.locked ? `From your household profile${r.members ? ` (${r.members.join(", ")})` : ""} — can't be removed here` : "From this request"}>
+            <span key={r.restriction} className="chip chip-beet" title={r.locked ? `From your household profile${r.members ? ` (${r.members.join(", ")})` : ""}: can't be removed here` : "From this request"}>
               {r.locked && <span aria-hidden="true">🔒</span>}
               {r.label ?? r.restriction} · {r.severity}
             </span>
@@ -152,17 +161,21 @@ export default function ConstraintCard() {
         ))}
       </div>
 
+      {invalid.length > 0 && <p id="intake-validation" className="notice notice-amber" role="status">Enter a positive budget, 1 to 20 people, up to 5 meals per day, and 1 to 31 days. People and days must be whole numbers. Protein is optional and must be positive if supplied.</p>}
+      {dirty && <p className="small muted" role="status">You have unsaved changes. Apply them before confirming.</p>}
+
       <div className="spread">
         <button className="btn btn-ghost" onClick={cancel} disabled={!!busy}>
           Cancel request
         </button>
         <div className="row">
+          {!formMode && <button className="btn" onClick={() => submitForm({})} disabled={!!busy}>Use a form instead</button>}
           {dirty && (
-            <button className="btn" onClick={() => (formMode ? submitForm(toPatch(fields)) : correct(toPatch(fields)))} disabled={!!busy}>
+            <button className="btn" onClick={() => (formMode ? submitForm(toPatch(fields, intake.draft)) : correct(toPatch(fields, intake.draft)))} disabled={!!busy || invalid.length > 0}>
               {formMode ? "Save form" : "Apply correction"}
             </button>
           )}
-          <button className="btn btn-primary" onClick={confirm} disabled={!!busy || dirty || intake.missing_fields.length > 0}>
+          <button className="btn btn-primary" onClick={confirm} disabled={!!busy || dirty || invalid.length > 0 || intake.missing_fields.length > 0 || intake.questions.length > 0}>
             Confirm constraints
           </button>
         </div>
