@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from app.domain.basket_products import Product
 from app.domain.pricing import Retailer
 from app.domain.requests_constraints import ConstraintSet
+from app.services.meal_schedule import meal_schedule
 
 ROLE_CATEGORIES = ("protein", "carb", "veg")
 NUTRIENTS = ("kcal", "protein_g", "carbs_g", "fat_g", "fibre_g", "veg_serves")
@@ -75,9 +76,10 @@ class Requirements:
         size = int(p.get("household_size") or 1)
         d = int(days if days is not None else p.get("days") or 7)
         mpd = float(p.get("meals_per_day") or 2)
-        person_meals = int(round(size * d * mpd))
-        main = int(round(size * d * min(mpd, 2)))
-        breakfast = size * d if mpd >= 3 else 0
+        schedule = meal_schedule(d, mpd)
+        person_meals = size * sum(len(slots) for slots in schedule)
+        breakfast = size * sum("Breakfast" in slots for slots in schedule)
+        main = person_meals - breakfast
         protein = cls.PROTEIN_PER_MAIN * main
         for t in p.get("nutritional_targets", []):
             if t["nutrient"] == "protein_g":

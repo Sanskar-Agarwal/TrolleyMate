@@ -12,8 +12,7 @@ from dataclasses import dataclass
 
 from app.domain import Basket
 from app.seed import load_recipes
-
-SLOT_NAMES = {1: ["Dinner"], 2: ["Lunch", "Dinner"], 3: ["Breakfast", "Lunch", "Dinner"]}
+from app.services.meal_schedule import meal_schedule
 
 
 @dataclass
@@ -35,12 +34,13 @@ def plan(basket: Basket, household_size: int, days: int, meals_per_day: float) -
               i.product.shelf_life_days, i.product.perishable)
         for i in basket.items if not i.withheld
     ]
-    slots = SLOT_NAMES.get(int(min(max(round(meals_per_day), 1), 3)))
+    schedule = meal_schedule(days, meals_per_day)
+    requested = sum(len(slots) for slots in schedule)
     used_count: dict[str, int] = {}
     reused: set[str] = set()
     plan_days, missing = [], []
 
-    for day in range(1, days + 1):
+    for day, slots in enumerate(schedule, start=1):
         meals = []
         for slot in slots:
             meal_type = "breakfast" if slot == "Breakfast" else "main"
@@ -79,8 +79,8 @@ def plan(basket: Basket, household_size: int, days: int, meals_per_day: float) -
     leftovers = [{"name": s.name, "servings_left": round(s.remaining, 1)} for s in stock if s.remaining >= 1]
     return {
         "days": plan_days,
-        "requested": days * len(slots),
-        "planned": days * len(slots) - len(missing),
+        "requested": requested,
+        "planned": requested - len(missing),
         "missing": missing,
         "reused": sorted(reused),
         "leftovers": leftovers,
