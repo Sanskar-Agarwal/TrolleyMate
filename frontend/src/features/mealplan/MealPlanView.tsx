@@ -4,7 +4,7 @@ import "./mealplan.css";
 
 /** UC-08: a day-by-day plan cooked only from what's in the basket. */
 export default function MealPlanView() {
-  const { state, run, busy } = useShop();
+  const { state, run, busy, setView } = useShop();
   const basket = state!.basket!;
   const plan = state!.meal_plan;
   const generate = () =>
@@ -12,11 +12,24 @@ export default function MealPlanView() {
       toast: (r) => [`Meal plan ready: ${r.meal_plan.planned} of ${r.meal_plan.requested} meals`],
     });
 
+  if (basket.status !== "accepted") {
+    return (
+      <section className="card stack" style={{ maxWidth: 720 }}>
+        <span className="eyebrow">Step 4 · Meals</span>
+        <h2>Your basket comes first</h2>
+        <p className="muted">{basket.status === "pending_review"
+          ? "Some items are waiting for dietary review. Once that is resolved, review and accept your basket to plan meals."
+          : "Review the products, quantities and total, then accept your basket. Your meal plan will use only those ingredients."}</p>
+        <div><button className="btn btn-primary" onClick={() => setView("basket")}>Review my basket</button></div>
+      </section>
+    );
+  }
+
   if (!plan) {
     return (
       <div className="card stack" style={{ maxWidth: 720 }}>
         <span className="eyebrow">Step 4 · Meals</span>
-        <h2>Turn this basket into a week of meals</h2>
+        <h2>Turn your accepted basket into meals</h2>
         <p className="muted">
           Recipes use only what's in your basket, share packs across meals so less goes to waste, and assume you have salt,
           pepper and oil at home.
@@ -43,6 +56,10 @@ export default function MealPlanView() {
           Re-plan
         </button>
       </div>
+      <div className="notice notice-produce">
+        <span><strong>{plan.planned} planned</strong> · {plan.requested - plan.planned} unfilled slots. Portions are allocated across the whole plan, so ingredients are not counted twice.</span>
+      </div>
+      <p className="small muted">Assumed at home: {plan.assumed_at_home.join(", ")}. Perishable ingredients are scheduled within their recorded shelf life, starting on Day 1.</p>
       {plan.summary && <p className="basket-summary">{plan.summary}</p>}
 
       <div className="week">
@@ -56,8 +73,9 @@ export default function MealPlanView() {
                   <>
                     <strong>{m.recipe}</strong>
                     <span className="small muted">
-                      {m.minutes} min · {m.uses?.join(", ")}
+                      {m.minutes} min · {m.servings} servings · {m.uses?.join(", ")}
                     </span>
+                    {!!m.optional?.length && <span className="small muted">Also included: {m.optional.join(", ")}</span>}
                   </>
                 ) : (
                   <>
@@ -80,6 +98,7 @@ export default function MealPlanView() {
           </span>
         </div>
       )}
+      {!!plan.expired_unused?.length && <div className="notice notice-amber"><span>Not scheduled beyond shelf life: {plan.expired_unused.map((l) => `${l.name} (${l.servings_left} serves)`).join(", ")}. These are not counted as usable leftovers.</span></div>}
       {plan.leftovers.length > 0 && (
         <p className="small muted">
           Left over at the end of the plan: {plan.leftovers.map((l) => `${l.name} (${l.servings_left} serves)`).join(", ")}.

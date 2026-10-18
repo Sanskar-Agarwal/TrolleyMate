@@ -56,7 +56,7 @@ export default function Docket({ basket, onAccept, busy }: { basket: Basket; onA
             {basket.remaining >= 0 ? `${money(basket.remaining)} under budget` : `${money(-basket.remaining)} over budget`}
           </p>
         )}
-        <button className="btn btn-primary" onClick={onAccept} disabled={busy || basket.status === "pending_review" || basket.status === "accepted"}>
+        <button className="btn btn-primary" onClick={onAccept} disabled={busy || basket.status !== "verified"}>
           {basket.status === "accepted" ? "Basket accepted" : "Accept basket"}
         </button>
         {basket.status === "pending_review" && <p className="small muted">You can accept once the dietitian has decided.</p>}

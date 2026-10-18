@@ -144,6 +144,7 @@ export interface MealSlot {
   slot: string;
   recipe: string | null;
   recipe_id?: string;
+  servings?: number;
   minutes?: number;
   uses?: string[];
   optional?: string[];
@@ -160,6 +161,7 @@ export interface MealPlan {
   missing: { day: number; slot: string; suggested_recipe: string; missing_tags: string[] }[];
   reused: string[];
   leftovers: { name: string; servings_left: number }[];
+  expired_unused?: { name: string; servings_left: number }[];
   suggested_additions: { for: string; product: string }[];
   assumed_at_home: string[];
 }
