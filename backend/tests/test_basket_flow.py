@@ -81,6 +81,7 @@ def test_substitution_edit_mealplan_compare_timing(client, riley):
         r = client.post(f"/api/substitutions/{sub['id']}/reject", headers=riley).json()
         assert r["substitution"]["status"] == "rejected"
 
+    assert client.post(f"/api/baskets/{b['id']}/accept", headers=riley).status_code == 200
     plan = client.post(f"/api/baskets/{b['id']}/meal-plan", headers=riley).json()["meal_plan"]
     assert plan["planned"] > 0 and plan["days"]
 

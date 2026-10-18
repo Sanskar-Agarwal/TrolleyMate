@@ -7,6 +7,7 @@ from app.agents.context import AgentContext
 from app.api.common import done, meal_plan_out, not_found, own_basket
 from app.core.deps import agent_context
 from app.domain import MealPlan
+from app.workflows.meal_planning import is_current
 
 router = APIRouter(tags=["meal plans"])
 
@@ -19,8 +20,8 @@ def generate(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> dict
 
 @router.get("/baskets/{basket_id}/meal-plan")
 def latest(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
-    own_basket(ctx, basket_id)
+    basket = own_basket(ctx, basket_id)
     plan = ctx.db.scalar(select(MealPlan).where(MealPlan.basket_id == basket_id).order_by(MealPlan.id.desc()).limit(1))
-    if plan is None:
+    if plan is None or not is_current(plan, basket):
         raise not_found("Meal plan")
     return meal_plan_out(plan)

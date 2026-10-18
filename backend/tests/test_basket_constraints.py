@@ -2,12 +2,11 @@
 
 import pytest
 
-from tests.test_basket_flow import confirmed_session
-
 from app.domain import Product, Retailer
 from app.domain.requests_constraints import ConstraintSet
 from app.optimisation import BasketOptimiser, Requirements, strategy_for
 from app.optimisation.types import Candidate
+from tests.test_basket_flow import confirmed_session
 
 
 def candidate():

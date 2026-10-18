@@ -9,7 +9,7 @@ exists the item is removed and the shopper is told.
 from __future__ import annotations
 
 from app.domain import Basket, BasketItem, Product, Substitution
-from app.domain.enums import ItemCompliance, SubReason, SubStatus
+from app.domain.enums import BasketStatus, ItemCompliance, SubReason, SubStatus
 from app.services.catalogue import optimisable_products, product_tokens
 from app.services.dietary_rules import RESTRICTION_RULES
 from app.services.session_state import active_constraints, household_of
@@ -130,6 +130,8 @@ def reject(agent, sub: Substitution) -> Basket:
 
 
 def _remove_item(basket: Basket, item: BasketItem, notice: str) -> None:
+    if basket.status == BasketStatus.accepted:
+        basket.status = BasketStatus.verified
     basket.items.remove(item)
     basket.recalc_total()
     notes = dict(basket.notes or {})
@@ -140,6 +142,8 @@ def _remove_item(basket: Basket, item: BasketItem, notice: str) -> None:
 def _refresh_nutrition(agent, basket: Basket) -> None:
     from app.optimisation.types import Requirements
 
+    if basket.status == BasketStatus.accepted:
+        basket.status = BasketStatus.verified
     notes = dict(basket.notes or {})
     if "requirements" in notes:
         fields = Requirements.__dataclass_fields__

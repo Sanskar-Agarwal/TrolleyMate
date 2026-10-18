@@ -11,6 +11,7 @@ from app.domain import MealPlan, ShoppingRequest, ShoppingSession
 from app.domain.enums import SessionStatus
 from app.services.session_state import active_constraints, latest_basket
 from app.workflows import intake
+from app.workflows.meal_planning import is_current
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -34,7 +35,7 @@ def session_state(ctx: AgentContext, s: ShoppingSession) -> dict:
         "intake": intake.state(req) if req else None,
         "constraints": {"version": cs.version, "payload": cs.payload, "origin": cs.origin} if cs else None,
         "basket": basket_out(ctx, basket) if basket else None,
-        "meal_plan": meal_plan_out(plan) if plan else None,
+        "meal_plan": meal_plan_out(plan) if plan and basket and cs and basket.constraint_set_id == cs.id and is_current(plan, basket) else None,
         "chat": s.chat_history or [],
     }
 

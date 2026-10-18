@@ -9,6 +9,7 @@ from app.optimisation import Requirements
 from app.services import meal_planner
 from app.services.meal_planner import Stock, _allocate, _closest_missing
 from app.services.meal_schedule import meal_schedule
+from tests.test_basket_flow import confirmed_session
 
 
 @pytest.mark.parametrize("rate", [0.5, 1, 1.5, 2, 2.5, 3, 4, 5])
@@ -64,3 +65,36 @@ def test_optional_ingredients_are_consumed_once(monkeypatch):
     assert result["days"][0]["meals"][0]["optional"] == ["veg"]
     assert result["days"][1]["meals"][0]["optional"] == []
     assert result["leftovers"] == []
+
+
+
+def test_meal_plan_requires_acceptance_and_uses_basket_only(client, riley):
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley).json()["basket"]
+    assert client.post(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 400
+    assert client.post(f"/api/baskets/{b['id']}/accept", headers=riley).status_code == 200
+    response = client.post(f"/api/baskets/{b['id']}/meal-plan", headers=riley)
+    assert response.status_code == 200, response.text
+    plan = response.json()["meal_plan"]
+    names = {i["product"]["name"] for i in b["items"] if not i["withheld"]}
+    assert plan["requested"] == 3
+    for day in plan["days"]:
+        for meal in day["meals"]:
+            assert set(meal.get("uses", []) + meal.get("optional", [])) <= names
+    assert client.get(f"/api/baskets/{b['id']}", headers=riley).json()["total"] == b["total"]
+
+
+def test_plan_for_changed_stock_is_hidden(client, riley):
+    from app.core.db import SessionLocal
+    from app.domain import Basket
+
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley).json()["basket"]
+    client.post(f"/api/baskets/{b['id']}/accept", headers=riley)
+    assert client.post(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 200
+    with SessionLocal() as db:
+        basket = db.get(Basket, b["id"])
+        basket.items[0].quantity += 1
+        db.commit()
+    assert client.get(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 404
+    assert client.get(f"/api/sessions/{sid}", headers=riley).json()["meal_plan"] is None
