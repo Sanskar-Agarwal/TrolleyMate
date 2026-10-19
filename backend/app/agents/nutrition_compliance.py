@@ -226,11 +226,13 @@ class NutritionComplianceAgent(Agent):
         key = (ingredient.name, restriction, self.llm.provider_name)
         if key not in _INGREDIENT_CACHE:
             result = self.think("assess_ingredient", {"product": product.name, "ingredient": ingredient.name, "restriction": restriction})
-            _INGREDIENT_CACHE[key] = result.data
+            # A real model may answer 85 for 85%; the verdict contract only accepts 0-1.
+            judgement = {**result.data, "confidence": min(max(float(result.data["confidence"]), 0.0), 1.0)}
+            _INGREDIENT_CACHE[key] = judgement
             self.log(
                 "assess_ingredient",
-                f"'{ingredient.name}' vs {restriction}: {result.data['risk']}",
-                rationale=result.data["reasoning"], confidence=result.data["confidence"], llm=result,
+                f"'{ingredient.name}' vs {restriction}: {judgement['risk']}",
+                rationale=judgement["reasoning"], confidence=judgement["confidence"], llm=result,
             )
         return _INGREDIENT_CACHE[key]
 

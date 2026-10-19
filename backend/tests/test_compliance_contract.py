@@ -1,6 +1,7 @@
 """KAN-19: the compliance verdict contract (sequence 8.4, state machine 9.4), the adversarial
 fixture catalogue in fixtures/compliance_cases.json, and the prototype nutrition targets."""
 
+import dataclasses
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,11 +9,13 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
+from app.agents import nutrition_compliance
 from app.agents.context import AgentContext
 from app.core.db import SessionLocal, reset_db
 from app.domain import DietaryProfile, Household, HouseholdMember, Ingredient, Product
 from app.domain.enums import VerdictStatus
 from app.llm import get_llm
+from app.llm.tasks import TASKS
 from app.optimisation.types import Requirements
 from app.services.compliance_verdict import NutritionCoverage, ProductResult, VerdictEvidence, outcome
 from app.services.dietary_rules import RESTRICTION_RULES, normalise_restriction
@@ -126,6 +129,19 @@ def test_contract_rejects_unexplained_or_unknown_evidence():
             product_id=1, product="Bread", status="violation", confidence=1.0,
             findings=[{"kind": "contains", "detail": "Contains wheat", "surprise": True}],
         )
+
+
+def test_out_of_range_llm_confidence_is_clamped(screen, monkeypatch):
+    """A real model may answer 85 meaning 85%. That must not break the contract (and with it
+    basket verification), and the vague ingredient must still be withheld as uncertain."""
+    reply = {"risk": "possible", "confidence": 85, "reasoning": "Replied in percent."}
+    monkeypatch.setitem(TASKS, "assess_ingredient", dataclasses.replace(TASKS["assess_ingredient"], mock=lambda ctx: reply))
+    monkeypatch.setattr(nutrition_compliance, "_INGREDIENT_CACHE", {})
+
+    _, finding = screen(next(c for c in CASES if c["id"] == "hidden-natural-flavours-for-milk"))
+    result = ProductResult.model_validate(finding.as_dict())
+    assert result.status == "uncertain"
+    assert result.confidence == 0.5  # 1 - clamped 1.0 * 0.5
 
 
 def test_stored_verdict_matches_the_contract(client, alex):
