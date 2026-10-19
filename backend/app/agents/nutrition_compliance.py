@@ -4,7 +4,8 @@ adequacy, and escalation of uncertain cases (UC-06, 1.2.10, 1.2.11, 1.2.15).
 Safety-first rules:
   - an ingredient (or any sub-ingredient, recursively) carrying a restricted tag → violation
   - a "may contain" warning for a severe allergy → violation; otherwise → uncertain
-  - missing ingredient data → uncertain
+  - missing or empty ingredient list → uncertain
+  - a record that can't be read, or a composite that contains itself → uncertain (UC-06 failure scenario)
   - vague label terms ("natural flavours") → the LLM judges the risk; low confidence → uncertain
   - uncertain items are never auto-accepted: they are withheld and escalated to a dietitian
   - a dietitian's past decision on the same product for the same household is reused
@@ -87,12 +88,18 @@ class NutritionComplianceAgent(Agent):
 
         if not product.data_complete:
             f.add(ItemCompliance.uncertain, 0.4, kind="missing_data", detail="Ingredient list missing from the retailer feed")
+        elif not product.ingredients:
+            f.add(ItemCompliance.uncertain, 0.4, kind="missing_data", detail="No ingredients listed, so safety can't be confirmed")
+        for path, problem in self._integrity_problems(product):
+            f.add(ItemCompliance.uncertain, 0.4, kind="data_error", detail=problem, **({"ingredient": path} if path else {}))
 
         for r in restrictions:
             rid, tags = r["restriction"], violating_tags(r["restriction"])
             for ingredient in product.ingredients:
-                for path, ing in self._walk(ingredient):
-                    hit = tags.intersection(ing.tags)
+                for path, ing, cycle in self._walk(ingredient):
+                    if cycle:
+                        continue  # already checked above it in the path; reported by _integrity_problems
+                    hit = tags.intersection(_readable(ing.tags) or ())
                     if hit:
                         f.add(
                             ItemCompliance.violation, 1.0, kind="contains", restriction=rid,
@@ -107,7 +114,7 @@ class NutritionComplianceAgent(Agent):
                                 ItemCompliance.uncertain, round(1 - judgement["confidence"] * 0.5, 2), kind="ambiguous",
                                 restriction=rid, ingredient=" → ".join(path), detail=judgement["reasoning"],
                             )
-            for warn in tags.intersection(product.may_contain):
+            for warn in tags.intersection(_readable(product.may_contain) or ()):
                 if r["severity"] == Severity.severe:
                     f.add(ItemCompliance.violation, 0.95, kind="may_contain", restriction=rid, detail=f"Label says it may contain {warn.replace('_', ' ')}")
                 else:
@@ -214,13 +221,29 @@ class NutritionComplianceAgent(Agent):
     # --- helpers -------------------------------------------------------------
 
     def _walk(self, ingredient: Ingredient, path: tuple[str, ...] = (), seen: frozenset[int] = frozenset()):
-        """Yield (path, ingredient) for the ingredient and every sub-ingredient (cascading check)."""
-        if ingredient.id in seen:
-            return
+        """Yield (path, ingredient, cycle) for the ingredient and every sub-ingredient (cascading check).
+        `cycle` is True when the ingredient already appears above itself in the path; it isn't expanded again."""
         here = (*path, ingredient.name)
-        yield here, ingredient
+        if ingredient.id in seen:
+            yield here, ingredient, True
+            return
+        yield here, ingredient, False
         for child in ingredient.components:
             yield from self._walk(child, here, seen | {ingredient.id})
+
+    def _integrity_problems(self, product: Product) -> list[tuple[str, str]]:
+        """(ingredient path, problem) for evidence that can't be trusted — the UC-06 failure
+        scenario, 9.4 dataSourceError. The rest of the record is still checked."""
+        problems = []
+        if _readable(product.may_contain) is None:
+            problems.append(("", "The label's may-contain statement can't be read"))
+        for ingredient in product.ingredients:
+            for path, ing, cycle in self._walk(ingredient):
+                if cycle:
+                    problems.append((" → ".join(path), f"{ing.name} lists itself as a sub-ingredient, so the record is corrupt"))
+                elif _readable(ing.tags) is None:
+                    problems.append((" → ".join(path), f"The ingredient record for {ing.name} can't be read"))
+        return problems
 
     def _judge(self, product: Product, ingredient: Ingredient, restriction: str) -> dict:
         key = (ingredient.name, restriction, self.llm.provider_name)
@@ -254,6 +277,13 @@ class NutritionComplianceAgent(Agent):
             if current <= {r["restriction"] for r in case.requirements}:
                 return case
         return None
+
+
+def _readable(values) -> set[str] | None:
+    """A stored tag list as a set, or None when it isn't a list of strings."""
+    if isinstance(values, list) and all(isinstance(v, str) for v in values):
+        return set(values)
+    return None
 
 
 def _gap_suggestion(nutrient: str) -> str:
