@@ -91,6 +91,9 @@ export interface Nutrition {
   required: Record<string, number>;
   gaps: { nutrient: string; required: number; provided: number; short_by: number }[];
   suggestions: string[];
+  // Added by the verdict contract (KAN-19); absent on baskets built before it.
+  coverage?: { nutrient: string; required: number; provided: number; coverage_pct: number; met: boolean }[];
+  targets?: string;
 }
 
 export interface CaseBrief {

@@ -8,6 +8,8 @@ Safety-first rules:
   - vague label terms ("natural flavours") → the LLM judges the risk; low confidence → uncertain
   - uncertain items are never auto-accepted: they are withheld and escalated to a dietitian
   - a dietitian's past decision on the same product for the same household is reused
+
+The verdict it returns is specified in services/compliance_verdict.py.
 """
 
 from __future__ import annotations
@@ -21,7 +23,9 @@ from app.core.config import get_settings
 from app.domain import Basket, ComplianceVerdict, EscalationCase, Household, Ingredient, Product
 from app.domain.enums import CaseStatus, ItemCompliance, Severity, VerdictStatus
 from app.optimisation.types import Requirements
+from app.services.compliance_verdict import VerdictEvidence, outcome
 from app.services.dietary_rules import label, normalise_restriction, violating_tags
+from app.services.nutrition_targets import TARGETS_VERSION
 
 # (ingredient, restriction, provider) → LLM judgement. Shared across requests: label
 # semantics don't change, and this keeps real-LLM screening fast.
@@ -142,16 +146,13 @@ class NutritionComplianceAgent(Agent):
         uncertain = [f for f in results.values() if f.status == ItemCompliance.uncertain]
         nutrition = self.assess_nutrition(b, req) if req else None
 
-        if violations:
-            status = VerdictStatus.failed
-        elif uncertain:
-            status = VerdictStatus.escalated
-        else:
-            status = VerdictStatus.passed
+        status = outcome(f.status for f in results.values())
         confidence = min([f.confidence for f in results.values()] or [1.0])
+        evidence = VerdictEvidence(
+            restrictions=restrictions, products=[f.as_dict() for f in results.values()], nutrition=nutrition,
+        )
         verdict = ComplianceVerdict(
-            basket_id=b.id, status=status, confidence=round(confidence, 2),
-            evidence={"restrictions": restrictions, "products": [f.as_dict() for f in results.values()], "nutrition": nutrition},
+            basket_id=b.id, status=status, confidence=round(confidence, 2), evidence=evidence.model_dump(mode="json"),
         )
         self.db.add(verdict)
         self.db.flush()
@@ -178,16 +179,26 @@ class NutritionComplianceAgent(Agent):
                 for k in provided:
                     provided[k] += float(item.product.nutrition.get(k, 0)) * item.quantity
         required = {"kcal": req.kcal, "protein_g": req.protein_g, "veg_serves": req.veg_serves}
+        coverage = [
+            {
+                "nutrient": k, "required": round(v, 1), "provided": round(provided[k], 1),
+                "coverage_pct": round(100 * provided[k] / v) if v else 100, "met": provided[k] + 1e-6 >= v,
+            }
+            for k, v in required.items()
+        ]
         gaps = [
-            {"nutrient": k, "required": round(v, 1), "provided": round(provided[k], 1), "short_by": round(v - provided[k], 1)}
-            for k, v in required.items() if provided[k] + 1e-6 < v
+            {"nutrient": c["nutrient"], "required": c["required"], "provided": c["provided"],
+             "short_by": round(required[c["nutrient"]] - provided[c["nutrient"]], 1)}
+            for c in coverage if not c["met"]
         ]
         return {
             "adequate": not gaps,
             "provided": {k: round(v, 1) for k, v in provided.items()},
             "required": {k: round(v, 1) for k, v in required.items()},
+            "coverage": coverage,
             "gaps": gaps,
             "suggestions": [_gap_suggestion(g["nutrient"]) for g in gaps],
+            "targets": TARGETS_VERSION,
         }
 
     def supply_information(self, case: EscalationCase, question: str) -> str:
@@ -215,11 +226,13 @@ class NutritionComplianceAgent(Agent):
         key = (ingredient.name, restriction, self.llm.provider_name)
         if key not in _INGREDIENT_CACHE:
             result = self.think("assess_ingredient", {"product": product.name, "ingredient": ingredient.name, "restriction": restriction})
-            _INGREDIENT_CACHE[key] = result.data
+            # A real model may answer 85 for 85%; the verdict contract only accepts 0-1.
+            judgement = {**result.data, "confidence": min(max(float(result.data["confidence"]), 0.0), 1.0)}
+            _INGREDIENT_CACHE[key] = judgement
             self.log(
                 "assess_ingredient",
-                f"'{ingredient.name}' vs {restriction}: {result.data['risk']}",
-                rationale=result.data["reasoning"], confidence=result.data["confidence"], llm=result,
+                f"'{ingredient.name}' vs {restriction}: {judgement['risk']}",
+                rationale=judgement["reasoning"], confidence=judgement["confidence"], llm=result,
             )
         return _INGREDIENT_CACHE[key]
 
