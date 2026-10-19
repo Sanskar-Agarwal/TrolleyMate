@@ -8,8 +8,8 @@ exists the item is removed and the shopper is told.
 
 from __future__ import annotations
 
-from app.domain import Basket, BasketItem, Product, Substitution
-from app.domain.enums import BasketStatus, ItemCompliance, SubReason, SubStatus
+from app.domain import Basket, BasketItem, PriceQuote, Product, Substitution
+from app.domain.enums import BasketStatus, ItemCompliance, QuoteStatus, SubReason, SubStatus
 from app.services.catalogue import optimisable_products, product_tokens
 from app.services.dietary_rules import RESTRICTION_RULES
 from app.services.session_state import active_constraints, household_of
@@ -17,6 +17,24 @@ from app.services.session_state import active_constraints, household_of
 
 class SubstitutionError(ValueError):
     pass
+
+
+def item_flags(basket: Basket, quotes: dict[int, PriceQuote]) -> dict[int, list[str]]:
+    """System flags per basket item (Activity 7.2 "item flagged"): the reasons a substitute is due.
+    `quotes` maps quote id → the item's recorded quote; no feed refresh happens here."""
+    over = basket.budget is not None and basket.total > basket.budget + 1e-6
+    flags: dict[int, list[str]] = {}
+    for i in basket.items:
+        found = []
+        quote = quotes.get(i.quote_id)
+        if quote is not None and quote.status == QuoteStatus.unavailable:
+            found.append(SubReason.out_of_stock)
+        if over and not i.withheld:
+            found.append(SubReason.over_budget)
+        if i.withheld or i.compliance == ItemCompliance.violation:
+            found.append(SubReason.failed_review)
+        flags[i.id] = found
+    return flags
 
 
 def propose(agent, item: BasketItem, reason: str = SubReason.user_requested) -> Substitution:
