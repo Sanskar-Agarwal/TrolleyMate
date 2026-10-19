@@ -1,0 +1,258 @@
+{
+  "_comment": "Adversarial compliance fixtures (KAN-19, 1.2.10). Each case is one product screened against a household. members: name -> {restriction: severity}; request: restrictions stated in the shopping request. expect.status is the 8.4 classifyProduct() result; kinds/restrictions are the exact sets found; paths must each appear; applied is the exact merged restriction set. A case with 'pending' is specified but not implemented yet: it runs as a strict xfail until the named work lands.",
+  "ingredients": [
+    {"name": "rice flour", "tags": []},
+    {"name": "wheat flour", "tags": ["gluten", "wheat"]},
+    {"name": "corn", "tags": []},
+    {"name": "oats", "tags": []},
+    {"name": "salt", "tags": []},
+    {"name": "sugar", "tags": []},
+    {"name": "glucose syrup", "tags": []},
+    {"name": "maltodextrin", "tags": []},
+    {"name": "tapioca starch", "tags": []},
+    {"name": "cocoa mass", "tags": []},
+    {"name": "coconut oil", "tags": []},
+    {"name": "sunflower oil", "tags": []},
+    {"name": "coconut milk", "tags": []},
+    {"name": "basil", "tags": []},
+    {"name": "chilli", "tags": []},
+    {"name": "lemongrass", "tags": []},
+    {"name": "honey", "tags": ["honey"]},
+    {"name": "milk", "tags": ["milk", "lactose"]},
+    {"name": "lactose-free milk", "tags": ["milk"]},
+    {"name": "whey powder", "tags": ["milk", "lactose"]},
+    {"name": "casein", "tags": ["milk"]},
+    {"name": "gelatine", "tags": ["gelatine"]},
+    {"name": "pork gelatine", "tags": ["gelatine", "pork"]},
+    {"name": "pine nuts", "tags": ["tree_nuts"]},
+    {"name": "shrimp paste", "tags": ["shellfish"]},
+    {"name": "soybeans", "tags": ["soy"]},
+    {"name": "animal rennet", "tags": ["animal_rennet"]},
+    {"name": "natural flavours", "tags": [], "ambiguous": true},
+    {"name": "spices", "tags": [], "ambiguous": true},
+    {"name": "emulsifier (471)", "tags": [], "ambiguous": true},
+    {"name": "parmesan", "tags": ["milk"], "components": ["milk", "animal rennet", "salt"]},
+    {"name": "basil pesto", "tags": [], "components": ["basil", "pine nuts", "parmesan", "sunflower oil", "salt"]},
+    {"name": "red curry paste", "tags": [], "components": ["chilli", "lemongrass", "shrimp paste", "spices"]},
+    {"name": "red curry sauce", "tags": [], "components": ["red curry paste", "coconut milk"]},
+    {"name": "soy sauce", "tags": [], "components": ["soybeans", "wheat flour", "salt"]},
+    {"name": "stock powder", "tags": [], "components": ["salt", "maltodextrin", "spices"]},
+    {"name": "stock base", "tags": [], "components": ["flavour base"]},
+    {"name": "flavour base", "tags": [], "components": ["stock base"]},
+    {"name": "corrupt record", "tags": null}
+  ],
+  "cases": [
+    {
+      "id": "hidden-whey-in-crackers",
+      "category": "hidden_ingredient",
+      "about": "Dairy hidden under a technical name; nothing in the product name says milk.",
+      "product": {"name": "Sour Cream Rice Crackers", "ingredients": ["rice flour", "whey powder", "salt"]},
+      "members": {"Jamie": {"milk": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["milk"], "paths": ["whey powder"]}
+    },
+    {
+      "id": "hidden-casein-under-dairy-free-label",
+      "category": "hidden_ingredient",
+      "about": "The label claims dairy-free but the ingredient list has casein: ingredients win over labels.",
+      "product": {"name": "Dairy-Free Cheese Slices", "tags": ["dairy_free"], "ingredients": ["coconut oil", "casein", "tapioca starch"]},
+      "members": {"Jamie": {"milk": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["milk"], "paths": ["casein"]}
+    },
+    {
+      "id": "hidden-gelatine-in-lollies",
+      "category": "hidden_ingredient",
+      "about": "Animal gelatine in a sweet that reads as vegetarian.",
+      "product": {"name": "Fruit Jelly Lollies", "ingredients": ["sugar", "glucose syrup", "gelatine"]},
+      "members": {"Priya": {"vegetarian": "moderate"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["vegetarian"], "paths": ["gelatine"]}
+    },
+    {
+      "id": "hidden-e471-for-vegan",
+      "category": "hidden_ingredient",
+      "about": "E471 can be animal- or plant-derived; the label doesn't say which.",
+      "product": {"name": "Soft Bread Rolls", "ingredients": ["wheat flour", "emulsifier (471)", "salt"]},
+      "members": {"Priya": {"vegan": "moderate"}},
+      "expect": {"status": "uncertain", "kinds": ["ambiguous"], "restrictions": ["vegan"], "paths": ["emulsifier (471)"]}
+    },
+    {
+      "id": "hidden-natural-flavours-for-milk",
+      "category": "hidden_ingredient",
+      "about": "'Natural flavours' can be dairy-derived.",
+      "product": {"name": "Corn Chips", "ingredients": ["corn", "sunflower oil", "natural flavours", "salt"]},
+      "members": {"Jamie": {"milk": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["ambiguous"], "restrictions": ["milk"], "paths": ["natural flavours"]}
+    },
+    {
+      "id": "hidden-may-contain-severe-allergy",
+      "category": "hidden_ingredient",
+      "about": "Peanuts appear only in the 'may contain' statement; for a severe allergy that is enough to exclude.",
+      "product": {"name": "Honey Muesli Bar", "ingredients": ["oats", "honey", "sugar"], "may_contain": ["peanuts"]},
+      "members": {"Jamie": {"peanuts": "severe"}},
+      "expect": {"status": "violation", "kinds": ["may_contain"], "restrictions": ["peanuts"]}
+    },
+    {
+      "id": "name-says-milk-but-is-not-dairy",
+      "category": "hidden_ingredient",
+      "about": "The reverse trap: coconut milk is not dairy, so a name match alone must not exclude it.",
+      "product": {"name": "Coconut Milk 400ml", "ingredients": ["coconut milk"]},
+      "members": {"Jamie": {"milk": "severe"}},
+      "expect": {"status": "compliant", "kinds": [], "restrictions": []}
+    },
+    {
+      "id": "hidden-animal-rennet-in-parmesan",
+      "category": "hidden_ingredient",
+      "about": "Traditional parmesan is made with animal rennet, so it isn't vegetarian.",
+      "product": {"name": "Shaved Parmesan", "ingredients": ["parmesan"]},
+      "members": {"Priya": {"vegetarian": "moderate"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["vegetarian"], "paths": ["parmesan → animal rennet"]},
+      "pending": "Knowledge-base growth: the vegetarian and vegan rules don't cover animal rennet yet."
+    },
+    {
+      "id": "composite-pesto-two-allergens",
+      "category": "composite",
+      "about": "One composite ingredient carries two allergens at different depths; both are reported.",
+      "product": {"name": "Basil Pesto 190g", "ingredients": ["basil pesto"]},
+      "members": {"Jamie": {"tree_nuts": "severe"}, "Alex": {"milk": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["tree_nuts", "milk"],
+                 "paths": ["basil pesto → pine nuts", "basil pesto → parmesan"]}
+    },
+    {
+      "id": "composite-three-levels-shellfish",
+      "category": "composite",
+      "about": "Shellfish three levels down: sauce → curry paste → shrimp paste.",
+      "product": {"name": "Thai Red Curry Simmer Sauce", "ingredients": ["red curry sauce"]},
+      "members": {"Jamie": {"shellfish": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["shellfish"],
+                 "paths": ["red curry sauce → red curry paste → shrimp paste"]}
+    },
+    {
+      "id": "composite-soy-sauce-gluten",
+      "category": "composite",
+      "about": "Soy sauce is brewed with wheat, which a coeliac must avoid.",
+      "product": {"name": "Teriyaki Marinade", "ingredients": ["soy sauce", "sugar"]},
+      "members": {"Sam": {"gluten": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["gluten"], "paths": ["soy sauce → wheat flour"]}
+    },
+    {
+      "id": "composite-ambiguous-term-inside",
+      "category": "composite",
+      "about": "A vague term nested inside a composite still gets judged.",
+      "product": {"name": "Chicken-Style Stock Powder", "ingredients": ["stock powder"]},
+      "members": {"Sam": {"gluten": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["ambiguous"], "restrictions": ["gluten"], "paths": ["stock powder → spices"]}
+    },
+    {
+      "id": "composite-cycle-is-corrupt-data",
+      "category": "composite",
+      "about": "A composite that contains itself can't be real food: the record is corrupt, so safety can't be confirmed.",
+      "product": {"name": "Gravy Granules", "ingredients": ["stock base"]},
+      "members": {"Jamie": {"milk": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": []},
+      "pending": "R02 / KAN-20: treat cyclic composition as corrupt metadata (UC-06 failure scenario)."
+    },
+    {
+      "id": "missing-ingredient-list",
+      "category": "missing_information",
+      "about": "The retailer feed has no ingredient list.",
+      "product": {"name": "Value Fish Fingers", "ingredients": [], "data_complete": false},
+      "members": {"Jamie": {"peanuts": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["missing_data"], "restrictions": []}
+    },
+    {
+      "id": "missing-list-does-not-hide-known-conflict",
+      "category": "missing_information",
+      "about": "Part of the list is missing, but what is there already conflicts: a known violation outranks uncertainty.",
+      "product": {"name": "Crumbed Fish Fillets", "ingredients": ["wheat flour"], "data_complete": false},
+      "members": {"Sam": {"gluten": "severe"}},
+      "expect": {"status": "violation", "kinds": ["missing_data", "contains"], "restrictions": ["gluten"], "paths": ["wheat flour"]}
+    },
+    {
+      "id": "missing-precautionary-label-intolerance",
+      "category": "missing_information",
+      "about": "'May contain' for an intolerance: exposure can't be confirmed either way, so it is uncertain rather than excluded.",
+      "product": {"name": "Dark Chocolate 70%", "ingredients": ["cocoa mass", "sugar"], "may_contain": ["lactose"]},
+      "members": {"Alex": {"lactose": "moderate"}},
+      "expect": {"status": "uncertain", "kinds": ["may_contain"], "restrictions": ["lactose"]}
+    },
+    {
+      "id": "missing-empty-list-marked-complete",
+      "category": "missing_information",
+      "about": "The feed claims the data is complete but lists no ingredients: no evidence is not evidence of safety.",
+      "product": {"name": "Mystery Snack Mix", "ingredients": []},
+      "members": {"Jamie": {"peanuts": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["missing_data"], "restrictions": []},
+      "pending": "R02 / KAN-20: an empty ingredient list must count as missing evidence."
+    },
+    {
+      "id": "missing-corrupt-ingredient-record",
+      "category": "missing_information",
+      "about": "An ingredient record whose tags can't be read (UC-06 failure scenario): lock it out as uncertain, don't crash.",
+      "product": {"name": "Imported Biscuits", "ingredients": ["wheat flour", "corrupt record"]},
+      "members": {"Jamie": {"milk": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": []},
+      "pending": "R02 / KAN-20: unreadable ingredient metadata must produce a data_error finding instead of an exception."
+    },
+    {
+      "id": "conflict-severity-across-members",
+      "category": "conflicting_restrictions",
+      "about": "Two members hold the same allergy at different severities; the strictest applies.",
+      "product": {"name": "Honey Muesli Bar", "ingredients": ["oats", "honey", "sugar"], "may_contain": ["peanuts"]},
+      "members": {"Jamie": {"peanuts": "severe"}, "Sam": {"peanuts": "mild"}},
+      "expect": {"status": "violation", "kinds": ["may_contain"], "restrictions": ["peanuts"], "applied": {"peanuts": "severe"}}
+    },
+    {
+      "id": "conflict-request-tries-to-relax-household",
+      "category": "conflicting_restrictions",
+      "about": "The request states a milder severity than the household profile; a request can't weaken a mandatory restriction.",
+      "product": {"name": "Plain Biscuits", "ingredients": ["wheat flour", "sugar"], "may_contain": ["milk"]},
+      "members": {"Alex": {"milk": "severe"}},
+      "request": {"milk": "mild"},
+      "expect": {"status": "violation", "kinds": ["may_contain"], "restrictions": ["milk"], "applied": {"milk": "severe"}}
+    },
+    {
+      "id": "conflict-vegan-and-halal-members",
+      "category": "conflicting_restrictions",
+      "about": "Different diets in one household combine; pork gelatine breaks both.",
+      "product": {"name": "Gummy Bears", "ingredients": ["sugar", "pork gelatine"]},
+      "members": {"Priya": {"vegan": "moderate"}, "Omar": {"halal": "moderate"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["vegan", "halal"], "paths": ["pork gelatine"],
+                 "applied": {"vegan": "moderate", "halal": "moderate"}}
+    },
+    {
+      "id": "conflict-lactose-free-is-still-milk",
+      "category": "conflicting_restrictions",
+      "about": "Overlapping rules: lactose-free milk satisfies the intolerance but not the milk-protein allergy.",
+      "product": {"name": "Lactose-Free Milk 1L", "ingredients": ["lactose-free milk"]},
+      "members": {"Alex": {"lactose": "moderate"}, "Jamie": {"milk": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["milk"], "paths": ["lactose-free milk"],
+                 "applied": {"lactose": "moderate", "milk": "severe"}}
+    },
+    {
+      "id": "conflict-aliases-collapse",
+      "category": "conflicting_restrictions",
+      "about": "'coeliac' in the profile and 'gluten free' in the request are one rule, kept at the stricter severity.",
+      "product": {"name": "Teriyaki Marinade", "ingredients": ["soy sauce", "sugar"]},
+      "members": {"Sam": {"coeliac": "severe"}},
+      "request": {"gluten free": "moderate"},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["gluten"], "paths": ["soy sauce → wheat flour"],
+                 "applied": {"gluten": "severe"}}
+    },
+    {
+      "id": "conflict-preference-does-not-weaken-allergy",
+      "category": "conflicting_restrictions",
+      "about": "One member merely dislikes nuts, another is allergic; the dislike must not downgrade the allergy.",
+      "product": {"name": "Basil Pesto 190g", "ingredients": ["basil pesto"]},
+      "members": {"Riley": {"tree_nuts": "preference"}, "Jamie": {"tree_nuts": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["tree_nuts"], "paths": ["basil pesto → pine nuts"],
+                 "applied": {"tree_nuts": "severe"}}
+    },
+    {
+      "id": "conflict-preference-alone-is-not-mandatory",
+      "category": "conflicting_restrictions",
+      "about": "A preference on its own is ranked by preference memory (1.2.12), not enforced by compliance.",
+      "product": {"name": "Basil Pesto 190g", "ingredients": ["basil pesto"]},
+      "members": {"Riley": {"tree_nuts": "preference"}},
+      "expect": {"status": "compliant", "kinds": [], "restrictions": [], "applied": {}}
+    }
+  ]
+}
