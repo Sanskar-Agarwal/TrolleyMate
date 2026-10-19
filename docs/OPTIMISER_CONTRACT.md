@@ -24,28 +24,31 @@ Derived from a confirmed `ConstraintSet` by `Requirements.from_constraints(cs, d
 | `household_size` | people | `household_size`, default 1 |
 | `days`, `meals_per_day` | horizon | `days` (default 7), `meals_per_day` (default 2) |
 | `budget` | dollars, or `None` = uncapped | `budget` |
-| `person_meals`, `main_meals`, `breakfast_meals` | meal counts | size × days × meals per day; mains = size × days × min(meals per day, 2); breakfasts = size × days when meals per day ≥ 3, else 0 |
+| `portions` | adult-equivalent eaters (a child ≈ 0.6) | `portions`, default `household_size` |
+| `person_meals`, `main_meals`, `breakfast_meals` | meal counts | ⌈`meal_schedule(days, meals_per_day)` × portions⌉ |
 | `kcal` | minimum energy | 550 × person-meals |
-| `protein_g` | minimum protein | max(22 g × main meals, any `nutritional_targets` protein minimum × size × days) |
+| `protein_g` | minimum protein | max(22 g × main meals, any `nutritional_targets` protein minimum × portions × days) |
 | `veg_serves` | minimum veg | 2 × main meals |
 | `protein_servings`, `carb_servings` | role servings | 1 per main meal each |
 | `breakfast_servings` | breakfast-tagged servings | ⌈1.6 × breakfasts⌉ |
+| `extra_minimums` | other nutrient targets (e.g. `fibre_g`) as basket totals | `nutritional_targets` × portions × days; kcal/veg targets raise the defaults instead |
 
 ### `Candidate` — one purchasable product
 
 `product`, `retailer`, `price` (pack price at the cheapest fresh quote), `quote_id`, `unit_price`,
 `unit_basis`, `compliance` (`compliant` | `uncertain`), `on_special`. The role is the product category
-when it is `protein`, `carb` or `veg`; `role_units` is servings (veg: `veg_serves`).
+when it is `protein`, `carb` or `veg` **and** the category or a tag is an ingredient of some main recipe
+(`seed/recipes.json`), so breakfast oats never count as dinner carbs; `role_units` is servings (veg: `veg_serves`).
 
-Candidates are **already screened**: `basket_builder` removes products with a dietary/allergen violation
-before they reach the solver, and the solver drops any candidate priced ≤ 0. Dietary rules are therefore not
+Candidates are **already screened**: products with a dietary/allergen violation never reach the solver,
+and any candidate marked `violation`, unpriced or priced ≤ 0 is dropped. Dietary rules are therefore not
 solver constraints and no goal weight can trade them away.
 
 ### Keyword arguments
 
 | Argument | Used by | Meaning |
 |---|---|---|
-| `min_qty` / `max_qty` `{product_id: packs}` | UC-09 editing | Hard pins on pack counts. The caller must pass non-negative whole numbers with min ≤ max, for products in the pool; the solver does not validate them, so a bad pin comes back as `No basket satisfies every constraint.` |
+| `min_qty` / `max_qty` `{product_id: packs}` | UC-09 editing | Hard pins; non-negative whole numbers, min ≤ max, a required product must be in the pool |
 | `prefer` `{product_id}` | editing, preferences | Small objective discount so an edit doesn't reshuffle the basket |
 | `enforce_budget=False` | UC-03 | Drops the budget row to price the cheapest way to meet everything else |
 
@@ -70,8 +73,10 @@ Modifiers on every goal: a `prefer`red product gets −(8 % × |k| + 0.01); an `
 |---|---|
 | Budget | Σ price × packs ≤ budget (skipped when `budget is None` or `enforce_budget=False`) |
 | Energy / protein / veg | Σ kcal ≥ `kcal`; Σ protein_g ≥ `protein_g`; Σ veg_serves ≥ `veg_serves` |
-| Role servings | protein servings ≥ `protein_servings`; carb ≥ `carb_servings`; breakfast-tagged ≥ `breakfast_servings` |
-| Variety (food group) | when a role needs > 4 units, one `substitution_group` supplies ≤ 40 % protein / 50 % carb / 40 % veg (but at least one pack) |
+| Extra nutrients | Σ nutrient ≥ each `extra_minimums` value |
+| Role servings | protein servings ≥ `protein_servings`; carb ≥ `carb_servings`; breakfast-tagged non-role items ≥ `breakfast_servings` |
+| Breakfast sides | non-role breakfast-side items (breakfast, fruit, dairy, milk drink, yoghurt) ≥ 2 × breakfasts; with breakfasts, protein + carb + side servings ≥ the sum of all three needs, so bread and eggs count once |
+| Variety (food group) | when a role needs > 4 units, one `substitution_group` supplies ≤ 40 % protein / 50 % carb / 40 % veg (but at least one pack, and never less than a pinned `min_qty`) |
 | Variety (product) | per-product upper bound ⌈35 % × need / role units⌉ when need > 4, else ⌈need / role units⌉; non-role items ≤ 2 |
 | Integrality | packs are whole numbers ≥ 0 (or ≥ `min_qty`) |
 | Time limit | `SOLVER_TIMEOUT_MS` (default 5000) via HiGHS |
@@ -99,6 +104,7 @@ Requirements are evaluated **after** `strategy.adjust`.
 | `No basket satisfies every constraint.` | false | genuinely infeasible → UC-03 negotiation |
 | `Timed out before finding a basket.` | **true** | **not** proof of infeasibility (UC-02 ext 2b/3b) → report the timeout and offer a retry; never start negotiation |
 | `No priced, compliant products to choose from.` | false | data failure → report missing data |
+| `A required product is unavailable or excluded.` / `Product quantities must be non-negative whole numbers.` / `Minimum quantity exceeds the maximum for a product.` | false | invalid pins from an edit → reject the edit, keep the basket |
 
 ## 5. Infeasible-result schema (handed to UC-03)
 
@@ -131,7 +137,7 @@ When the confirmed request is infeasible, `workflows/negotiation.analyse` return
 
 ## 6. Fixtures and known answers
 
-One retailer, six products, one person, two main meals: kcal 1100, protein 44 g, veg 4 serves, 2 protein and
+One retailer, six products (each tagged with its recipe ingredient, so it fills its role), one person, two main meals: kcal 1100, protein 44 g, veg 4 serves, 2 protein and
 2 carb servings. Every need is ≤ 4, so variety caps are inactive and each pack's upper bound is 1.
 
 | Product | Role | Price | kcal | Protein g | Veg serves |

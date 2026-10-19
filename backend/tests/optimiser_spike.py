@@ -49,7 +49,8 @@ def load_cases() -> list[Case]:
     candidates = []
     for p in data["products"]:
         fields = {k: v for k, v in p.items() if k != "price"}
-        product = Product(tags=[], may_contain=[], shelf_life_days=7, data_complete=True, pack_size=500, unit="g", **fields)
+        # Tags name the recipe ingredient, which makes the product count towards its role (Candidate.role).
+        product = Product(may_contain=[], shelf_life_days=7, data_complete=True, pack_size=500, unit="g", **fields)
         candidates.append(Candidate(product, retailer, p["price"], quote_id=p["id"]))
     cases = []
     for c in data["cases"]:

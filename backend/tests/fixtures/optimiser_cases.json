@@ -2,17 +2,17 @@
   "_comment": "Deterministic small-catalogue optimiser fixtures (P01, 1.2.2/1.2.4 interfaces). See docs/OPTIMISER_CONTRACT.md. Every role need is <= 4, so variety caps are inactive and each pack's upper bound is 1: the answers can be checked by hand. nutrition is per pack. expect.items maps sku -> packs; min_budget is the uncapped Lowest Cost total under the goal's own requirements, rounded up to the cent.",
   "retailer": {"id": 1, "name": "Spike Mart"},
   "products": [
-    {"id": 1, "sku": "SPK-CHICKEN", "name": "Chicken thigh 500 g", "category": "protein", "servings": 2, "price": 6.00,
+    {"id": 1, "sku": "SPK-CHICKEN", "tags": ["chicken"], "name": "Chicken thigh 500 g", "category": "protein", "servings": 2, "price": 6.00,
      "nutrition": {"kcal": 600, "protein_g": 50, "veg_serves": 0, "fibre_g": 0}, "substitution_group": "poultry", "perishable": true, "prep_minutes_per_serving": 15},
-    {"id": 2, "sku": "SPK-LENTIL", "name": "Brown lentils 400 g", "category": "protein", "servings": 2, "price": 2.00,
+    {"id": 2, "sku": "SPK-LENTIL", "tags": ["lentils"], "name": "Brown lentils 400 g", "category": "protein", "servings": 2, "price": 2.00,
      "nutrition": {"kcal": 400, "protein_g": 18, "veg_serves": 0, "fibre_g": 12}, "substitution_group": "legumes", "perishable": false, "prep_minutes_per_serving": 5},
-    {"id": 3, "sku": "SPK-RICE", "name": "Long-grain rice 500 g", "category": "carb", "servings": 4, "price": 3.50,
+    {"id": 3, "sku": "SPK-RICE", "tags": ["rice"], "name": "Long-grain rice 500 g", "category": "carb", "servings": 4, "price": 3.50,
      "nutrition": {"kcal": 1400, "protein_g": 25, "veg_serves": 0, "fibre_g": 3}, "substitution_group": "rice", "perishable": false, "prep_minutes_per_serving": 12},
-    {"id": 4, "sku": "SPK-PASTA", "name": "Penne 500 g", "category": "carb", "servings": 4, "price": 2.00,
+    {"id": 4, "sku": "SPK-PASTA", "tags": ["pasta"], "name": "Penne 500 g", "category": "carb", "servings": 4, "price": 2.00,
      "nutrition": {"kcal": 1400, "protein_g": 20, "veg_serves": 0, "fibre_g": 6}, "substitution_group": "pasta", "perishable": false, "prep_minutes_per_serving": 10},
-    {"id": 5, "sku": "SPK-BROCCOLI", "name": "Broccoli 500 g", "category": "veg", "servings": 4, "price": 3.00,
+    {"id": 5, "sku": "SPK-BROCCOLI", "tags": ["broccoli"], "name": "Broccoli 500 g", "category": "veg", "servings": 4, "price": 3.00,
      "nutrition": {"kcal": 120, "protein_g": 10, "veg_serves": 4, "fibre_g": 9}, "substitution_group": "brassica", "perishable": true, "prep_minutes_per_serving": 5},
-    {"id": 6, "sku": "SPK-CARROT", "name": "Carrots 500 g", "category": "veg", "servings": 4, "price": 2.00,
+    {"id": 6, "sku": "SPK-CARROT", "tags": ["carrot"], "name": "Carrots 500 g", "category": "veg", "servings": 4, "price": 2.00,
      "nutrition": {"kcal": 100, "protein_g": 3, "veg_serves": 4, "fibre_g": 8}, "substitution_group": "root", "perishable": true, "prep_minutes_per_serving": 5}
   ],
   "requirements": {
