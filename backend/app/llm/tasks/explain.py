@@ -9,8 +9,9 @@ from app.llm.tasks._base import Task
 SYSTEM = """You are the AI Technical Manager of Trolley Mate. Explain a grocery
 recommendation to the shopper in plain, friendly language (3-5 short sentences).
 Use ONLY the facts provided. Do not add reasons, prices or claims that are not in
-the facts. If a fact needed for an explanation is missing, say that part of the
-reasoning is unavailable. No markdown headings."""
+the facts. If a fact needed for an explanation is missing, or `evidence_missing`
+lists anything, say plainly that part of the reasoning is unavailable — never guess
+it. When a safety `verdict` is given, mention its outcome. No markdown headings."""
 
 
 def build_user(ctx: dict) -> str:
@@ -27,6 +28,7 @@ def mock(ctx: dict) -> str:
             parts.append(f"Dietary check: {f['compliance']}.")
         if f.get("alternatives"):
             parts.append("Cheaper or similar options considered: " + ", ".join(f["alternatives"][:3]) + ".")
+        parts.extend(_missing(f))
         return " ".join(parts)
 
     goal = (f.get("strategy") or f.get("goal", "balanced").replace("_", " ")).lower()
@@ -43,7 +45,25 @@ def mock(ctx: dict) -> str:
         parts.append(f"{len(f['excluded'])} products were excluded for dietary reasons, e.g. {f['excluded'][0]}.")
     if f.get("withheld"):
         parts.append(f"{', '.join(f['withheld'])} is held back until a dietitian confirms it is safe.")
+    verdict = f.get("verdict")
+    if verdict:
+        parts.append(f"The latest safety check was {verdict['status']} ({round(verdict['confidence'] * 100)}% confidence).")
+    parts.extend(_missing(f))
     return " ".join(parts)
+
+
+_MISSING_LABELS = {
+    "constraints": "the confirmed constraints", "prices": "the price quotes", "price": "the price quote",
+    "verdict": "the safety verdict", "compliance": "the safety check", "tools": "the optimiser results",
+    "audit_trail": "the agent decision log",
+}
+
+
+def _missing(f: dict) -> list[str]:
+    missing = [_MISSING_LABELS.get(k, k) for k in f.get("evidence_missing") or []]
+    if not missing:
+        return []
+    return [f"No record of {', '.join(missing)} is available, so that part of the reasoning can't be shown."]
 
 
 TASK = Task(name="explain", system=SYSTEM, build_user=build_user, mock=mock)
