@@ -83,6 +83,7 @@ export interface BasketItem {
   compliance: "compliant" | "violation" | "uncertain" | "unchecked";
   withheld: boolean;
   rationale: string;
+  flags: ("out_of_stock" | "over_budget" | "failed_review")[];
 }
 
 export interface Nutrition {
@@ -234,7 +235,7 @@ export interface Substitution {
   status: "pending" | "accepted" | "rejected" | "discarded";
   reason: string;
   trade_off: string;
-  facts: { saving?: number; notes?: string[]; retailer?: string; unit_price?: number; unit_basis?: string };
+  facts: { saving?: number; notes?: string[]; retailer?: string; unit_price?: number; unit_basis?: string; no_alternative?: boolean };
   basket_item_id: number;
   original: { id: number; name: string };
   replacement: { id: number; name: string } | null;
