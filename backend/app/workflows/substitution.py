@@ -3,7 +3,8 @@ State machine 9.2). Owner: Negotiation & Substitution.
 
 Candidates are compliance-checked before the shopper ever sees them. A declined
 swap is remembered for the session so it isn't offered again. If nothing viable
-exists the item is removed and the shopper is told.
+exists the shopper is told, and an item that can't stay (out of stock, failed
+review) is removed. A swap is applied only on acceptance, after a fresh safety check.
 """
 
 from __future__ import annotations
@@ -129,13 +130,32 @@ def propose(agent, item: BasketItem, reason: str = SubReason.user_requested) -> 
 
 
 def accept(agent, sub: Substitution) -> Basket:
+    """Apply the swap. Restrictions can change while a swap waits, so the replacement is screened
+    again; if it is no longer safe the swap is discarded and the original stays."""
     if sub.status != SubStatus.pending or sub.replacement_product_id is None:
         raise SubstitutionError("This substitution is no longer pending.")
     db = agent.db
     item = db.get(BasketItem, sub.basket_item_id)
     if item is None:
         raise SubstitutionError("The basket item no longer exists.")
+    if item.product_id != sub.original_product_id:
+        raise SubstitutionError("This item has changed since the swap was offered. Ask for a new substitute.")
     replacement = db.get(Product, sub.replacement_product_id)
+    from app.domain import ShoppingSession
+
+    session = db.get(ShoppingSession, sub.session_id)
+    household = household_of(db, session)
+    payload = (active_constraints(db, session).payload if session.active_constraint_set_id else {})
+    restrictions = agent.ctx.compliance.restrictions_for(household, payload)
+    finding = agent.ctx.compliance.screen_product(replacement, restrictions, household.id)
+    if finding.status != ItemCompliance.compliant:
+        sub.status = SubStatus.discarded
+        sub.trade_off = f"{replacement.name} no longer fits your household's dietary rules, so {item.product.name} stays."
+        sub.facts = {**sub.facts, "unsafe_on_accept": finding.as_dict()}
+        db.flush()
+        agent.log("discard_substitution", f"Withdrawn: {replacement.name} failed the re-check at acceptance",
+                  rationale=sub.trade_off, basket_id=item.basket_id, session_id=sub.session_id)
+        return item.basket
     item.product_id, item.retailer_id = replacement.id, sub.replacement_retailer_id
     item.quote_id = sub.facts.get("quote_id")
     item.pack_price = sub.replacement_price
