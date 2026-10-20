@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
-from app.domain.enums import QuoteStatus
+from app.domain.enums import QuoteSource, QuoteStatus
 
 
 class Retailer(Base):
@@ -36,6 +36,8 @@ class PriceQuote(Base):
     on_special: Mapped[bool] = mapped_column(Boolean, default=False)
     captured_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     status: Mapped[str] = mapped_column(String(20), default=QuoteStatus.fresh)
+    # Provenance tag — synthetic | recorded | live (KAN-13 acceptance criteria).
+    source_type: Mapped[str] = mapped_column(String(20), default=QuoteSource.synthetic)
     superseded_by_id: Mapped[int | None] = mapped_column(Integer, default=None)
     unavailable_reason: Mapped[str | None] = mapped_column(String(200), default=None)
 

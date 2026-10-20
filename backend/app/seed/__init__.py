@@ -31,7 +31,7 @@ from app.domain import (
     Retailer,
     User,
 )
-from app.domain.enums import QuoteStatus, RestrictionKind, Severity, UserRole
+from app.domain.enums import QuoteSource, QuoteStatus, RestrictionKind, Severity, UserRole
 from app.services.pricing.normalisation import normalise
 from app.services.pricing.price_sources import retailer_price
 
@@ -146,19 +146,22 @@ def _seed_prices(db: Session, catalogue: dict, products: dict, retailers: dict[s
             special_price = (
                 retailer_price(product.sku, product.category, special["price"], name, "special") if special else None
             )
+            # Current quotes from partner_api retailers simulate a live feed;
+            # catalogue-sourced quotes are synthetic seed data (KAN-13).
+            current_source = QuoteSource.live if retailer.source == "partner_api" else QuoteSource.synthetic
             history: list[PriceQuote] = []
             for week in range(HISTORY_WEEKS, 0, -1):
                 week_start = datetime.combine(today - timedelta(days=today.weekday() + 7 * week), datetime.min.time())
-                history.append(_quote(product, retailer, regular, week_start + timedelta(hours=8), False))
+                history.append(_quote(product, retailer, regular, week_start + timedelta(hours=8), False, QuoteSource.recorded))
                 if special:
                     day = week_start + timedelta(days=special["weekday"], hours=7)
-                    history.append(_quote(product, retailer, special_price, day, True))
-                    history.append(_quote(product, retailer, regular, day + timedelta(days=1), False))
+                    history.append(_quote(product, retailer, special_price, day, True, QuoteSource.recorded))
+                    history.append(_quote(product, retailer, regular, day + timedelta(days=1), False, QuoteSource.recorded))
 
             special_today = bool(special) and special["weekday"] == today.weekday()
             current_price = special_price if special_today else regular
             captured = now - timedelta(hours=30 if name == STALE_RETAILER else 2)
-            current = _quote(product, retailer, current_price, captured, special_today)
+            current = _quote(product, retailer, current_price, captured, special_today, current_source)
             history.sort(key=lambda q: q.captured_at)
             db.add_all(history + [current])
             db.flush()
@@ -167,10 +170,14 @@ def _seed_prices(db: Session, catalogue: dict, products: dict, retailers: dict[s
             current.status = QuoteStatus.stale if name == STALE_RETAILER else QuoteStatus.fresh
 
 
-def _quote(product: Product, retailer: Retailer, price: float, at: datetime, on_special: bool) -> PriceQuote:
+def _quote(
+    product: Product, retailer: Retailer, price: float, at: datetime, on_special: bool,
+    source_type: str = QuoteSource.synthetic,
+) -> PriceQuote:
     unit = normalise(price, product.pack_size, product.unit)
     return PriceQuote(
         product_id=product.id, retailer_id=retailer.id, price=price,
         unit_price=unit.value if unit else None, unit_basis=unit.basis if unit else "",
         on_special=on_special, captured_at=at, status=QuoteStatus.fresh,
+        source_type=source_type,
     )

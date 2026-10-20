@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trolleymate/product-catalogue/1.0.0",
+  "title": "TrolleyMate Product Catalogue",
+  "description": "Shared data contract for product and pricing data between TrolleyMate and retail partners (KAN-13, requirements 1.2.7 and 1.2.8). Schema version 1.0.0.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "retailers", "ingredients", "products"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this catalogue schema."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date when this catalogue snapshot was generated."
+    },
+    "data_provenance": {
+      "type": "string",
+      "enum": ["synthetic", "recorded", "live"],
+      "description": "Overall provenance of this catalogue file."
+    },
+    "retailers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "region", "source"],
+        "properties": {
+          "name":   { "type": "string", "maxLength": 80 },
+          "region": { "type": "string", "maxLength": 80 },
+          "source": { "type": "string", "enum": ["catalogue", "partner_api"] },
+          "multipliers": {
+            "type": "object",
+            "description": "Category-keyed price multipliers applied to base_price.",
+            "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":      { "type": "string", "maxLength": 120 },
+          "tags":      { "type": "array", "items": { "type": "string" } },
+          "ambiguous": { "type": "boolean", "default": false },
+          "components": {
+            "type": "array",
+            "description": "Constituent ingredient names (composite expansion for allergen cascade).",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "products": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/product" }
+    }
+  },
+  "$defs": {
+    "product": {
+      "type": "object",
+      "required": ["sku", "name", "category", "pack_size", "unit", "servings", "nutrition", "base_price"],
+      "properties": {
+        "sku":        { "type": "string", "maxLength": 40, "description": "Unique product identifier, e.g. PRO-CHB-500." },
+        "name":       { "type": "string", "maxLength": 160 },
+        "brand":      { "type": "string", "maxLength": 80, "default": "" },
+        "category":   { "type": "string", "enum": ["protein", "carb", "veg", "dairy", "fruit", "pantry", "snack"] },
+        "pack_size":  { "type": "number", "exclusiveMinimum": 0, "description": "Numeric quantity in the declared unit." },
+        "unit":       { "type": "string", "enum": ["g", "ml", "each"] },
+        "servings":   { "type": "number", "exclusiveMinimum": 0 },
+        "nutrition": {
+          "type": "object",
+          "description": "Per-pack nutrition. All fields may be null when data_complete is false.",
+          "required": ["kcal", "protein_g", "carbs_g", "fat_g", "fibre_g", "veg_serves"],
+          "properties": {
+            "kcal":       { "type": ["number", "null"], "minimum": 0 },
+            "protein_g":  { "type": ["number", "null"], "minimum": 0 },
+            "carbs_g":    { "type": ["number", "null"], "minimum": 0 },
+            "fat_g":      { "type": ["number", "null"], "minimum": 0 },
+            "fibre_g":    { "type": ["number", "null"], "minimum": 0 },
+            "veg_serves": { "type": ["number", "null"], "minimum": 0 }
+          }
+        },
+        "tags":        { "type": "array", "items": { "type": "string" }, "default": [] },
+        "may_contain": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "ingredients": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "perishable":  { "type": "boolean", "default": false },
+        "shelf_life_days": { "type": "integer", "minimum": 0, "default": 30 },
+        "prep_minutes_per_serving": { "type": "number", "minimum": 0, "default": 5 },
+        "substitution_group": { "type": "string", "maxLength": 40, "default": "" },
+        "data_complete": {
+          "type": "boolean", "default": true,
+          "description": "False when the retailer feed is missing the ingredient list or nutrition panel."
+        },
+        "base_price": { "type": "number", "exclusiveMinimum": 0, "description": "Base price AUD before retailer multipliers." },
+        "unavailable_at": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Retailer names where this product is not listed or is out of stock.",
+          "default": []
+        },
+        "special": {
+          "type": "object",
+          "description": "Weekly special pricing pattern.",
+          "required": ["weekday", "price"],
+          "properties": {
+            "weekday": { "type": "integer", "minimum": 0, "maximum": 6, "description": "ISO weekday (0=Monday)." },
+            "price":   { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "_edge_case": {
+          "type": "string",
+          "description": "Human-readable note describing why this product is a test fixture."
+        }
+      }
+    }
+  }
+}

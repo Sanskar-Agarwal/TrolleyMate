@@ -177,7 +177,8 @@ class NutritionComplianceAgent(Agent):
         for item in b.items:
             if not item.withheld:
                 for k in provided:
-                    provided[k] += float(item.product.nutrition.get(k, 0)) * item.quantity
+                    val = item.product.nutrition.get(k, 0)
+                    provided[k] += float(val if val is not None else 0) * item.quantity
         required = {"kcal": req.kcal, "protein_g": req.protein_g, "veg_serves": req.veg_serves}
         coverage = [
             {
