@@ -281,10 +281,24 @@ export interface TimingAdvice {
   confidence?: number;
 }
 
+/** The recorded inputs an explanation cites (KAN-27). Missing kinds are listed, never filled in. */
+export interface ExplanationEvidence {
+  constraints?: { version: number; budget: number | null; days: number | null; meals_per_day: number | null; household_size: number | null; restrictions: string[] } | null;
+  prices?: { item: string; retailer: string; price: number; quote_id: number; captured_at: string; source: string | null }[] | null;
+  unpriced_items?: string[];
+  verdict?: { id: number; status: string; confidence: number; source: string } | null;
+  tools?: { solver: Record<string, number> | null; solver_ms: number | null } | null;
+  audit_trail?: { id: number; agent: string; action: string }[] | null;
+  price?: { retailer: string; price: number; quote_id: number; captured_at: string } | null;
+  compliance?: { status: string; confidence: number; findings: string[] } | null;
+  missing: string[];
+}
+
 export interface Explanation {
   available: boolean;
   text: string;
   facts: Record<string, unknown> | null;
+  evidence: ExplanationEvidence | null;
 }
 
 export interface HouseholdMember {
