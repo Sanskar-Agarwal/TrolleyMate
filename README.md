@@ -10,6 +10,7 @@ a registered dietitian in the loop for anything the AI can't confirm.
 - **Architecture:** Supervisor–Worker agents with deterministic services and a human approval gate — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Team split & git workflow:** [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md)
 - **Demo walkthrough:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+- **CI and container releases:** [docs/CI_CD.md](docs/CI_CD.md)
 
 ## Quick start
 
@@ -40,13 +41,30 @@ Open http://localhost:5173 and click a demo account (password `demo1234` for all
 
 API docs: http://localhost:8000/docs
 
-**Docker (one container, what we'll use at the demo)**
+**Docker (build locally)**
 
 ```bash
 docker compose up --build
 ```
 
 Then open http://localhost:8000.
+
+**Ready-to-run Docker image**
+
+After a successful publish job on `main`, the image is available from GitHub Container
+Registry. Check the [CI workflow](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/workflows/ci.yml)
+for publication status; adding the workflow does not itself publish an image.
+
+```bash
+docker pull --platform linux/amd64 ghcr.io/rkn321/elec5620-group5-trolleymate:latest
+docker run --detach --name trolleymate --platform linux/amd64 --publish 127.0.0.1:8000:8000 --env LLM_PROVIDER=mock --volume trolleymate-data:/data ghcr.io/rkn321/elec5620-group5-trolleymate:latest
+```
+
+Open http://localhost:8000. This runs the demo locally with persistent data and no LLM key.
+Published images target `linux/amd64`; Apple Silicon and other ARM64 machines need amd64
+emulation, or can use the local Compose build above. Private packages require a GitHub login.
+See [CI and container releases](docs/CI_CD.md) for authentication, pinned versions, updates
+and rollback. The pipeline publishes an image; hosting is a separate step.
 
 ## Connecting a real LLM
 
