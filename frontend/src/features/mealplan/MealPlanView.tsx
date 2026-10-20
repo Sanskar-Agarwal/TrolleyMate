@@ -7,6 +7,7 @@ export default function MealPlanView() {
   const { state, run, busy, setView } = useShop();
   const basket = state!.basket!;
   const plan = state!.meal_plan;
+  const planning = busy === "Planning meals from your basket";
   const generate = () =>
     run("Planning meals from your basket", () => mealPlans.generate(basket.id), {
       toast: (r) => [`Meal plan ready: ${r.meal_plan.planned} of ${r.meal_plan.requested} meals`],
@@ -36,7 +37,7 @@ export default function MealPlanView() {
         </p>
         <div className="row">
           <button className="btn btn-primary" onClick={generate} disabled={!!busy}>
-            Plan my meals
+            {planning ? "Planning meals…" : "Plan my meals"}
           </button>
         </div>
       </div>
@@ -44,7 +45,7 @@ export default function MealPlanView() {
   }
 
   return (
-    <div className="stack" style={{ "--gap": "18px" } as React.CSSProperties}>
+    <div className="stack meal-plan" style={{ "--gap": "18px" } as React.CSSProperties}>
       <div className="spread">
         <div className="stack" style={{ "--gap": "4px" } as React.CSSProperties}>
           <span className="eyebrow">Meal plan</span>
@@ -53,19 +54,28 @@ export default function MealPlanView() {
           </h2>
         </div>
         <button className="btn btn-sm" onClick={generate} disabled={!!busy}>
-          Re-plan
+          {planning ? "Planning meals…" : "Re-plan"}
         </button>
       </div>
-      <div className="notice notice-produce">
-        <span><strong>{plan.planned} planned</strong> · {plan.requested - plan.planned} unfilled slots. Portions are allocated across the whole plan, so ingredients are not counted twice.</span>
+      <div className={`notice ${plan.planned === plan.requested ? "notice-produce" : "notice-amber"}`} role="status">
+        <span>
+          <strong>{plan.planned === plan.requested
+            ? "Every requested meal is covered."
+            : `${plan.requested - plan.planned} ${plan.requested - plan.planned === 1 ? "meal still needs" : "meals still need"} ingredients.`}</strong>{" "}
+          Each planned meal serves your household. Portions are allocated across the whole plan, so ingredients are not counted twice.
+        </span>
       </div>
       <p className="small muted">Assumed at home: {plan.assumed_at_home.join(", ")}. Perishable ingredients are scheduled within their recorded shelf life, starting on Day 1.</p>
+      {plan.reused.length > 0 && (
+        <p className="small"><strong>Shared across meals:</strong> {plan.reused.join(", ")}. These packs are used more than once within their available quantities.</p>
+      )}
       {plan.summary && <p className="basket-summary">{plan.summary}</p>}
 
       <div className="week">
         {plan.days.map((d) => (
           <section key={d.day} className="day">
             <h4 className="mono">Day {d.day}</h4>
+            {d.meals.length === 0 && <p className="small muted">No meal requested for this day.</p>}
             {d.meals.map((m, i) => (
               <article key={i} className={`meal${m.recipe ? "" : " gap"}`}>
                 <span className="eyebrow">{m.slot}</span>
@@ -80,6 +90,7 @@ export default function MealPlanView() {
                 ) : (
                   <>
                     <strong>Not enough in the basket</strong>
+                    <span className="small">Suggested meal: {plan.missing.find((gap) => gap.day === d.day && gap.slot === m.slot)?.suggested_recipe ?? "No matching recipe"}</span>
                     <span className="small muted">Needs: {m.missing?.join(", ")}</span>
                   </>
                 )}
@@ -91,11 +102,13 @@ export default function MealPlanView() {
 
       {plan.suggested_additions.length > 0 && (
         <div className="notice notice-amber">
-          <span>
-            <strong>To cook the remaining meals</strong> you'd also need:{" "}
-            {plan.suggested_additions.map((s) => `${s.product} (${s.for})`).join(", ")}. These aren't added automatically. Ask your
-            shopper to add them if you want.
-          </span>
+          <div className="stack" style={{ "--gap": "8px" } as React.CSSProperties}>
+            <strong>Suggested additions for missing ingredients</strong>
+            <ul className="meal-additions">
+              {plan.suggested_additions.map((s) => <li key={s.for}>{s.product} <span className="muted">for {s.for}</span></li>)}
+            </ul>
+            <p>These are suggestions only and may not cover every gap. Nothing has been added to your basket. Ask your shopper to change the basket, then review and accept it again before re-planning.</p>
+          </div>
         </div>
       )}
       {!!plan.expired_unused?.length && <div className="notice notice-amber"><span>Not scheduled beyond shelf life: {plan.expired_unused.map((l) => `${l.name} (${l.servings_left} serves)`).join(", ")}. These are not counted as usable leftovers.</span></div>}

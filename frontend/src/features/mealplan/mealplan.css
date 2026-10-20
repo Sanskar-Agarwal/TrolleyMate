@@ -40,3 +40,18 @@
   border-style: dashed;
   box-shadow: none;
 }
+.meal-plan .spread {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.meal-plan .meal,
+.meal-plan .notice {
+  overflow-wrap: anywhere;
+}
+.meal-additions {
+  margin: 0;
+  padding-left: 20px;
+}
+.meal-additions li + li {
+  margin-top: 4px;
+}

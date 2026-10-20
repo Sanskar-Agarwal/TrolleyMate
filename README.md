@@ -13,7 +13,7 @@ a registered dietitian in the loop for anything the AI can't confirm.
 
 ## Quick start
 
-Needs Python 3.11+ and Node 20+.
+Needs Python 3.11+ and Node 22.12+ (Node 24 also works).
 
 **Windows (PowerShell)**
 
@@ -93,5 +93,6 @@ cd backend
 
 cd frontend
 npm run dev                                 # dev server with /api proxy
+npm test                                    # React component regression tests
 npm run build                               # typecheck + production build
 ```

@@ -98,3 +98,23 @@ def test_plan_for_changed_stock_is_hidden(client, riley):
         db.commit()
     assert client.get(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 404
     assert client.get(f"/api/sessions/{sid}", headers=riley).json()["meal_plan"] is None
+
+
+def test_plan_for_changed_constraints_is_hidden(client, riley):
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley).json()["basket"]
+    assert client.post(f"/api/baskets/{b['id']}/accept", headers=riley).status_code == 200
+    assert client.post(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 200
+    assert client.get(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 200
+
+    request = client.post(f"/api/sessions/{sid}/requests",
+                          json={"text": "$100 for 4 days, dinner only for myself"}, headers=riley)
+    assert request.status_code == 200, request.text
+    rid = request.json()["intake"]["request_id"]
+    confirmed = client.post(f"/api/requests/{rid}/confirm", headers=riley)
+    assert confirmed.status_code == 200, confirmed.text
+
+    # Confirming constraints leaves the old basket accepted, but its plan is stale.
+    assert client.get(f"/api/baskets/{b['id']}", headers=riley).json()["status"] == "accepted"
+    assert client.get(f"/api/baskets/{b['id']}/meal-plan", headers=riley).status_code == 404
+    assert client.get(f"/api/sessions/{sid}", headers=riley).json()["meal_plan"] is None

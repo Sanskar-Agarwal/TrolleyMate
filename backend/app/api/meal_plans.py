@@ -6,7 +6,8 @@ from sqlalchemy import select
 from app.agents.context import AgentContext
 from app.api.common import done, meal_plan_out, not_found, own_basket
 from app.core.deps import agent_context
-from app.domain import MealPlan
+from app.domain import MealPlan, ShoppingSession
+from app.services.session_state import active_constraints
 from app.workflows.meal_planning import is_current
 
 router = APIRouter(tags=["meal plans"])
@@ -21,7 +22,9 @@ def generate(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> dict
 @router.get("/baskets/{basket_id}/meal-plan")
 def latest(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
     basket = own_basket(ctx, basket_id)
+    session = ctx.db.get(ShoppingSession, basket.session_id)
+    constraints = active_constraints(ctx.db, session)
     plan = ctx.db.scalar(select(MealPlan).where(MealPlan.basket_id == basket_id).order_by(MealPlan.id.desc()).limit(1))
-    if plan is None or not is_current(plan, basket):
+    if plan is None or constraints is None or basket.constraint_set_id != constraints.id or not is_current(plan, basket):
         raise not_found("Meal plan")
     return meal_plan_out(plan)
