@@ -82,6 +82,7 @@ jobs:
         timeout-minutes: 3
         run: |
           python - <<'PY'
+          import http.client
           import json
           import re
           import time
@@ -101,7 +102,7 @@ jobs:
               try:
                   assert json.loads(fetch("/api/health"))["status"] == "ok"
                   break
-              except (URLError, TimeoutError):
+              except (URLError, TimeoutError, ConnectionError, http.client.HTTPException):
                   time.sleep(2)
           else:
               raise RuntimeError("Container did not become healthy")
