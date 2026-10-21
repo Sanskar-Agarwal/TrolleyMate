@@ -1,8 +1,10 @@
 """Buy-timing intelligence (1.2.6) — a predictive service, not an LLM task.
 
-Looks for a recurring weekday discount in a product's price history at the
-basket's retailer. Advice never changes the basket. Items without enough history
-get no advice; daily staples (milk, bread...) are left out entirely.
+Looks for a recurring weekday discount in a product's timestamped price history at
+the basket's retailer and states the expected saving and how long to wait. Advice
+never changes the basket. It abstains when there isn't enough history, for daily
+staples (milk, bread...), and for a perishable that wouldn't keep until the
+discount.
 """
 
 from __future__ import annotations
@@ -19,6 +21,17 @@ WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 MIN_WEEKS = 6  # weeks of history needed before we predict anything
 PATTERN_SHARE = 0.75  # the discount must show up on the same weekday in ≥75% of weeks
 MIN_SAVING = 0.5
+HISTORY_WINDOW = timedelta(weeks=8, days=1)
+
+
+def history_summary(history: list[PriceQuote], weeks: int) -> dict:
+    """The timestamped evidence behind a piece of advice."""
+    return {
+        "weeks": weeks,
+        "quotes": len(history),
+        "from": history[0].captured_at.isoformat() if history else None,
+        "to": history[-1].captured_at.isoformat() if history else None,
+    }
 
 
 def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dict]:
@@ -37,49 +50,59 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
             .where(
                 PriceQuote.product_id == product.id,
                 PriceQuote.retailer_id == item.retailer_id,
-                PriceQuote.captured_at >= now - timedelta(weeks=8, days=1),
+                PriceQuote.captured_at >= now - HISTORY_WINDOW,
+                PriceQuote.captured_at <= now,
             )
             .order_by(PriceQuote.captured_at)
         ).all()
         weeks = {q.captured_at.isocalendar()[:2] for q in history}
+        summary = history_summary(history, len(weeks))
+        base["history"] = summary
         if len(weeks) < MIN_WEEKS:
-            advice.append({**base, "action": "none", "reason": "Not enough price history to predict."})
+            advice.append({**base, "action": "none",
+                           "reason": f"Not enough price history to predict ({len(weeks)} of {MIN_WEEKS} weeks needed)."})
             continue
+        source = "In recorded prices at this store"
 
         specials_by_day: dict[int, list[PriceQuote]] = defaultdict(list)
         for q in history:
             if q.on_special:
                 specials_by_day[q.captured_at.weekday()].append(q)
         if not specials_by_day:
-            advice.append({**base, "action": "buy_now", "reason": "No recurring discount in the last 8 weeks."})
+            advice.append({**base, "action": "buy_now", "reason": f"{source}, there was no recurring discount in the last 8 weeks."})
             continue
 
         day, quotes = max(specials_by_day.items(), key=lambda kv: len(kv[1]))
         share = len({q.captured_at.isocalendar()[:2] for q in quotes}) / len(weeks)
         if share < PATTERN_SHARE:
-            advice.append({**base, "action": "buy_now", "reason": "Discounts are irregular; no reliable pattern."})
+            advice.append({**base, "action": "buy_now", "reason": f"{source}, discounts were irregular; no reliable pattern."})
             continue
 
         special_price = round(sum(q.price for q in quotes) / len(quotes), 2)
         wait_days = (day - now.weekday()) % 7
         saving = round((item.pack_price - special_price) * item.quantity, 2)
-        evidence = f"Discounted on {len(quotes)} of the last {len(weeks)} {WEEKDAYS[day]}s"
+        evidence = f"{source}, it was discounted on {len(quotes)} of the last {len(weeks)} {WEEKDAYS[day]}s"
         if wait_days == 0 or saving < MIN_SAVING:
             advice.append({**base, "action": "buy_now", "reason": f"{evidence}; today's price is already the best.", "pattern_day": WEEKDAYS[day]})
             continue
         if product.perishable and wait_days > product.shelf_life_days:
-            advice.append({**base, "action": "buy_now", "reason": f"{evidence}, but it wouldn't keep that long."})
+            # Can't reasonably be deferred: left out of timing advice, not told to wait.
+            advice.append({**base, "action": "skip",
+                           "reason": f"Perishable: it keeps {product.shelf_life_days} day(s), less than the {wait_days}-day wait, "
+                                     "so timing advice doesn't apply."})
             continue
+        outcome = f"waiting {wait_days} day{'s' if wait_days != 1 else ''} should save about ${saving:.2f}"
         advice.append(
             {
                 **base,
                 "action": "wait",
                 "wait_days": wait_days,
+                "wait_until": (now + timedelta(days=wait_days)).date().isoformat(),
                 "pattern_day": WEEKDAYS[day],
                 "expected_saving": saving,
                 "expected_price": special_price,
                 "confidence": round(share, 2),
-                "reason": f"{evidence}. Waiting {wait_days} day{'s' if wait_days != 1 else ''} should save about ${saving:.2f}.",
+                "reason": f"{evidence}, so {outcome}.",
             }
         )
     return advice
