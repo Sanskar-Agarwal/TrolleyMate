@@ -147,8 +147,15 @@
       "about": "A composite that contains itself can't be real food: the record is corrupt, so safety can't be confirmed.",
       "product": {"name": "Gravy Granules", "ingredients": ["stock base"]},
       "members": {"Jamie": {"milk": "severe"}},
-      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": []},
-      "pending": "R02 / KAN-20: treat cyclic composition as corrupt metadata (UC-06 failure scenario)."
+      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": [], "paths": ["stock base → flavour base → stock base"]}
+    },
+    {
+      "id": "composite-shared-sub-ingredient-is-not-a-cycle",
+      "category": "composite",
+      "about": "Parmesan appears on its own and inside the pesto. Reaching it twice is normal, not corrupt data.",
+      "product": {"name": "Pesto Pasta Kit", "ingredients": ["basil pesto", "parmesan"]},
+      "members": {"Jamie": {"tree_nuts": "severe"}},
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["tree_nuts"], "paths": ["basil pesto → pine nuts"]}
     },
     {
       "id": "missing-ingredient-list",
@@ -180,8 +187,7 @@
       "about": "The feed claims the data is complete but lists no ingredients: no evidence is not evidence of safety.",
       "product": {"name": "Mystery Snack Mix", "ingredients": []},
       "members": {"Jamie": {"peanuts": "severe"}},
-      "expect": {"status": "uncertain", "kinds": ["missing_data"], "restrictions": []},
-      "pending": "R02 / KAN-20: an empty ingredient list must count as missing evidence."
+      "expect": {"status": "uncertain", "kinds": ["missing_data"], "restrictions": []}
     },
     {
       "id": "missing-corrupt-ingredient-record",
@@ -189,8 +195,15 @@
       "about": "An ingredient record whose tags can't be read (UC-06 failure scenario): lock it out as uncertain, don't crash.",
       "product": {"name": "Imported Biscuits", "ingredients": ["wheat flour", "corrupt record"]},
       "members": {"Jamie": {"milk": "severe"}},
-      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": []},
-      "pending": "R02 / KAN-20: unreadable ingredient metadata must produce a data_error finding instead of an exception."
+      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": [], "paths": ["corrupt record"]}
+    },
+    {
+      "id": "missing-unreadable-may-contain-statement",
+      "category": "missing_information",
+      "about": "The may-contain statement is stored but unreadable, so a trace allergen can't be ruled out.",
+      "product": {"name": "Seed Crackers", "ingredients": ["rice flour", "salt"], "may_contain": null},
+      "members": {"Jamie": {"peanuts": "severe"}},
+      "expect": {"status": "uncertain", "kinds": ["data_error"], "restrictions": []}
     },
     {
       "id": "conflict-severity-across-members",

@@ -48,7 +48,10 @@ outside this contract.
 ```
 
 - `findings[].kind` is one of `contains`, `ambiguous`, `may_contain`, `missing_data`, `data_error`, `human_review`.
-  `data_error` is reserved for corrupt or cyclic records (UC-06 failure scenario) and lands with KAN-20.
+  `data_error` marks evidence that can't be trusted (UC-06 failure scenario, 9.4 `dataSourceError`): an
+  unreadable ingredient record or may-contain statement, or a composite that contains itself. The product
+  is uncertain, so it is withheld and escalated; the readable rest of the record is still checked, so a
+  known conflict still fails it.
 - `ingredient` is the cascade path through composite ingredients.
 - A `violation` or `uncertain` product must carry at least one finding. Unknown keys are rejected,
   so a new piece of evidence has to be added to the schema first.
@@ -78,20 +81,28 @@ requires one carbohydrate serving per main meal.
 
 ## Adversarial fixtures
 
-25 cases, each one product screened against a household:
+27 cases, each one product screened against a household:
 
 | Category | Cases | Examples |
 |---|---|---|
 | Hidden ingredients | 8 | whey in crackers, casein under a "dairy-free" label, E471 for a vegan, coconut milk (not dairy) |
-| Composite products | 5 | pesto with two allergens, shellfish three levels deep, soy sauce → wheat |
-| Missing information | 5 | no ingredient list, a partial list that still conflicts, precautionary labels |
+| Composite products | 6 | pesto with two allergens, shellfish three levels deep, a composite that contains itself, a shared sub-ingredient (not a cycle) |
+| Missing information | 6 | no ingredient list, an empty list marked complete, an unreadable record, precautionary labels |
 | Conflicting restrictions | 7 | different severities across members, a request trying to relax the profile, vegan + halal |
 
-Four cases are specified ahead of the code and run as strict xfails until it lands:
+One case is specified ahead of the code and runs as a strict xfail until it lands: animal rennet in
+parmesan should be a `violation` for vegetarians (knowledge-base growth).
 
-| Case | Expected | Lands with |
+## Basket verification (KAN-20)
+
+[`backend/tests/test_compliance_verification.py`](../backend/tests/test_compliance_verification.py) verifies
+whole baskets built from the fixtures:
+
+| Basket | Verdict | Shows |
 |---|---|---|
-| Empty ingredient list marked complete | `uncertain`, `missing_data` | KAN-20 |
-| Unreadable ingredient record (crashes today) | `uncertain`, `data_error` | KAN-20 |
-| Composite that contains itself | `uncertain`, `data_error` | KAN-20 |
-| Animal rennet in parmesan | `violation` for vegetarians | Knowledge-base growth |
+| Hidden allergen | `failed` | whey and casein caught through the ingredient list, coconut milk kept |
+| Composite | `failed` | shellfish three levels deep and wheat inside soy sauce |
+| Conflicting rule | `failed` | the strictest severity across members and the request is the one applied |
+| Missing evidence | `escalated` | no list and an empty list are withheld, each with an escalation case |
+| Corrupt evidence | `escalated` | an unreadable record and a cycle are withheld instead of crashing verification |
+| Violation and uncertainty | `failed` | the uncertain item is still withheld, but no review is requested for a failed basket |

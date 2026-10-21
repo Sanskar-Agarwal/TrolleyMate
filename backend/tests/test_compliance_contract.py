@@ -46,39 +46,54 @@ def test_catalogue_covers_every_category_with_known_data():
         assert all(normalise_restriction(r) in RESTRICTION_RULES for r in stated), c["id"]
 
 
+def load_ingredients(db) -> dict[str, Ingredient]:
+    """The catalogue's ingredient knowledge base, in an empty database."""
+    ingredients = {
+        i["name"]: Ingredient(name=i["name"], tags=i["tags"], ambiguous=i.get("ambiguous", False))
+        for i in CATALOGUE["ingredients"]
+    }
+    for i in CATALOGUE["ingredients"]:
+        ingredients[i["name"]].components = [ingredients[n] for n in i.get("components", [])]
+    db.add_all(ingredients.values())
+    db.flush()
+    return ingredients
+
+
+def make_product(ingredients: dict[str, Ingredient], spec: dict, sku: str) -> Product:
+    return Product(
+        sku=sku, name=spec["name"], category="pantry", pack_size=1, unit="each", tags=spec.get("tags", []),
+        may_contain=spec.get("may_contain", []), data_complete=spec.get("data_complete", True),
+        ingredients=[ingredients[n] for n in spec["ingredients"]],
+    )
+
+
+def make_household(members: dict[str, dict[str, str]]) -> Household:
+    return Household(name="Fixture household", members=[
+        HouseholdMember(name=name, dietary_profiles=[
+            DietaryProfile(restriction=r, severity=s, kind=RESTRICTION_RULES[normalise_restriction(r)]["kind"])
+            for r, s in held.items()
+        ])
+        for name, held in members.items()
+    ])
+
+
+def request_payload(case: dict) -> dict:
+    return {"restrictions": [{"restriction": r, "severity": s} for r, s in case.get("request", {}).items()]}
+
+
 @pytest.fixture()
 def screen():
     """Load the fixture catalogue into an empty database and screen one case against it."""
     reset_db()
     with SessionLocal() as db:
-        ingredients = {
-            i["name"]: Ingredient(name=i["name"], tags=i["tags"], ambiguous=i.get("ambiguous", False))
-            for i in CATALOGUE["ingredients"]
-        }
-        for i in CATALOGUE["ingredients"]:
-            ingredients[i["name"]].components = [ingredients[n] for n in i.get("components", [])]
-        db.add_all(ingredients.values())
-        db.flush()
+        ingredients = load_ingredients(db)
         agent = AgentContext(db=db, llm=get_llm()).compliance
 
         def run(case: dict):
-            spec = case["product"]
-            product = Product(
-                sku="FX-1", name=spec["name"], category="pantry", pack_size=1, unit="each", tags=spec.get("tags", []),
-                may_contain=spec.get("may_contain", []), data_complete=spec.get("data_complete", True),
-                ingredients=[ingredients[n] for n in spec["ingredients"]],
-            )
+            product = make_product(ingredients, case["product"], "FX-1")
             db.add(product)
             db.flush()
-            household = Household(name="Fixture household", members=[
-                HouseholdMember(name=name, dietary_profiles=[
-                    DietaryProfile(restriction=r, severity=s, kind=RESTRICTION_RULES[normalise_restriction(r)]["kind"])
-                    for r, s in held.items()
-                ])
-                for name, held in case.get("members", {}).items()
-            ])
-            request = [{"restriction": r, "severity": s} for r, s in case.get("request", {}).items()]
-            restrictions = agent.restrictions_for(household, {"restrictions": request})
+            restrictions = agent.restrictions_for(make_household(case.get("members", {})), request_payload(case))
             return restrictions, agent.screen_product(product, restrictions)
 
         yield run
