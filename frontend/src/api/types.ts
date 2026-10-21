@@ -285,9 +285,12 @@ export interface TimingAdvice {
   action: "wait" | "buy_now" | "none" | "skip";
   reason: string;
   wait_days?: number;
+  wait_until?: string;
   pattern_day?: string;
   expected_saving?: number;
   confidence?: number;
+  /** The timestamped history behind the advice; demo means generated, not observed at the retailer. */
+  history?: { weeks: number; quotes: number; from: string | null; to: string | null; demo: boolean };
 }
 
 /** The recorded inputs an explanation cites (KAN-27). Missing kinds are listed, never filled in. */

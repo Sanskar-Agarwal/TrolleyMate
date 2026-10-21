@@ -85,7 +85,8 @@ export const substitutions = {
   reject: (id: number) => api<WithTrace<{ substitution: Substitution; basket: Basket }>>(`/substitutions/${id}/reject`, { body: {} }),
 };
 export const timing = {
-  advice: (basketId: number) => api<WithTrace<{ advice: TimingAdvice[] }>>(`/baskets/${basketId}/buy-timing`),
+  advice: (basketId: number) =>
+    api<WithTrace<{ advice: TimingAdvice[]; demo_history: boolean; history_note: string | null }>>(`/baskets/${basketId}/buy-timing`),
 };
 
 // --- UC-05 Pricing & UC-09 editing (Chester) ------------------------------------
