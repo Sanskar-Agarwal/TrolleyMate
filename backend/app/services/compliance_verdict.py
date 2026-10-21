@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.enums import ItemCompliance, VerdictStatus
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: staples target, accepted nutrition exceptions (KAN-21)
 
 ProductStatus = Literal["compliant", "violation", "uncertain"]
 
@@ -79,6 +79,7 @@ class NutrientCoverage(_Contract):
     provided: float
     coverage_pct: int
     met: bool
+    accepted: bool = False  # unmet, but covered by an exception the shopper explicitly accepted
 
 
 class NutrientGap(_Contract):
@@ -86,6 +87,18 @@ class NutrientGap(_Contract):
     required: float
     provided: float
     short_by: float
+
+
+class NutritionException(_Contract):
+    """A gap the shopper explicitly accepted (1.2.11; UC-02 ext 4b: "explicitly accepted and recorded").
+    It covers that nutrient only while the shortfall is no bigger than the one accepted."""
+
+    nutrient: str
+    short_by: float
+    accepted_by: str
+    accepted_by_id: int | None = None
+    accepted_at: str
+    note: str = ""
 
 
 class NutritionCoverage(_Contract):
@@ -98,15 +111,33 @@ class NutritionCoverage(_Contract):
     gaps: list[NutrientGap]
     suggestions: list[str]
     targets: str  # nutrition_targets.TARGETS_VERSION the requirements were built from
+    exceptions: list[NutritionException] = []
 
     @model_validator(mode="after")
     def _consistent(self) -> NutritionCoverage:
         unmet = {c.nutrient for c in self.coverage if not c.met}
         if unmet != {g.nutrient for g in self.gaps}:
             raise ValueError("gaps must list exactly the nutrients whose coverage is not met")
-        if self.adequate != (not unmet):
-            raise ValueError("adequate must be true only when every target is met")
+        accepted = {c.nutrient for c in self.coverage if c.accepted}
+        if not accepted <= unmet or not accepted <= {e.nutrient for e in self.exceptions}:
+            raise ValueError("only an unmet target with a recorded exception can be accepted")
+        if self.adequate != (unmet <= accepted):
+            raise ValueError("adequate must be true only when every target is met or explicitly accepted")
         return self
+
+
+class NutritionRepair(_Contract):
+    """A compliant product that would close (part of) a gap — a candidate repair, not a change."""
+
+    nutrient: str
+    product_id: int
+    product: str
+    quantity: int
+    adds: float
+    closes_gap: bool
+    cost: float
+    retailer: str
+    within_budget: bool
 
 
 class VerdictEvidence(_Contract):

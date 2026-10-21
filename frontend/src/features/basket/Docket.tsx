@@ -16,6 +16,7 @@ export default function Docket({ basket, onAccept, busy }: { basket: Basket; onA
   const withheldValue = basket.items.filter((i) => i.withheld).reduce((s, i) => s + i.line_total, 0);
   const st = STATUS[basket.status];
   const retailers = new Set(basket.items.map((i) => i.retailer.name));
+  const nutritionGaps = basket.nutrition != null && !basket.nutrition.adequate; // 1.2.11: met or explicitly accepted
 
   return (
     <div className="docket-wrap">
@@ -56,10 +57,13 @@ export default function Docket({ basket, onAccept, busy }: { basket: Basket; onA
             {basket.remaining >= 0 ? `${money(basket.remaining)} under budget` : `${money(-basket.remaining)} over budget`}
           </p>
         )}
-        <button className="btn btn-primary" onClick={onAccept} disabled={busy || basket.status !== "verified"}>
+        <button className="btn btn-primary" onClick={onAccept} disabled={busy || basket.status !== "verified" || nutritionGaps}>
           {basket.status === "accepted" ? "Basket accepted" : "Accept basket"}
         </button>
         {basket.status === "pending_review" && <p className="small muted">You can accept once the dietitian has decided.</p>}
+        {basket.status === "verified" && nutritionGaps && (
+          <p className="small muted">Meet or accept the nutrition gaps below before you accept the basket.</p>
+        )}
       </div>
     </div>
   );

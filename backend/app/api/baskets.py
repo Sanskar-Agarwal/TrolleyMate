@@ -64,6 +64,7 @@ def accept_basket(basket_id: int, ctx: AgentContext = Depends(agent_context)) ->
     b.recalc_total()
     if b.budget is not None and b.total > b.budget + 0.001:
         raise ValueError("This basket exceeds your budget. Adjust it before accepting.")
+    ctx.compliance.require_nutrition_adequate(b)  # 1.2.11: every gap met or explicitly accepted
     b.status = BasketStatus.accepted
     ctx.shopper.log("accept_basket", f"Shopper accepted basket #{b.id} (${b.total:.2f})", basket_id=b.id, session_id=b.session_id)
     return done(ctx, {"basket": basket_out(ctx, b)})

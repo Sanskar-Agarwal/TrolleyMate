@@ -175,19 +175,20 @@ def test_stored_verdict_matches_the_contract(client, alex):
 
 
 def test_nutrition_coverage_reports_every_target():
-    def item(nutrition, quantity=1, withheld=False):
-        return SimpleNamespace(product=SimpleNamespace(nutrition=nutrition), quantity=quantity, withheld=withheld)
+    def item(nutrition, quantity=1, withheld=False, category="carb", servings=4):
+        product = SimpleNamespace(nutrition=nutrition, category=category, servings=servings)
+        return SimpleNamespace(product=product, quantity=quantity, withheld=withheld)
 
-    basket = SimpleNamespace(items=[
+    basket = SimpleNamespace(notes={}, items=[
         item({"kcal": 2300, "protein_g": 100, "veg_serves": 2}, quantity=2),
         item({"kcal": 9000, "protein_g": 900, "veg_serves": 90}, withheld=True),  # withheld items don't count
     ])
-    req = SimpleNamespace(kcal=4400, protein_g=176, veg_serves=16)
+    req = SimpleNamespace(kcal=4400, protein_g=176, veg_serves=16, carb_servings=8)
     with SessionLocal() as db:
         report = NutritionCoverage.model_validate(AgentContext(db=db, llm=get_llm()).compliance.assess_nutrition(basket, req))
 
     coverage = {c.nutrient: (c.coverage_pct, c.met) for c in report.coverage}
-    assert coverage == {"kcal": (105, True), "protein_g": (114, True), "veg_serves": (25, False)}
+    assert coverage == {"kcal": (105, True), "protein_g": (114, True), "veg_serves": (25, False), "staple_serves": (100, True)}
     assert [(g.nutrient, g.short_by) for g in report.gaps] == [("veg_serves", 12.0)]
     assert not report.adequate
     assert report.targets == TARGETS_VERSION
@@ -201,3 +202,4 @@ def test_requirements_scale_the_documented_targets():
     assert req.kcal == TARGETS["kcal"].amount * req.person_meals
     assert req.protein_g == TARGETS["protein_g"].amount * req.main_meals
     assert req.veg_serves == TARGETS["veg_serves"].amount * req.main_meals
+    assert req.carb_servings == TARGETS["staple_serves"].amount * req.main_meals

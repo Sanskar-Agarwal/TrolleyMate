@@ -91,9 +91,33 @@ export interface Nutrition {
   required: Record<string, number>;
   gaps: { nutrient: string; required: number; provided: number; short_by: number }[];
   suggestions: string[];
-  // Added by the verdict contract (KAN-19); absent on baskets built before it.
-  coverage?: { nutrient: string; required: number; provided: number; coverage_pct: number; met: boolean }[];
+  // Added by the verdict contract (KAN-19, KAN-21); absent on baskets built before it.
+  coverage?: { nutrient: string; required: number; provided: number; coverage_pct: number; met: boolean; accepted?: boolean }[];
   targets?: string;
+  exceptions?: NutritionException[];
+}
+
+/** A nutrition gap the shopper explicitly accepted (1.2.11). */
+export interface NutritionException {
+  nutrient: string;
+  short_by: number;
+  accepted_by: string;
+  accepted_by_id: number | null;
+  accepted_at: string;
+  note: string;
+}
+
+/** A compliant product that would close (part of) a gap. Suggested, never added automatically. */
+export interface NutritionRepair {
+  nutrient: string;
+  product_id: number;
+  product: string;
+  quantity: number;
+  adds: number;
+  closes_gap: boolean;
+  cost: number;
+  retailer: string;
+  within_budget: boolean;
 }
 
 export interface CaseBrief {

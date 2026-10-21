@@ -14,6 +14,8 @@ import type {
   LlmStatus,
   MealPlan,
   Negotiation,
+  Nutrition,
+  NutritionRepair,
   SessionState,
   Substitution,
   TimingAdvice,
@@ -100,6 +102,9 @@ export const mealPlans = {
 // --- UC-06 compliance & 1.2.12 preferences (Reyon) -------------------------------
 export const compliance = {
   verify: (basketId: number) => api<WithTrace<{ basket: Basket }>>(`/baskets/${basketId}/verify`, { body: {} }),
+  nutrition: (basketId: number) => api<WithTrace<{ nutrition: Nutrition; repairs: NutritionRepair[] }>>(`/baskets/${basketId}/nutrition`),
+  acceptGap: (basketId: number, nutrients: string[], note: string) =>
+    api<WithTrace<{ basket: Basket }>>(`/baskets/${basketId}/nutrition/exceptions`, { body: { nutrients, note } }),
 };
 export const preferences = {
   add: (kind: string, value: string) => api<WithTrace<{ household: Household }>>("/households/me/preferences", { body: { kind, value } }),

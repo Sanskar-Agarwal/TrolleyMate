@@ -27,6 +27,7 @@ export const NUTRIENT_LABEL: Record<string, string> = {
   kcal: "Energy",
   protein_g: "Protein",
   veg_serves: "Veg serves",
+  staple_serves: "Staples",
   fibre_g: "Fibre",
 };
 
