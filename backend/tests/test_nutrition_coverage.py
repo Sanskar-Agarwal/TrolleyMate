@@ -255,6 +255,23 @@ def test_the_gate_checks_the_basket_as_it_is_now(client, riley):
     assert accept_basket(client, riley, b["id"]).status_code == 200
 
 
+def test_a_basket_saved_before_a_requirements_field_existed_still_loads(client, riley):
+    b = built_basket(client, riley)
+    with SessionLocal() as db:
+        basket = db.get(Basket, b["id"])
+        stored = basket.notes["nutrition"]
+        older = {k: v for k, v in basket.notes["requirements"].items() if k != "carb_servings"}
+        basket.notes = {**basket.notes, "requirements": older}  # as if saved before carb_servings existed
+        db.commit()
+
+    r = client.get("/api/sessions/current", headers=riley)
+    assert r.status_code == 200, r.text
+    assert r.json()["basket"]["nutrition"] == stored  # falls back to the summary saved at build time
+    assert client.post(f"/api/baskets/{b['id']}/verify", headers=riley).status_code == 200
+    assert client.get(f"/api/baskets/{b['id']}/nutrition", headers=riley).status_code == 400  # says why, doesn't crash
+    assert accept_basket(client, riley, b["id"]).status_code == 200  # the gate can't trap an older basket
+
+
 def test_contract_rejects_an_acceptance_without_a_recorded_exception():
     with pytest.raises(ValidationError, match="recorded exception"):
         NutritionCoverage(

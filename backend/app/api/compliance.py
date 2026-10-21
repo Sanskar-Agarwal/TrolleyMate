@@ -14,7 +14,7 @@ from app.domain.enums import BasketStatus, VerdictStatus
 from app.services.session_state import active_constraints, household_of
 
 router = APIRouter(tags=["compliance"])
-_NO_REQUIREMENTS = "This basket has no meal requirements to check nutrition against."
+_NO_REQUIREMENTS = "This basket has no usable meal requirements to check nutrition against. Rebuild it to check again."
 
 
 class ExceptionIn(BaseModel):

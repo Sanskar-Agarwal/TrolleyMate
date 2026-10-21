@@ -382,10 +382,17 @@ class NutritionComplianceAgent(Agent):
 
 
 def saved_requirements(b: Basket) -> Requirements | None:
-    """The scaled meal requirements saved when the basket was built."""
+    """The scaled meal requirements saved when the basket was built, or None when there are none or
+    they no longer fit Requirements (saved before a field was added). Callers then fall back to the
+    stored summary instead of failing every read of an older basket."""
     saved = (b.notes or {}).get("requirements")
+    if not isinstance(saved, dict) or not saved:
+        return None
     fields = Requirements.__dataclass_fields__
-    return Requirements(**{k: v for k, v in saved.items() if k in fields}) if saved else None
+    try:
+        return Requirements(**{k: v for k, v in saved.items() if k in fields})
+    except TypeError:
+        return None
 
 
 def _open_gaps(nutrition: dict) -> list[dict]:
