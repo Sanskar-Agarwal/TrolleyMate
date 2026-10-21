@@ -154,11 +154,12 @@ def _seed_prices(db: Session, catalogue: dict, products: dict, retailers: dict[s
                 week_start = datetime.combine(today - timedelta(days=today.weekday() + 7 * week), datetime.min.time())
                 history.append(_quote(product, retailer, regular, week_start + timedelta(hours=8), False, QuoteSource.recorded))
                 if special:
-                    day = week_start + timedelta(days=special.get("weekday", 2), hours=7)
-                    history.append(_quote(product, retailer, special_price, day, True, QuoteSource.recorded))
-                    history.append(_quote(product, retailer, regular, day + timedelta(days=1), False, QuoteSource.recorded))
+                    for wd in special.get("weekdays", [2]):
+                        day = week_start + timedelta(days=wd, hours=7)
+                        history.append(_quote(product, retailer, special_price, day, True, QuoteSource.recorded))
+                        history.append(_quote(product, retailer, regular, day + timedelta(days=1), False, QuoteSource.recorded))
 
-            special_today = bool(special)
+            special_today = bool(special) and today.weekday() in special.get("weekdays", [2])
             current_price = special_price if special_today else regular
             captured = now - timedelta(hours=30 if name == STALE_RETAILER else 2)
             current = _quote(product, retailer, current_price, captured, special_today, current_source)

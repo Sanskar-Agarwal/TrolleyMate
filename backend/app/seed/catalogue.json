@@ -1,5 +1,5 @@
 {
-  "_comment": "Demo catalogue. Prices are base AUD; each retailer applies its own multipliers (see retailers). Nutrition is per pack. Edit freely \u2014 run `python -m app.seed --reset` to reload.",
+  "_comment": "Demo catalogue. Prices are base AUD; each retailer applies its own multipliers (see retailers). Nutrition is per pack. Edit freely — run `python -m app.seed --reset` to reload.",
   "schema_version": "1.0.0",
   "generated_at": "2026-10-20",
   "data_provenance": "synthetic",
@@ -349,6 +349,64 @@
         "wheat flour",
         "salt"
       ]
+    },
+    {
+      "name": "sweet potato",
+      "tags": [
+        "vegetable"
+      ]
+    },
+    {
+      "name": "lettuce",
+      "tags": [
+        "vegetable"
+      ]
+    },
+    {
+      "name": "cucumber",
+      "tags": [
+        "vegetable"
+      ]
+    },
+    {
+      "name": "cauliflower",
+      "tags": [
+        "vegetable"
+      ]
+    },
+    {
+      "name": "garlic",
+      "tags": [
+        "vegetable"
+      ]
+    },
+    {
+      "name": "orange",
+      "tags": [
+        "fruit"
+      ]
+    },
+    {
+      "name": "strawberry",
+      "tags": [
+        "fruit"
+      ]
+    },
+    {
+      "name": "olive oil",
+      "tags": []
+    },
+    {
+      "name": "mixed nuts",
+      "tags": [
+        "tree nuts",
+        "peanuts"
+      ],
+      "may_contain": []
+    },
+    {
+      "name": "quinoa",
+      "tags": []
     }
   ],
   "products": [
@@ -381,7 +439,15 @@
       "base_price": 7.5,
       "specials": {
         "GreenGrocer Express": {
-          "price": 5.5
+          "price": 5.25,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
         }
       }
     },
@@ -414,7 +480,15 @@
       "base_price": 11.0,
       "specials": {
         "FreshCo": {
-          "price": 8.5
+          "price": 7.7,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
         }
       }
     },
@@ -445,7 +519,20 @@
       "ingredients": [
         "beef"
       ],
-      "base_price": 7.0
+      "base_price": 7.0,
+      "specials": {
+        "ValueMart": {
+          "price": 5.5,
+          "weekdays": [
+            0,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "PRO-TMN-500",
@@ -477,7 +564,15 @@
       "base_price": 8.0,
       "specials": {
         "ValueMart": {
-          "price": 5.0
+          "price": 5.6,
+          "weekdays": [
+            0,
+            1,
+            3,
+            4,
+            5,
+            6
+          ]
         }
       }
     },
@@ -511,7 +606,15 @@
       "base_price": 9.5,
       "specials": {
         "FreshCo": {
-          "price": 7.5
+          "price": 6.65,
+          "weekdays": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            6
+          ]
         }
       }
     },
@@ -542,7 +645,20 @@
       "ingredients": [
         "egg"
       ],
-      "base_price": 6.2
+      "base_price": 6.2,
+      "specials": {
+        "FreshCo": {
+          "price": 5.0,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "PRO-TOF-450",
@@ -693,7 +809,20 @@
         "spices",
         "salt"
       ],
-      "base_price": 6.0
+      "base_price": 6.0,
+      "specials": {
+        "ValueMart": {
+          "price": 4.5,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "PRO-LMB-500",
@@ -724,7 +853,20 @@
       "base_price": 13.0,
       "unavailable_at": [
         "ValueMart"
-      ]
+      ],
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 10.5,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
     },
     {
       "sku": "PRO-SCH-1K",
@@ -780,7 +922,20 @@
       "ingredients": [
         "rice"
       ],
-      "base_price": 3.2
+      "base_price": 3.2,
+      "specials": {
+        "ValueMart": {
+          "price": 2.5,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "CRB-BRN-1K",
@@ -836,7 +991,20 @@
       "ingredients": [
         "durum wheat semolina"
       ],
-      "base_price": 1.5
+      "base_price": 1.5,
+      "specials": {
+        "ValueMart": {
+          "price": 1.1,
+          "weekdays": [
+            0,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "CRB-GFP-500",
@@ -903,7 +1071,20 @@
         "water",
         "salt"
       ],
-      "base_price": 3.8
+      "base_price": 3.8,
+      "specials": {
+        "FreshCo": {
+          "price": 3.0,
+          "weekdays": [
+            0,
+            1,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "CRB-HKN-450",
@@ -969,7 +1150,15 @@
       "base_price": 3.5,
       "specials": {
         "ValueMart": {
-          "price": 2.5
+          "price": 2.45,
+          "weekdays": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            6
+          ]
         }
       }
     },
@@ -999,7 +1188,20 @@
       "ingredients": [
         "potato"
       ],
-      "base_price": 4.5
+      "base_price": 4.5,
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 3.5,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "CRB-WRP-8",
@@ -1090,7 +1292,15 @@
       "base_price": 2.9,
       "specials": {
         "GreenGrocer Express": {
-          "price": 2.0
+          "price": 2.03,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6
+          ]
         }
       }
     },
@@ -1121,7 +1331,20 @@
       "ingredients": [
         "spinach"
       ],
-      "base_price": 4.0
+      "base_price": 4.0,
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 3.0,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
     },
     {
       "sku": "VEG-CRT-1K",
@@ -1209,7 +1432,20 @@
       "ingredients": [
         "tomato"
       ],
-      "base_price": 3.8
+      "base_price": 3.8,
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 2.8,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "VEG-ONI-1K",
@@ -1265,7 +1501,20 @@
       "ingredients": [
         "capsicum"
       ],
-      "base_price": 4.5
+      "base_price": 4.5,
+      "specials": {
+        "FreshCo": {
+          "price": 3.5,
+          "weekdays": [
+            0,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "VEG-CDT-400",
@@ -1353,7 +1602,20 @@
       "ingredients": [
         "mushroom"
       ],
-      "base_price": 2.2
+      "base_price": 2.2,
+      "specials": {
+        "FreshCo": {
+          "price": 1.7,
+          "weekdays": [
+            0,
+            1,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "VEG-ZUC-500",
@@ -1410,7 +1672,20 @@
       "ingredients": [
         "peas"
       ],
-      "base_price": 2.8
+      "base_price": 2.8,
+      "specials": {
+        "ValueMart": {
+          "price": 2.0,
+          "weekdays": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "DAI-FCM-2L",
@@ -1443,7 +1718,15 @@
       "base_price": 4.5,
       "specials": {
         "ValueMart": {
-          "price": 3.2
+          "price": 3.15,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            6
+          ]
         }
       }
     },
@@ -1539,7 +1822,19 @@
         "natural flavours",
         "salt"
       ],
-      "base_price": 3.2
+      "base_price": 3.2,
+      "specials": {
+        "FreshCo": {
+          "price": 2.5,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
     },
     {
       "sku": "DAI-ALM-1L",
@@ -1635,7 +1930,14 @@
       "base_price": 6.5,
       "specials": {
         "FreshCo": {
-          "price": 4.5
+          "price": 4.55,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
         }
       }
     },
@@ -1669,7 +1971,14 @@
       "base_price": 7.5,
       "specials": {
         "GreenGrocer Express": {
-          "price": 5.0
+          "price": 5.25,
+          "weekdays": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
         }
       }
     },
@@ -1702,7 +2011,19 @@
       "ingredients": [
         "banana"
       ],
-      "base_price": 3.5
+      "base_price": 3.5,
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 2.8,
+          "weekdays": [
+            0,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "FRU-APL-1K",
@@ -1732,7 +2053,19 @@
       "ingredients": [
         "apple"
       ],
-      "base_price": 4.5
+      "base_price": 4.5,
+      "specials": {
+        "ValueMart": {
+          "price": 3.5,
+          "weekdays": [
+            0,
+            1,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "FRU-BER-500",
@@ -1765,7 +2098,14 @@
       "base_price": 6.0,
       "specials": {
         "ValueMart": {
-          "price": 4.0
+          "price": 4.2,
+          "weekdays": [
+            0,
+            1,
+            2,
+            5,
+            6
+          ]
         }
       }
     },
@@ -1857,7 +2197,14 @@
       "base_price": 2.8,
       "specials": {
         "GreenGrocer Express": {
-          "price": 1.9
+          "price": 1.96,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            6
+          ]
         }
       }
     },
@@ -1889,7 +2236,19 @@
         "peanuts",
         "salt"
       ],
-      "base_price": 3.8
+      "base_price": 3.8,
+      "specials": {
+        "ValueMart": {
+          "price": 2.9,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
     },
     {
       "sku": "PAN-RCP-200",
@@ -1978,10 +2337,22 @@
         "almonds",
         "sugar"
       ],
-      "base_price": 4.0
+      "base_price": 4.0,
+      "specials": {
+        "FreshCo": {
+          "price": 3.0,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
     },
     {
-      "_edge_case": "malformed \u2014 nutrition panel could not be parsed from retailer feed",
+      "_edge_case": "malformed — nutrition panel could not be parsed from retailer feed",
       "sku": "PRO-MAL-BAR",
       "name": "Generic Protein Bar 45g",
       "brand": "NoLabel",
@@ -2007,7 +2378,7 @@
       "base_price": 2.5
     },
     {
-      "_edge_case": "stale/discontinued \u2014 listed in catalogue but unavailable at every retailer",
+      "_edge_case": "stale/discontinued — listed in catalogue but unavailable at every retailer",
       "sku": "PRO-DIS-STEAK",
       "name": "Discontinued Premium Steak 300g",
       "brand": "OldPaddock",
@@ -2040,6 +2411,674 @@
       ],
       "data_complete": true,
       "base_price": 12.0
+    },
+    {
+      "sku": "PRO-STK-300",
+      "name": "Beef Rump Steak 300g",
+      "brand": "Farmgate",
+      "category": "protein",
+      "pack_size": 300,
+      "unit": "g",
+      "servings": 2,
+      "nutrition": {
+        "kcal": 570,
+        "protein_g": 66,
+        "fat_g": 34,
+        "carbs_g": 0,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [
+        "beef"
+      ],
+      "ingredients": [
+        "beef"
+      ],
+      "perishable": true,
+      "shelf_life_days": 3,
+      "prep_minutes_per_serving": 15,
+      "base_price": 9.0,
+      "data_complete": true,
+      "substitution_group": "beef",
+      "specials": {
+        "ValueMart": {
+          "price": 7.5,
+          "weekdays": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "sku": "PRO-HAM-200",
+      "name": "Shaved Ham 200g",
+      "brand": "Deli",
+      "category": "protein",
+      "pack_size": 200,
+      "unit": "g",
+      "servings": 4,
+      "nutrition": {
+        "kcal": 280,
+        "protein_g": 32,
+        "fat_g": 12,
+        "carbs_g": 4,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [
+        "pork"
+      ],
+      "ingredients": [
+        "pork"
+      ],
+      "perishable": true,
+      "shelf_life_days": 5,
+      "prep_minutes_per_serving": 2,
+      "base_price": 4.5,
+      "data_complete": true,
+      "substitution_group": "pork"
+    },
+    {
+      "sku": "PRO-SMN-150",
+      "name": "Smoked Salmon 150g",
+      "brand": "Ocean",
+      "category": "protein",
+      "pack_size": 150,
+      "unit": "g",
+      "servings": 2,
+      "nutrition": {
+        "kcal": 310,
+        "protein_g": 34,
+        "fat_g": 20,
+        "carbs_g": 0,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [
+        "fish",
+        "salmon"
+      ],
+      "ingredients": [
+        "salmon"
+      ],
+      "perishable": true,
+      "shelf_life_days": 7,
+      "prep_minutes_per_serving": 2,
+      "base_price": 7.0,
+      "data_complete": true,
+      "substitution_group": "fish",
+      "specials": {
+        "FreshCo": {
+          "price": 5.5,
+          "weekdays": [
+            0,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "sku": "CRB-WBR-700",
+      "name": "White Bread 700g",
+      "brand": "Baker",
+      "category": "carb",
+      "pack_size": 700,
+      "unit": "g",
+      "servings": 14,
+      "nutrition": {
+        "kcal": 1470,
+        "protein_g": 49,
+        "fat_g": 14,
+        "carbs_g": 280,
+        "fibre_g": 14,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "wheat flour",
+        "salt",
+        "sugar",
+        "water",
+        "emulsifier (471)"
+      ],
+      "perishable": false,
+      "shelf_life_days": 5,
+      "prep_minutes_per_serving": 2,
+      "base_price": 2.8,
+      "data_complete": true,
+      "substitution_group": "bread"
+    },
+    {
+      "sku": "CRB-QIN-500",
+      "name": "Quinoa 500g",
+      "brand": "Nutra",
+      "category": "carb",
+      "pack_size": 500,
+      "unit": "g",
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1850,
+        "protein_g": 70,
+        "fat_g": 30,
+        "carbs_g": 310,
+        "fibre_g": 35,
+        "veg_serves": 0
+      },
+      "tags": [
+        "gluten-free"
+      ],
+      "ingredients": [
+        "quinoa"
+      ],
+      "perishable": false,
+      "shelf_life_days": 365,
+      "prep_minutes_per_serving": 15,
+      "base_price": 5.5,
+      "data_complete": true,
+      "substitution_group": "grain",
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 4.2,
+          "weekdays": [
+            0,
+            1,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "sku": "CRB-PEN-500",
+      "name": "Penne 500g",
+      "brand": "Barilla",
+      "category": "carb",
+      "pack_size": 500,
+      "unit": "g",
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1770,
+        "protein_g": 63,
+        "fat_g": 7,
+        "carbs_g": 350,
+        "fibre_g": 14,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "durum wheat semolina"
+      ],
+      "perishable": false,
+      "shelf_life_days": 730,
+      "prep_minutes_per_serving": 12,
+      "base_price": 1.5,
+      "data_complete": true,
+      "substitution_group": "pasta"
+    },
+    {
+      "sku": "CRB-RCK-150",
+      "name": "Rice Cakes 150g",
+      "brand": "Sunrice",
+      "category": "carb",
+      "pack_size": 150,
+      "unit": "g",
+      "servings": 10,
+      "nutrition": {
+        "kcal": 580,
+        "protein_g": 12,
+        "fat_g": 3,
+        "carbs_g": 122,
+        "fibre_g": 4,
+        "veg_serves": 0
+      },
+      "tags": [
+        "gluten-free"
+      ],
+      "ingredients": [
+        "rice"
+      ],
+      "perishable": false,
+      "shelf_life_days": 180,
+      "prep_minutes_per_serving": 2,
+      "base_price": 2.8,
+      "data_complete": true,
+      "substitution_group": "snack_carb"
+    },
+    {
+      "sku": "VEG-SWT-1K",
+      "name": "Sweet Potato 1kg",
+      "brand": "",
+      "category": "veg",
+      "pack_size": 1000,
+      "unit": "g",
+      "servings": 4,
+      "nutrition": {
+        "kcal": 360,
+        "protein_g": 8,
+        "fat_g": 0,
+        "carbs_g": 84,
+        "fibre_g": 12,
+        "veg_serves": 4
+      },
+      "tags": [],
+      "ingredients": [
+        "sweet potato"
+      ],
+      "perishable": true,
+      "shelf_life_days": 14,
+      "prep_minutes_per_serving": 20,
+      "base_price": 3.5,
+      "data_complete": true,
+      "substitution_group": "root_veg",
+      "specials": {
+        "ValueMart": {
+          "price": 2.8,
+          "weekdays": [
+            0,
+            1,
+            2,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "sku": "VEG-LET-1",
+      "name": "Iceberg Lettuce",
+      "brand": "",
+      "category": "veg",
+      "pack_size": 400,
+      "unit": "g",
+      "servings": 4,
+      "nutrition": {
+        "kcal": 44,
+        "protein_g": 4,
+        "fat_g": 0,
+        "carbs_g": 8,
+        "fibre_g": 4,
+        "veg_serves": 4
+      },
+      "tags": [],
+      "ingredients": [
+        "lettuce"
+      ],
+      "perishable": true,
+      "shelf_life_days": 7,
+      "prep_minutes_per_serving": 5,
+      "base_price": 2.5,
+      "data_complete": true,
+      "substitution_group": "leafy_green"
+    },
+    {
+      "sku": "VEG-CUC-3PK",
+      "name": "Lebanese Cucumber 3pk",
+      "brand": "",
+      "category": "veg",
+      "pack_size": 300,
+      "unit": "g",
+      "servings": 3,
+      "nutrition": {
+        "kcal": 45,
+        "protein_g": 3,
+        "fat_g": 0,
+        "carbs_g": 9,
+        "fibre_g": 3,
+        "veg_serves": 3
+      },
+      "tags": [],
+      "ingredients": [
+        "cucumber"
+      ],
+      "perishable": true,
+      "shelf_life_days": 7,
+      "prep_minutes_per_serving": 5,
+      "base_price": 3.0,
+      "data_complete": true,
+      "substitution_group": "salad_veg"
+    },
+    {
+      "sku": "VEG-CAU-1",
+      "name": "Cauliflower Head",
+      "brand": "",
+      "category": "veg",
+      "pack_size": 800,
+      "unit": "g",
+      "servings": 4,
+      "nutrition": {
+        "kcal": 112,
+        "protein_g": 12,
+        "fat_g": 0,
+        "carbs_g": 20,
+        "fibre_g": 12,
+        "veg_serves": 4
+      },
+      "tags": [],
+      "ingredients": [
+        "cauliflower"
+      ],
+      "perishable": true,
+      "shelf_life_days": 7,
+      "prep_minutes_per_serving": 15,
+      "base_price": 4.0,
+      "data_complete": true,
+      "substitution_group": "brassica",
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 3.0,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "sku": "DAI-BUT-250",
+      "name": "Unsalted Butter 250g",
+      "brand": "Dairy",
+      "category": "dairy",
+      "pack_size": 250,
+      "unit": "g",
+      "servings": 50,
+      "nutrition": {
+        "kcal": 1850,
+        "protein_g": 4,
+        "fat_g": 205,
+        "carbs_g": 2,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "milk"
+      ],
+      "perishable": true,
+      "shelf_life_days": 60,
+      "prep_minutes_per_serving": 2,
+      "base_price": 4.5,
+      "data_complete": true,
+      "substitution_group": "butter"
+    },
+    {
+      "sku": "DAI-CRM-250",
+      "name": "Cream Cheese 250g",
+      "brand": "Dairy",
+      "category": "dairy",
+      "pack_size": 250,
+      "unit": "g",
+      "servings": 10,
+      "nutrition": {
+        "kcal": 825,
+        "protein_g": 20,
+        "fat_g": 80,
+        "carbs_g": 10,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "milk solids"
+      ],
+      "perishable": true,
+      "shelf_life_days": 21,
+      "prep_minutes_per_serving": 2,
+      "base_price": 4.0,
+      "data_complete": true,
+      "substitution_group": "soft_cheese",
+      "specials": {
+        "FreshCo": {
+          "price": 3.2,
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "sku": "DAI-PAR-100",
+      "name": "Parmesan 100g",
+      "brand": "Dairy",
+      "category": "dairy",
+      "pack_size": 100,
+      "unit": "g",
+      "servings": 10,
+      "nutrition": {
+        "kcal": 430,
+        "protein_g": 39,
+        "fat_g": 30,
+        "carbs_g": 0,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "parmesan"
+      ],
+      "perishable": true,
+      "shelf_life_days": 30,
+      "prep_minutes_per_serving": 2,
+      "base_price": 4.5,
+      "data_complete": true,
+      "substitution_group": "hard_cheese"
+    },
+    {
+      "sku": "FRU-ORG-1K",
+      "name": "Oranges 1kg",
+      "brand": "",
+      "category": "fruit",
+      "pack_size": 1000,
+      "unit": "g",
+      "servings": 4,
+      "nutrition": {
+        "kcal": 200,
+        "protein_g": 4,
+        "fat_g": 0,
+        "carbs_g": 48,
+        "fibre_g": 8,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "orange"
+      ],
+      "perishable": true,
+      "shelf_life_days": 14,
+      "prep_minutes_per_serving": 2,
+      "base_price": 3.8,
+      "data_complete": true,
+      "substitution_group": "citrus"
+    },
+    {
+      "sku": "FRU-STR-250",
+      "name": "Strawberries 250g",
+      "brand": "",
+      "category": "fruit",
+      "pack_size": 250,
+      "unit": "g",
+      "servings": 2,
+      "nutrition": {
+        "kcal": 80,
+        "protein_g": 2,
+        "fat_g": 0,
+        "carbs_g": 18,
+        "fibre_g": 4,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "strawberry"
+      ],
+      "perishable": true,
+      "shelf_life_days": 5,
+      "prep_minutes_per_serving": 5,
+      "base_price": 4.5,
+      "data_complete": true,
+      "substitution_group": "berries",
+      "specials": {
+        "GreenGrocer Express": {
+          "price": 3.5,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    },
+    {
+      "sku": "PAN-OLV-500",
+      "name": "Olive Oil 500ml",
+      "brand": "Capri",
+      "category": "pantry",
+      "pack_size": 500,
+      "unit": "ml",
+      "servings": 100,
+      "nutrition": {
+        "kcal": 4000,
+        "protein_g": 0,
+        "fat_g": 450,
+        "carbs_g": 0,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "olive oil"
+      ],
+      "perishable": false,
+      "shelf_life_days": 730,
+      "prep_minutes_per_serving": 1,
+      "base_price": 6.5,
+      "data_complete": true,
+      "substitution_group": "cooking_oil",
+      "specials": {
+        "ValueMart": {
+          "price": 5.0,
+          "weekdays": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "sku": "PAN-HNY-500",
+      "name": "Honey 500g",
+      "brand": "Beesweet",
+      "category": "pantry",
+      "pack_size": 500,
+      "unit": "g",
+      "servings": 50,
+      "nutrition": {
+        "kcal": 1450,
+        "protein_g": 1,
+        "fat_g": 0,
+        "carbs_g": 395,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "honey"
+      ],
+      "perishable": false,
+      "shelf_life_days": 1825,
+      "prep_minutes_per_serving": 1,
+      "base_price": 6.0,
+      "data_complete": true,
+      "substitution_group": "sweetener"
+    },
+    {
+      "sku": "PAN-GRL-3",
+      "name": "Garlic Bulbs 3pk",
+      "brand": "",
+      "category": "pantry",
+      "pack_size": 120,
+      "unit": "g",
+      "servings": 30,
+      "nutrition": {
+        "kcal": 440,
+        "protein_g": 18,
+        "fat_g": 0,
+        "carbs_g": 100,
+        "fibre_g": 6,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "garlic"
+      ],
+      "perishable": true,
+      "shelf_life_days": 30,
+      "prep_minutes_per_serving": 5,
+      "base_price": 2.5,
+      "data_complete": true,
+      "substitution_group": "aromatics"
+    },
+    {
+      "sku": "SNK-NUT-200",
+      "name": "Mixed Nuts 200g",
+      "brand": "Nutura",
+      "category": "snack",
+      "pack_size": 200,
+      "unit": "g",
+      "servings": 8,
+      "nutrition": {
+        "kcal": 1200,
+        "protein_g": 40,
+        "fat_g": 100,
+        "carbs_g": 44,
+        "fibre_g": 16,
+        "veg_serves": 0
+      },
+      "tags": [],
+      "ingredients": [
+        "almonds",
+        "peanuts"
+      ],
+      "may_contain": [
+        "tree nuts",
+        "peanuts"
+      ],
+      "perishable": false,
+      "shelf_life_days": 180,
+      "prep_minutes_per_serving": 1,
+      "base_price": 5.5,
+      "data_complete": true,
+      "substitution_group": "nuts",
+      "specials": {
+        "FreshCo": {
+          "price": 4.5,
+          "weekdays": [
+            0,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
     }
   ]
 }

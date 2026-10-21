@@ -73,7 +73,7 @@ class CatalogueFeedAdapter:
             return None
         now = datetime.now()
         special = entry.get("specials", {}).get(retailer.name)
-        if special:
+        if special and now.weekday() in special.get("weekdays", [2]):
             price = retailer_price(product.sku, product.category, special["price"], retailer.name, "special")
             return QuoteData(price=price, on_special=True, captured_at=now)
         price = retailer_price(product.sku, product.category, entry["base_price"], retailer.name, now.date().isoformat())
