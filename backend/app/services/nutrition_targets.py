@@ -50,9 +50,12 @@ TARGETS: dict[str, NutritionTarget] = {
             source="NHMRC Australian Dietary Guidelines (2013)",
             assumption="Two serves per main meal; with two main meals a day the basket supplies 4, other meals and snacks the rest.",
         ),
+        NutritionTarget(
+            "staple_serves", 1.0, "serves", "main_meal",
+            reference="6 serves of grain (cereal) foods a day for adults aged 19-50",
+            source="NHMRC Australian Dietary Guidelines (2013)",
+            assumption="One serving of a grain or starch staple per main meal, counted in each pack's own servings: "
+                       "the rule the optimiser already applies (Requirements.carb_servings).",
+        ),
     )
 }
-
-# 1.2.11 also names carbohydrates/staples. The prototype has no separate gram target for them:
-# the energy target stands in, and the optimiser requires one carbohydrate serving per main meal
-# (Requirements.carb_servings).

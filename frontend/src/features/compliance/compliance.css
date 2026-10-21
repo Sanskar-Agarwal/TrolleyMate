@@ -17,6 +17,14 @@
 .nutrient .bar span.short {
   background: var(--amber);
 }
+.nutrition .gap-card {
+  border-top: var(--bd) dashed var(--edge);
+  padding-top: 8px;
+}
+.nutrition .repair::before {
+  content: "+ ";
+  font-weight: 700;
+}
 .nutrient .bar i {
   position: absolute;
   top: 0;

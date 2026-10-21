@@ -1,14 +1,15 @@
-# Compliance verdict contract (KAN-19)
+# Compliance verdict contract (KAN-19, KAN-20, KAN-21)
 
 What the AI Nutrition & Compliance agent returns to the other agents. Covers requirements
-1.2.10 and 1.2.11 (interfaces only), UC-06, and Stage 1 diagrams 7.4, 8.4 and 9.4.
+1.2.10 and 1.2.11, UC-06, UC-02 extension 4b (nutrition exceptions), and Stage 1 diagrams 7.4,
+8.4 and 9.4.
 
 | | |
 |---|---|
 | Schema | [`backend/app/services/compliance_verdict.py`](../backend/app/services/compliance_verdict.py) |
 | Nutrition targets | [`backend/app/services/nutrition_targets.py`](../backend/app/services/nutrition_targets.py) |
 | Fixture catalogue | [`backend/tests/fixtures/compliance_cases.json`](../backend/tests/fixtures/compliance_cases.json) |
-| Tests | [`backend/tests/test_compliance_contract.py`](../backend/tests/test_compliance_contract.py) |
+| Tests | [`test_compliance_contract.py`](../backend/tests/test_compliance_contract.py), [`test_compliance_verification.py`](../backend/tests/test_compliance_verification.py), [`test_nutrition_coverage.py`](../backend/tests/test_nutrition_coverage.py) |
 
 ## Verdicts
 
@@ -36,7 +37,7 @@ outside this contract.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "restrictions": [{"restriction": "tree_nuts", "severity": "severe", "label": "Tree nuts"}],
   "products": [{
     "product_id": 12, "product": "Basil Pesto 190g", "status": "violation", "confidence": 1.0,
@@ -58,12 +59,36 @@ outside this contract.
 
 ## Nutrition coverage (1.2.11)
 
-`adequate`, `provided`, `required`, `gaps` and `suggestions` are unchanged. New fields:
+Energy, protein, vegetables and staples are checked against targets already scaled to the
+household size and meal schedule (`Requirements.from_constraints`). Withheld items don't count.
 
-- `coverage`: one entry per target, `{nutrient, required, provided, coverage_pct, met}`
+- `coverage`: one entry per target, `{nutrient, required, provided, coverage_pct, met, accepted}`
+- `gaps`: exactly the unmet targets, each with `short_by`
+- `exceptions`: gaps the shopper explicitly accepted (schema version 2, KAN-21)
 - `targets`: the target version the requirements were built from (`prototype-2026-10`)
 
-`gaps` lists exactly the unmet targets, and `adequate` is true only when every target is met.
+`adequate` is true only when every target is either met or `accepted`. An exception covers its
+nutrient only while the current shortfall is no bigger than the one accepted, so a basket that
+gets worse needs a fresh decision. Rebuilding the basket starts with no exceptions.
+
+**Candidate repairs:** `GET /api/baskets/{id}/nutrition` returns the current coverage plus up to
+three repairs per open gap. A repair is a product not already in the basket, not disliked, and
+`compliant` for every mandatory restriction (an `uncertain` product is never suggested), priced at
+its cheapest retailer. Each repair says how many packs close the gap (`closes_gap`, capped at 6
+packs) and whether it fits the remaining budget. Repairs are suggestions; nothing is added.
+
+**Accepting a gap (UC-02 ext 4b):** `POST /api/baskets/{id}/nutrition/exceptions` with
+`{"nutrients": [...], "note": "..."}`. Only the basket's shopper can call it (the founder gets 403),
+and only for a current gap (anything else is 400). It records who accepted what, when and why on the
+basket, and writes an `accept_nutrition_exception` audit record: the exception trace. It never
+changes item compliance: a withheld item stays withheld and the basket can't be accepted until review.
+
+**Basket acceptance gate:** `POST /api/baskets/{id}/accept` also requires every target to be met
+or explicitly accepted (400 otherwise, naming the open gaps), and the Accept button is disabled
+with the same message. The check runs on the basket as it is now, not on the summary saved when it
+was built. That summary goes stale when a dietitian releases or removes an item, or when extras are
+added after an edit, so basket reads (`basket_out`) report current nutrition too, and the button and
+the server always agree.
 
 ## Prototype nutrition targets
 
@@ -75,9 +100,10 @@ uses in `Requirements`, and a test keeps the two in step.
 | 550 kcal | person-meal | 8,700 kJ/day average adult intake (%DI) | FSANZ Food Standards Code, Std 1.2.8 | About a quarter of the day per meal; snacks bought elsewhere |
 | 22 g protein | main meal | RDI 64 g/day men, 46 g/day women (19–70) | NHMRC Nutrient Reference Values (2006) | 64 g over three meals, rounded up |
 | 2 serves veg | main meal | 5–6 serves/day, adults 19–50 (serve = 75 g) | NHMRC Australian Dietary Guidelines (2013) | The basket covers the planned main meals only |
+| 1 staple serving | main meal | 6 serves/day of grain (cereal) foods, adults 19–50 | NHMRC Australian Dietary Guidelines (2013) | Counted in each grain/starch pack's own servings, as the optimiser counts them |
 
-Carbohydrates/staples have no separate gram target: energy stands in for them, and the optimiser
-requires one carbohydrate serving per main meal.
+Breakfasts add energy but not the main-meal targets. A shopper's own protein target can raise the
+protein figure, never lower it.
 
 ## Adversarial fixtures
 

@@ -128,7 +128,7 @@ def basket_out(ctx: AgentContext, b: Basket) -> dict:
         "remaining": round((b.budget or 0) - b.total, 2) if b.budget is not None else None,
         "items": [item_out(i, quotes.get(i.quote_id)) for i in b.items],
         "summary": notes.get("summary"),
-        "nutrition": notes.get("nutrition"),
+        "nutrition": ctx.compliance.current_nutrition(b) or notes.get("nutrition"),  # as the basket is now (1.2.11)
         "requirements": notes.get("requirements"),
         "metrics": notes.get("metrics"),
         "verdict": notes.get("verdict"),

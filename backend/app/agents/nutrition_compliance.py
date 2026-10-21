@@ -10,12 +10,18 @@ Safety-first rules:
   - uncertain items are never auto-accepted: they are withheld and escalated to a dietitian
   - a dietitian's past decision on the same product for the same household is reused
 
+Nutritional adequacy (1.2.11): energy, protein, vegetables and staples against targets scaled to
+the household and meals; gaps come with compliant candidate repairs, and a gap only stops
+counting once the shopper explicitly accepts it.
+
 The verdict it returns is specified in services/compliance_verdict.py.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from sqlalchemy import select
 
@@ -24,6 +30,7 @@ from app.core.config import get_settings
 from app.domain import Basket, ComplianceVerdict, EscalationCase, Household, Ingredient, Product
 from app.domain.enums import CaseStatus, ItemCompliance, Severity, VerdictStatus
 from app.optimisation.types import Requirements
+from app.services.catalogue import disliked_by, optimisable_products
 from app.services.compliance_verdict import VerdictEvidence, outcome
 from app.services.dietary_rules import label, normalise_restriction, violating_tags
 from app.services.nutrition_targets import TARGETS_VERSION
@@ -55,6 +62,7 @@ class Finding:
 class NutritionComplianceAgent(Agent):
     role_name = "AI Nutrition & Compliance"
     key = "nutrition_compliance"
+    MAX_REPAIR_PACKS = 6  # a repair needing more packs than this is offered as a partial fix
 
     def __init__(self, ctx):
         super().__init__(ctx)
@@ -179,35 +187,128 @@ class NutritionComplianceAgent(Agent):
         return verdict
 
     def assess_nutrition(self, b: Basket, req: Requirements) -> dict:
-        """1.2.11 — compares what the (non-withheld) basket provides against the requirements."""
-        provided = {k: 0.0 for k in ("kcal", "protein_g", "veg_serves", "fibre_g")}
+        """1.2.11 — compares what the (non-withheld) basket provides against the requirements, which
+        are already scaled to the household size and meal schedule. A gap only counts as acceptable
+        while an exception the shopper accepted still covers it (see accept_nutrition_exception)."""
+        provided = {k: 0.0 for k in ("kcal", "protein_g", "veg_serves", "staple_serves", "fibre_g")}
         for item in b.items:
             if not item.withheld:
                 for k in provided:
-                    val = item.product.nutrition.get(k, 0)
-                    provided[k] += float(val if val is not None else 0) * item.quantity
-        required = {"kcal": req.kcal, "protein_g": req.protein_g, "veg_serves": req.veg_serves}
-        coverage = [
-            {
+                    provided[k] += _contribution(item.product, k) * item.quantity
+        required = {"kcal": req.kcal, "protein_g": req.protein_g, "veg_serves": req.veg_serves, "staple_serves": req.carb_servings}
+        exceptions = list((b.notes or {}).get("nutrition_exceptions", []))
+        accepted_short = {e["nutrient"]: e["short_by"] for e in exceptions}
+        coverage = []
+        for k, v in required.items():
+            short = round(v - provided[k], 1)
+            met = provided[k] + 1e-6 >= v
+            coverage.append({
                 "nutrient": k, "required": round(v, 1), "provided": round(provided[k], 1),
-                "coverage_pct": round(100 * provided[k] / v) if v else 100, "met": provided[k] + 1e-6 >= v,
-            }
-            for k, v in required.items()
-        ]
+                "coverage_pct": round(100 * provided[k] / v) if v else 100, "met": met,
+                "accepted": not met and k in accepted_short and short <= accepted_short[k],
+            })
         gaps = [
             {"nutrient": c["nutrient"], "required": c["required"], "provided": c["provided"],
              "short_by": round(required[c["nutrient"]] - provided[c["nutrient"]], 1)}
             for c in coverage if not c["met"]
         ]
         return {
-            "adequate": not gaps,
+            "adequate": all(c["met"] or c["accepted"] for c in coverage),
             "provided": {k: round(v, 1) for k, v in provided.items()},
             "required": {k: round(v, 1) for k, v in required.items()},
             "coverage": coverage,
             "gaps": gaps,
             "suggestions": [_gap_suggestion(g["nutrient"]) for g in gaps],
             "targets": TARGETS_VERSION,
+            "exceptions": exceptions,
         }
+
+    def current_nutrition(self, b: Basket) -> dict | None:
+        """1.2.11 for the basket as it is now, against the requirements saved with it (None if it has
+        none). The summary stored in notes goes stale when a dietitian releases or removes an item,
+        or when extras are added after a rebuild."""
+        req = saved_requirements(b)
+        return self.assess_nutrition(b, req) if req else None
+
+    def require_nutrition_adequate(self, b: Basket) -> None:
+        """Gate for accepting a basket (1.2.11): every target met or explicitly accepted. Checked on the
+        basket as it is now, so a stale summary can neither block a basket nor let one through."""
+        nutrition = self.current_nutrition(b)
+        if nutrition is None:
+            return
+        if not nutrition["adequate"]:
+            raise ValueError(
+                "Meet or accept the nutrition gaps before you accept the basket ("
+                + "; ".join(_describe_gap(g) for g in _open_gaps(nutrition)) + ")."
+            )
+        b.notes = {**(b.notes or {}), "nutrition": nutrition}
+
+    def nutrition_repairs(self, b: Basket, nutrition: dict, household: Household, payload: dict, limit: int = 3) -> list[dict]:
+        """Candidate repairs for each open gap (1.2.11 "suggests changes"). Only products that pass
+        every mandatory restriction for this household are offered (never an uncertain one), and
+        not ones already in the basket or that the household dislikes. Nothing is changed."""
+        open_gaps = {g["nutrient"]: g["short_by"] for g in _open_gaps(nutrition)}
+        if not open_gaps:
+            return []
+        restrictions = self.restrictions_for(household, payload)
+        preferences = payload.get("preferences", [])
+        held = {i.product_id for i in b.items}
+        pool = [p for p in optimisable_products(self.db) if p.id not in held and not disliked_by(p, preferences)]
+        safe = [p for p in pool if self.screen_product(p, restrictions, household.id).status == ItemCompliance.compliant]
+        offers = self.ctx.analyst.offers(safe)
+        spare = None if b.budget is None else b.budget - b.total
+        repairs: list[dict] = []
+        for nutrient, short in open_gaps.items():
+            options = []
+            for o in offers:
+                per_pack = _contribution(o.product, nutrient)
+                if per_pack <= 0:
+                    continue
+                needed = math.ceil(short / per_pack - 1e-9)
+                qty = min(needed, self.MAX_REPAIR_PACKS)
+                cost = round(o.price * qty, 2)
+                options.append({
+                    "nutrient": nutrient, "product_id": o.product.id, "product": o.product.name, "quantity": qty,
+                    "adds": round(per_pack * qty, 1), "closes_gap": qty == needed, "cost": cost,
+                    "retailer": o.retailer.name, "within_budget": spare is None or cost <= spare + 1e-6,
+                })
+            options.sort(key=lambda r: (not r["closes_gap"], not r["within_budget"], r["cost"]))
+            repairs += options[:limit]
+        self.log(
+            "suggest_repairs", f"{len(repairs)} candidate repair(s) for {', '.join(open_gaps)}",
+            rationale="Only products that pass every mandatory restriction for the household are suggested.",
+            basket_id=b.id, session_id=b.session_id,
+        )
+        return repairs
+
+    def accept_nutrition_exception(self, b: Basket, req: Requirements, nutrients: list[str], note: str = "") -> dict:
+        """Record gaps the shopper explicitly accepts (UC-02 ext 4b). Only a current gap can be
+        accepted, and this never touches allergen or dietary compliance."""
+        gaps = {g["nutrient"]: g for g in self.assess_nutrition(b, req)["gaps"]}
+        wanted = list(dict.fromkeys(nutrients))
+        if not wanted or any(n not in gaps for n in wanted):
+            not_gaps = [n for n in wanted if n not in gaps] or ["nothing"]
+            raise ValueError(f"Only a current nutrition gap can be accepted; {', '.join(not_gaps)} is not one.")
+        user = self.ctx.user
+        when = datetime.now().isoformat(timespec="seconds")
+        added = [
+            {"nutrient": n, "short_by": gaps[n]["short_by"], "accepted_by": user.display_name if user else "unknown",
+             "accepted_by_id": user.id if user else None, "accepted_at": when, "note": note.strip()[:300]}
+            for n in wanted
+        ]
+        kept = [e for e in (b.notes or {}).get("nutrition_exceptions", []) if e["nutrient"] not in wanted]
+        b.notes = {**(b.notes or {}), "nutrition_exceptions": kept + added}
+        nutrition = self.assess_nutrition(b, req)
+        b.notes = {**b.notes, "nutrition": nutrition}
+        reason = note.strip() or "No reason given."
+        self.log(
+            "accept_nutrition_exception",
+            "Shopper accepted the nutrition gap: " + "; ".join(f"{e['nutrient']} short by {e['short_by']:g}" for e in added),
+            rationale=reason + ("" if reason[-1] in ".!?" else ".") + " Allergen and dietary restrictions are unchanged.",
+            basket_id=b.id, session_id=b.session_id, confidence=1.0,
+            payload={"exceptions": added, "adequate": nutrition["adequate"]},
+        )
+        return nutrition
 
     def supply_information(self, case: EscalationCase, question: str) -> str:
         p = case.product
@@ -280,6 +381,37 @@ class NutritionComplianceAgent(Agent):
         return None
 
 
+def saved_requirements(b: Basket) -> Requirements | None:
+    """The scaled meal requirements saved when the basket was built."""
+    saved = (b.notes or {}).get("requirements")
+    fields = Requirements.__dataclass_fields__
+    return Requirements(**{k: v for k, v in saved.items() if k in fields}) if saved else None
+
+
+def _open_gaps(nutrition: dict) -> list[dict]:
+    """Gaps the shopper hasn't explicitly accepted."""
+    accepted = {c["nutrient"] for c in nutrition["coverage"] if c.get("accepted")}
+    return [g for g in nutrition["gaps"] if g["nutrient"] not in accepted]
+
+
+_GAP_NAMES = {"kcal": ("energy", "kcal"), "protein_g": ("protein", "g"), "veg_serves": ("vegetables", "serves"),
+              "staple_serves": ("staples", "serves")}
+
+
+def _describe_gap(gap: dict) -> str:
+    name, unit = _GAP_NAMES.get(gap["nutrient"], (gap["nutrient"], ""))
+    return f"{name} short by {gap['short_by']:,g} {unit}".rstrip()
+
+
+def _contribution(product: Product, nutrient: str) -> float:
+    """What one pack adds to a nutrient. Staples are counted as the optimiser counts them:
+    servings of a grain or starch ("carb") pack."""
+    if nutrient == "staple_serves":
+        return float(product.servings) if product.category == "carb" else 0.0
+    val = product.nutrition.get(nutrient, 0)
+    return float(val if val is not None else 0)
+
+
 def _readable(values) -> set[str] | None:
     """A stored tag list as a set, or None when it isn't a list of strings."""
     if isinstance(values, list) and all(isinstance(v, str) for v in values):
@@ -292,4 +424,5 @@ def _gap_suggestion(nutrient: str) -> str:
         "protein_g": "Add a protein such as eggs, lentils or chicken.",
         "veg_serves": "Add a bag of frozen mixed vegetables or fresh greens.",
         "kcal": "Add a staple such as rice, oats or potatoes.",
+        "staple_serves": "Add a grain or starch for each main meal, such as rice, pasta or bread.",
     }.get(nutrient, "Add more variety.")
