@@ -13,6 +13,8 @@
 .shop-main {
   min-width: 0;
   overflow-y: auto;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
   padding: 24px 32px 56px;
   display: flex;
   flex-direction: column;

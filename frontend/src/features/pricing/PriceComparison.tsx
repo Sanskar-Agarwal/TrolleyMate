@@ -20,43 +20,49 @@ export default function PriceComparison() {
   if (error) return <div className="notice notice-beet">{error}</div>;
   if (!data) return <Skeleton rows={5} height={26} label="Pricing your basket at every store" />;
 
+  const sortedOptions = [...data.options].sort((a, b) =>
+    a.name === data.baseline.name ? -1 : b.name === data.baseline.name ? 1 : 0
+  );
   const maxTotal = Math.max(...data.options.map((o) => o.total));
-  return (
+return (
     <div className="stack pricing" style={{ "--gap": "18px" } as React.CSSProperties}>
       <div className="spread">
         <div className="stack" style={{ "--gap": "4px" } as React.CSSProperties}>
           <span className="eyebrow">AI Market Analyst · compare stores</span>
           <h2>{data.cheapest ? `${data.cheapest.name} saves ${money(data.cheapest.saving)}` : "Comparison incomplete"}</h2>
         </div>
-        <label className="row small">
-          Compare against
-          <select className="input" style={{ width: "auto" }} value={data.baseline.id} onChange={(e) => setBaseline(Number(e.target.value))} disabled={loading}>
-            {data.retailers.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <p className="small muted" style={{ marginTop: 2 }}>Click a store row to compare against it</p>
       </div>
 
       {data.insight && <p className="basket-summary">{data.insight}</p>}
 
       <div className="compare-bars">
-        {data.options.map((o) => (
-          <div key={o.name} className={`compare-row${o === data.cheapest || o.name === data.cheapest?.name ? " best" : ""}`}>
+        {sortedOptions.map((o) => (
+          <div
+            key={o.name}
+            className={`compare-row${o === data.cheapest || o.name === data.cheapest?.name ? " best" : ""}${!o.is_split ? " clickable" : ""}${o.name === data.baseline.name ? " is-baseline" : ""}${loading ? " loading" : ""}`}
+            role={!o.is_split ? "button" : undefined}
+            tabIndex={!o.is_split && !loading ? 0 : -1}
+            onClick={() => { if (!loading && !o.is_split && o.retailer_id != null) setBaseline(o.retailer_id); }}
+            onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !o.is_split && o.retailer_id != null) setBaseline(o.retailer_id); }}
+          >
             <span className="compare-name">
               <strong>{o.name}</strong>
-              {o.name === data.baseline.name && <span className="chip">baseline</span>}
               {!o.complete && <span className="chip chip-amber">{o.unpriced.length} unpriced</span>}
             </span>
             <span className="compare-bar">
               <span style={{ width: `${(o.total / maxTotal) * 100}%` }} />
             </span>
             <span className="mono compare-total">{money(o.total)}</span>
-            <span className={`mono small ${o.saving > 0 ? "saving" : "muted"}`}>
-              {o.saving > 0 ? `−${money(o.saving)} (${o.saving_pct}%)` : o.saving < 0 ? `+${money(-o.saving)}` : "No saving"}
-            </span>
+            {o.name === data.baseline.name
+              ? <span className="compare-saving-wrap"><span className="chip">baseline</span></span>
+              : <span className="compare-saving-wrap">
+                  <span className={`mono small saving-amount ${o.saving > 0 ? "saving" : "muted"}`}>
+                    {o.saving > 0 ? `save ${money(o.saving)} (${o.saving_pct}%)` : `extra ${money(-o.saving)}`}
+                  </span>
+                  {!o.is_split && <span className="chip chip-use-baseline">Use as baseline</span>}
+                </span>
+            }
           </div>
         ))}
       </div>
