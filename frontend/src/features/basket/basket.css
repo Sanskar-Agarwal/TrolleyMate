@@ -101,7 +101,6 @@
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  max-width: 78ch;
   padding: 12px 14px;
   background: var(--produce-soft);
   border: var(--bd) solid var(--edge);
