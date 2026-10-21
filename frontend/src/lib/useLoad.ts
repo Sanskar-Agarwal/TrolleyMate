@@ -31,7 +31,6 @@ export function useLoad<T>(load: () => Promise<T>, key: string | number) {
   useEffect(() => {
     if (lastKey.current === key) return;
     lastKey.current = key;
-    setData(null);
     void reload();
   }, [key, reload]);
 

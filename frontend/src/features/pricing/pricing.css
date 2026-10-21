@@ -1,6 +1,9 @@
 .pricing {
   max-width: 1000px;
 }
+.pricing .basket-summary {
+  max-width: none;
+}
 .compare-bars {
   display: flex;
   flex-direction: column;
@@ -8,7 +11,7 @@
 }
 .compare-row {
   display: grid;
-  grid-template-columns: minmax(160px, 260px) 1fr 90px 130px;
+  grid-template-columns: minmax(160px, 260px) 1fr 90px 160px;
   gap: 14px;
   align-items: center;
   padding: 10px 14px;
@@ -57,6 +60,41 @@
 td.cheapest {
   background: var(--tag-soft);
   font-weight: 700;
+}
+.compare-row.clickable {
+  cursor: pointer;
+  transition: box-shadow 0.12s, border-color 0.12s;
+}
+.compare-row.clickable:hover:not(.best) {
+  border-color: var(--line-strong);
+  box-shadow: var(--lift);
+}
+.compare-saving-wrap {
+  display: grid;
+  justify-items: start;
+  align-items: center;
+}
+.compare-saving-wrap > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.15s;
+}
+.chip-use-baseline {
+  opacity: 0;
+  color: var(--text-muted, var(--muted));
+  background: transparent;
+  border-color: currentColor;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.compare-row.clickable:not(.is-baseline):hover .saving-amount {
+  opacity: 0;
+}
+.compare-row.clickable:not(.is-baseline):hover .chip-use-baseline {
+  opacity: 0.5;
+}
+.compare-row.loading {
+  opacity: 0.5;
+  pointer-events: none;
 }
 @media (max-width: 700px) {
   .compare-row {

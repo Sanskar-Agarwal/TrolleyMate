@@ -72,8 +72,8 @@ class CatalogueFeedAdapter:
         if entry is None or retailer.name in entry.get("unavailable_at", []):
             return None
         now = datetime.now()
-        special = entry.get("special")
-        if special and special["weekday"] == now.weekday():
+        special = entry.get("specials", {}).get(retailer.name)
+        if special:
             price = retailer_price(product.sku, product.category, special["price"], retailer.name, "special")
             return QuoteData(price=price, on_special=True, captured_at=now)
         price = retailer_price(product.sku, product.category, entry["base_price"], retailer.name, now.date().isoformat())
