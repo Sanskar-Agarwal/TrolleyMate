@@ -4,7 +4,8 @@ Looks for a recurring weekday discount in a product's timestamped price history 
 the basket's retailer and states the expected saving and how long to wait. Advice
 never changes the basket. It abstains when there isn't enough history, for daily
 staples (milk, bread...), and for a perishable that wouldn't keep until the
-discount.
+discount. Advice built on demo history is labelled as such and is never worded as
+an observed retailer forecast.
 """
 
 from __future__ import annotations
@@ -15,13 +16,22 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.domain import Basket, PriceQuote
+from app.domain.enums import QuoteSource
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 MIN_WEEKS = 6  # weeks of history needed before we predict anything
 PATTERN_SHARE = 0.75  # the discount must show up on the same weekday in ≥75% of weeks
 MIN_SAVING = 0.5
 HISTORY_WINDOW = timedelta(weeks=8, days=1)
+DEMO_NOTE = "Demo price history: generated for the demonstration, not observed at the retailer."
+
+
+def is_demo(history: list[PriceQuote]) -> bool:
+    """Demo history can't support a real forecast: the deployment says its history is generated,
+    or the window contains synthetic quotes."""
+    return get_settings().demo_price_history or any(q.source_type == QuoteSource.synthetic for q in history)
 
 
 def history_summary(history: list[PriceQuote], weeks: int) -> dict:
@@ -31,6 +41,7 @@ def history_summary(history: list[PriceQuote], weeks: int) -> dict:
         "quotes": len(history),
         "from": history[0].captured_at.isoformat() if history else None,
         "to": history[-1].captured_at.isoformat() if history else None,
+        "demo": is_demo(history),
     }
 
 
@@ -62,7 +73,7 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
             advice.append({**base, "action": "none",
                            "reason": f"Not enough price history to predict ({len(weeks)} of {MIN_WEEKS} weeks needed)."})
             continue
-        source = "In recorded prices at this store"
+        source = "In the demo price history" if summary["demo"] else "In recorded prices at this store"
 
         specials_by_day: dict[int, list[PriceQuote]] = defaultdict(list)
         for q in history:
@@ -91,7 +102,9 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
                            "reason": f"Perishable: it keeps {product.shelf_life_days} day(s), less than the {wait_days}-day wait, "
                                      "so timing advice doesn't apply."})
             continue
-        outcome = f"waiting {wait_days} day{'s' if wait_days != 1 else ''} should save about ${saving:.2f}"
+        outcome = (f"waiting {wait_days} day{'s' if wait_days != 1 else ''} would save about ${saving:.2f} if that pattern held"
+                   if summary["demo"] else
+                   f"waiting {wait_days} day{'s' if wait_days != 1 else ''} should save about ${saving:.2f}")
         advice.append(
             {
                 **base,
@@ -102,7 +115,7 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
                 "expected_saving": saving,
                 "expected_price": special_price,
                 "confidence": round(share, 2),
-                "reason": f"{evidence}, so {outcome}.",
+                "reason": f"{evidence}, so {outcome}." + (f" {DEMO_NOTE}" if summary["demo"] else ""),
             }
         )
     return advice
