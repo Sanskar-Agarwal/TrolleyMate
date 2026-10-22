@@ -76,3 +76,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+.assign {
+  padding-left: 12px;
+  border-left: 2px dashed var(--line-strong);
+}
