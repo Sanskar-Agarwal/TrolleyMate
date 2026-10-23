@@ -15,6 +15,7 @@ from app.domain.requests_constraints import ConstraintSet
 from app.optimisation import BasketOptimiser, Requirements
 from app.optimisation.strategies import LowestCost, OptimisationStrategy
 from app.optimisation.types import Candidate
+from app.services.meal_schedule import meal_schedule
 from app.services.session_state import active_constraints
 
 
@@ -23,63 +24,78 @@ class NegotiationError(ValueError):
 
 
 def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirements, strategy: OptimisationStrategy,
-            candidates: list[Candidate], solver_message: str = "") -> dict:
+            candidates: list[Candidate], solver_message: str = "", *, min_qty: dict[int, int] | None = None,
+            max_qty: dict[int, int] | None = None, reserve: float = 0.0) -> dict:
+    """`req` is what the solver was asked for. `reserve` is budget already spent outside the solver
+    (chat-edit extras): offered budgets include it. Pins (`min_qty`/`max_qty`) stay in force."""
     optimiser = BasketOptimiser()
+    pins = {"min_qty": min_qty, "max_qty": max_qty}
     # Price the goal's own bar (e.g. Best Nutrition asks for more veg), cheapest way, no budget cap.
-    cheapest = optimiser.solve(strategy.adjust(req), LowestCost(), candidates, enforce_budget=False)
+    cheapest = optimiser.solve(strategy.adjust(req), LowestCost(), candidates, enforce_budget=False, **pins)
     options: list[dict] = []
     blocked: list[str] = []
+    timed_out = cheapest.timed_out
 
-    if not cheapest.feasible:
+    if timed_out:
+        pass  # no answer is not proof that nothing fits: offer nothing rather than a wrong number
+    elif not cheapest.feasible:
         roles = {"protein": req.protein_servings, "carb": req.carb_servings, "veg": req.veg_serves}
         blocked = [role for role, need in roles.items() if need > 0 and not any(c.role == role for c in candidates)]
         if not blocked:
             blocked = ["protein or vegetable"]
     else:
-        min_budget = math.ceil(cheapest.total * 100) / 100
-        if req.budget is not None and min_budget > req.budget:
+        budget = None if req.budget is None else round(req.budget + reserve, 2)
+        min_budget = math.ceil(round((cheapest.total + reserve) * 100, 6)) / 100
+        if budget is not None and min_budget > budget:
             options.append({
                 "id": "increase_budget",
                 "label": f"Increase budget to ${min_budget:.2f}",
-                "detail": f"+${min_budget - req.budget:.2f}, everything else unchanged",
+                "detail": f"+${min_budget - budget:.2f}, everything else unchanged",
                 "budget": min_budget,
             })
+        # Most whole days the current budget covers, everything else (restrictions, pins, goal) unchanged.
         for days in range(req.days - 1, 0, -1):
-            smaller = Requirements.from_constraints(cs, days=days)
-            if optimiser.solve(smaller, strategy, candidates).feasible:
-                meals = int(round(days * req.meals_per_day))
+            smaller = Requirements.from_constraints(cs, days=days, budget=req.budget)
+            result = optimiser.solve(smaller, strategy, candidates, **pins)
+            timed_out = timed_out or result.timed_out
+            if result.feasible:
+                meals = len([m for slots in meal_schedule(days, req.meals_per_day) for m in slots])
                 options.append({
                     "id": "reduce_days",
                     "label": f"Cover {days} day{'s' if days != 1 else ''} instead of {req.days}",
-                    "detail": f"{meals} meals per person within ${req.budget:.2f}",
+                    "detail": f"{meals} meals per person within ${budget:.2f}" if budget is not None else f"{meals} meals per person",
                     "days": days,
+                    "person_meals": smaller.person_meals,
                 })
                 break
 
-    extra = next((o["budget"] - req.budget for o in options if o["id"] == "increase_budget"), None)
-    max_days = next((o["days"] for o in options if o["id"] == "reduce_days"), None)
+    extra = next((o["budget"] - round(req.budget + reserve, 2) for o in options if o["id"] == "increase_budget"), None)
+    reduced = next((o for o in options if o["id"] == "reduce_days"), None)
     message = agent.think(
         "negotiation_message",
         {
-            "budget": req.budget or 0, "requested_meals": req.person_meals, "blocked_roles": blocked,
+            "budget": round((req.budget or 0) + reserve, 2), "requested_meals": req.person_meals, "blocked_roles": blocked,
             "min_budget": next((o["budget"] for o in options if o["id"] == "increase_budget"), None),
             "extra_needed": extra,
-            "max_meals": int(round(max_days * req.meals_per_day * req.household_size)) if max_days else None,
+            "max_meals": reduced["person_meals"] if reduced else None,
+            "timed_out": timed_out,
         },
     )
     agent.log(
         "infeasibility_negotiation",
         f"Infeasible at ${req.budget}: {len(options)} option(s) offered",
-        rationale=solver_message, session_id=session.id, llm=message, payload={"options": options, "blocked": blocked},
+        rationale=solver_message, session_id=session.id, llm=message,
+        payload={"options": options, "blocked": blocked, "timed_out": timed_out},
     )
     return {
         "message": message.data,
         "options": options,
         "blocked_roles": blocked,
-        "budget": req.budget,
+        "budget": None if req.budget is None else round(req.budget + reserve, 2),
         "days": req.days,
         "person_meals": req.person_meals,
         "shortfall": round(extra, 2) if extra is not None else None,
+        "timed_out": timed_out,  # the search hit the solver time limit, so an option may be missing or not the best
     }
 
 
