@@ -120,6 +120,27 @@ export interface NutritionRepair {
   within_budget: boolean;
 }
 
+export type PreferenceKind = "dislike" | "like" | "brand" | "avoid_brand";
+
+/** A remembered taste or shopping preference and what it does to later baskets (1.2.12). */
+export interface StoredPreference {
+  id: number;
+  kind: PreferenceKind;
+  value: string;
+  source: string;
+  label: string;
+  effect: "avoid" | "favour" | "unknown";
+  /** applied: an avoid preference leaves matches out of new baskets; a favour one wins them close calls ·
+   *  overridden: every match breaks a mandatory restriction · no_match: nothing in the catalogue */
+  status: "applied" | "overridden" | "no_match";
+  matches: string[];
+  match_count: number;
+  blocked: { product: string; reason: string }[];
+  hint: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export interface CaseBrief {
   id: number;
   status: string;

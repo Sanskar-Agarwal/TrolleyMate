@@ -69,6 +69,7 @@ def build(
     screening = ctx.compliance.screen(products, restrictions, household_id=household.id, session_id=session.id)
     allowed = [p for p in products if screening[p.id].status != ItemCompliance.violation]
     excluded = [screening[p.id].as_dict() for p in products if screening[p.id].status == ItemCompliance.violation]
+    favoured = ctx.compliance.favoured_products(allowed, screening, preferences)  # 1.2.12 likes and brands
 
     # (1) Price what's left.
     candidates = ctx.analyst.offers(allowed, {pid: f.status for pid, f in screening.items()})
@@ -82,7 +83,7 @@ def build(
     # (3) Solve.
     req = Requirements.from_constraints(cs)
     optimiser = BasketOptimiser()
-    result = optimiser.solve(req, strategy, candidates, min_qty=min_qty, max_qty=max_qty, prefer=prefer)
+    result = optimiser.solve(req, strategy, candidates, min_qty=min_qty, max_qty=max_qty, prefer=(prefer or set()) | set(favoured))
     if not result.feasible:
         from app.workflows import negotiation
 
@@ -111,6 +112,8 @@ def build(
         reason = strategy.item_reason(c)
         if c.on_special:
             reason += "; on special this week"
+        if c.product.id in favoured:
+            reason += f"; {favoured[c.product.id]}"
         basket.add_item(
             BasketItem(
                 product_id=c.product.id, retailer_id=c.retailer.id, quote_id=c.quote_id, quantity=qty,
@@ -143,6 +146,7 @@ def build(
         "nutrition_adequate": nutrition["adequate"],
         "excluded": [f"{e['product']} ({e['findings'][0]['detail']})" for e in excluded if e["findings"]][:6],
         "skipped_for_preferences": sorted({v for v in skipped_prefs.values() if v}),
+        "favoured_by_preferences": sorted({favoured[i.product_id] for i in basket.items if i.product_id in favoured}),
         "withheld": withheld,
         "items": [{"name": i.product.name, "qty": i.quantity, "reason": i.rationale} for i in basket.items],
     }

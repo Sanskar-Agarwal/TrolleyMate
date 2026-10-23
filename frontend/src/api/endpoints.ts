@@ -16,7 +16,9 @@ import type {
   Negotiation,
   Nutrition,
   NutritionRepair,
+  PreferenceKind,
   SessionState,
+  StoredPreference,
   Substitution,
   TimingAdvice,
   User,
@@ -106,9 +108,13 @@ export const compliance = {
   acceptGap: (basketId: number, nutrients: string[], note: string) =>
     api<WithTrace<{ basket: Basket }>>(`/baskets/${basketId}/nutrition/exceptions`, { body: { nutrients, note } }),
 };
+type PreferencesChanged = WithTrace<{ household: Household; preferences: StoredPreference[] }>;
 export const preferences = {
-  add: (kind: string, value: string) => api<WithTrace<{ household: Household }>>("/households/me/preferences", { body: { kind, value } }),
-  remove: (id: number) => api<WithTrace<{ household: Household }>>(`/households/me/preferences/${id}`, { method: "DELETE" }),
+  list: () => api<StoredPreference[]>("/households/me/preferences"),
+  add: (kind: PreferenceKind, value: string) => api<PreferencesChanged>("/households/me/preferences", { body: { kind, value } }),
+  update: (id: number, kind: PreferenceKind, value: string) =>
+    api<PreferencesChanged>(`/households/me/preferences/${id}`, { method: "PUT", body: { kind, value } }),
+  remove: (id: number) => api<PreferencesChanged>(`/households/me/preferences/${id}`, { method: "DELETE" }),
 };
 
 // --- UC-10 households, UC-07 explain/audit, UC-06 ext review (Maaz) ----------------
