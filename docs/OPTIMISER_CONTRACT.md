@@ -115,25 +115,37 @@ When the confirmed request is infeasible, `workflows/negotiation.analyse` return
   "message": "LLM text from the negotiation_message task (facts only)",
   "options": [
     {"id": "increase_budget", "label": "Increase budget to $7.00", "detail": "+$2.00, everything else unchanged", "budget": 7.0},
-    {"id": "reduce_days", "label": "Cover 5 days instead of 7", "detail": "10 meals per person within $5.00", "days": 5}
+    {"id": "reduce_days", "label": "Cover 5 days instead of 7", "detail": "10 meals per person within $5.00", "days": 5,
+     "person_meals": 10}
   ],
   "blocked_roles": [],
   "budget": 5.0,
   "days": 7,
   "person_meals": 14,
-  "shortfall": 2.0
+  "shortfall": 2.0,
+  "timed_out": false
 }
 ```
 
 - **Minimum budget** = the Lowest Cost solve of `strategy.adjust(req)` (the shopper's own goal's bar)
   with `enforce_budget=False`, rounded **up** to the cent. Offered only when it exceeds the budget.
 - **Maximum feasible meals** = the largest whole number of days `d < days` whose
-  `Requirements.from_constraints(cs, days=d)` is feasible under the shopper's strategy at the current budget.
+  `Requirements.from_constraints(cs, days=d, budget=req.budget)` is feasible under the shopper's strategy at the
+  current budget.
+- Other hard constraints stay in force in both searches: the same screened candidates, edit pins
+  (`min_qty`/`max_qty`), and money already spent outside the solver (`reserve`, added to offered budgets).
+- **`timed_out`**: a search solve hit the time limit. If the minimum-budget solve timed out, no option and no
+  `blocked_roles` are offered (no answer is not proof); if a days solve did, the days option may not be the maximum.
 - **`blocked_roles`**: when even the uncapped solve fails, the roles (`protein`, `carb`, `veg`) with no
   compliant candidate; no budget option is offered.
 - `shortfall` = minimum budget − budget, or `null`.
 - Restrictions and preferences are never an option; a chosen option changes only `budget` or `days`, and
-  the basket is re-solved only after the shopper confirms (`POST /sessions/{id}/negotiate`).
+  the basket is re-solved only after the shopper confirms (`POST /sessions/{id}/negotiate`, which refuses any
+  other field). A choice that still doesn't fit returns fresh options and leaves the constraints unchanged.
+- `POST /sessions/{id}/negotiate/cancel` declines every option: the confirmed constraints, the request's
+  `infeasible` status and any earlier basket stay as they were.
+- A build whose solver times out returns `{"status": "timed_out", "message": …}` and offers a retry; it never
+  starts negotiation or marks the request infeasible.
 
 ## 6. Fixtures and known answers
 
@@ -162,4 +174,5 @@ One retailer, six products (each tagged with its recipe ingredient, so it fills 
 
 The production optimiser stays with S03. Changes to coefficients, constraint rows or the result schema
 must keep `tests/test_optimiser_contract.py` green or update this page and the fixtures in the same PR.
-Consumers of `timed_out` (UC-02 build and UC-03 negotiation) are wired up in P03.
+Consumers of `timed_out` (UC-02 build, UC-09 edits and UC-03 negotiation) were wired up in P03
+(`tests/test_negotiation.py`).
