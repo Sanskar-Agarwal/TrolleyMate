@@ -14,6 +14,9 @@ Nutritional adequacy (1.2.11): energy, protein, vegetables and staples against t
 the household and meals; gaps come with compliant candidate repairs, and a gap only stops
 counting once the shopper explicitly accepts it.
 
+Taste & preference memory (1.2.12): reports what each remembered preference does to later
+baskets, with mandatory restrictions first (rules in services/preference_memory.py).
+
 The verdict it returns is specified in services/compliance_verdict.py.
 """
 
@@ -34,6 +37,7 @@ from app.services.catalogue import disliked_by, optimisable_products
 from app.services.compliance_verdict import VerdictEvidence, outcome
 from app.services.dietary_rules import label, normalise_restriction, violating_tags
 from app.services.nutrition_targets import TARGETS_VERSION
+from app.services.preference_memory import KINDS, favoured_by, matches, restriction_hint
 
 # (ingredient, restriction, provider) → LLM judgement. Shared across requests: label
 # semantics don't change, and this keeps real-LLM screening fast.
@@ -310,6 +314,49 @@ class NutritionComplianceAgent(Agent):
         )
         return nutrition
 
+    # --- Taste & preference memory (1.2.12) -------------------------------------
+
+    def favoured_products(self, products: list[Product], screening: dict[int, Finding], preferences: list[str]) -> dict[int, str]:
+        """Products a like or preferred brand nudges the optimiser towards, each with the reason to show.
+        Only products screened compliant qualify, so a preference never pulls in a product that breaks a
+        mandatory restriction or can't be confirmed safe."""
+        favoured = {}
+        for p in products:
+            reason = favoured_by(p, preferences) if screening[p.id].status == ItemCompliance.compliant else None
+            if reason:
+                favoured[p.id] = reason
+        return favoured
+
+    def describe_preferences(self, household: Household) -> list[dict]:
+        """Each remembered preference and what it does to later baskets. Mandatory restrictions come
+        first: a liked product that breaks one, or can't be confirmed safe, is listed as blocked, and
+        a like left with nothing else to match is `overridden`."""
+        restrictions = self.restrictions_for(household, None)
+        members = {r["restriction"]: r["members"] for r in household.mandatory_restrictions()}
+        catalogue = optimisable_products(self.db)
+        out = []
+        for pref in household.preferences:
+            known = pref.kind in KINDS  # anything else (e.g. older data) is still listed, so it can be forgotten
+            kind = KINDS[pref.kind] if known else {"label": pref.kind.replace("_", " ").capitalize(), "effect": "unknown"}
+            matched = [p for p in catalogue if matches(p, pref.kind, pref.value)] if known else []
+            blocked: dict[int, dict] = {}
+            if kind["effect"] == "favour":
+                for p in matched:
+                    f = self.screen_product(p, restrictions, household.id)
+                    if f.status != ItemCompliance.compliant:
+                        blocked[p.id] = {"product": p.name, "reason": _blocking_reason(f, members)}
+            usable = [p.name for p in matched if p.id not in blocked]
+            status = "no_match" if not matched else "applied" if usable else "overridden"
+            out.append({
+                "id": pref.id, "kind": pref.kind, "value": pref.value, "source": pref.source,
+                "label": kind["label"], "effect": kind["effect"], "status": status,
+                "matches": usable[:5], "match_count": len(usable), "blocked": list(blocked.values())[:5],
+                "hint": restriction_hint(pref.kind, pref.value, set(members)),
+                "created_at": pref.created_at.isoformat(timespec="seconds") if pref.created_at else None,
+                "updated_at": (pref.meta or {}).get("updated_at"),
+            })
+        return out
+
     def supply_information(self, case: EscalationCase, question: str) -> str:
         p = case.product
         record = {
@@ -417,6 +464,16 @@ def _contribution(product: Product, nutrient: str) -> float:
         return float(product.servings) if product.category == "carb" else 0.0
     val = product.nutrition.get(nutrient, 0)
     return float(val if val is not None else 0)
+
+
+def _blocking_reason(f: Finding, members: dict[str, list[str]]) -> str:
+    """Why a liked product will never be offered: the restriction it breaks and whose it is."""
+    hits = sorted({fd["restriction"] for fd in f.findings if fd.get("restriction")})
+    named = ", ".join(label(r) + (f" ({', '.join(members[r])})" if members.get(r) else "") for r in hits)
+    if f.status == ItemCompliance.violation:
+        reviewed = any(fd.get("kind") == "human_review" for fd in f.findings)
+        return named or ("A dietitian ruled it out for your household" if reviewed else "Breaks a dietary restriction")
+    return "Safety can't be confirmed" + (f" for {named}" if named else "")
 
 
 def _readable(values) -> set[str] | None:
