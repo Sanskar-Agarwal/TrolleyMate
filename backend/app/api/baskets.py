@@ -2,7 +2,7 @@
 (negotiation: Negotiation & Substitution; explain: Platform & Governance)."""
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.context import AgentContext
 from app.api.common import basket_out, done, own_basket, own_item, own_session
@@ -18,6 +18,9 @@ class BuildIn(BaseModel):
 
 
 class NegotiateIn(BaseModel):
+    # Only the budget, the days and the goal are negotiable; anything else (e.g. restrictions) is refused.
+    model_config = ConfigDict(extra="forbid")
+
     option_id: str | None = None
     budget: float | None = Field(default=None, gt=0)
     days: int | None = Field(default=None, ge=1, le=31)
@@ -46,6 +49,14 @@ def build_basket(session_id: int, body: BuildIn, ctx: AgentContext = Depends(age
 def negotiate(session_id: int, body: NegotiateIn, ctx: AgentContext = Depends(agent_context)) -> dict:
     s = own_session(ctx, session_id)
     return _outcome(ctx, ctx.shopper.negotiate(s, option_id=body.option_id, budget=body.budget, days=body.days, goal=body.goal))
+
+
+@router.post("/sessions/{session_id}/negotiate/cancel")
+def cancel_negotiation(session_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
+    out = ctx.shopper.cancel_negotiation(own_session(ctx, session_id))
+    basket = out["basket"]
+    return done(ctx, {"status": "cancelled", "constraint_set_id": out["constraint_set_id"], "version": out["version"],
+                      "basket": basket_out(ctx, basket) if basket else None})
 
 
 @router.get("/baskets/{basket_id}")

@@ -2,8 +2,11 @@
 
 When no basket fits, work out (a) the minimum budget that satisfies everything
 else, and (b) the most days the current budget can cover. The shopper picks one
-(or types their own numbers) and the basket is rebuilt. Dietary rules are never
-offered as a trade-off.
+(or types their own numbers) and the basket is rebuilt only then; a choice that
+still doesn't fit leaves the constraints as they were and offers new options.
+Cancelling keeps the confirmed constraints unchanged. Dietary rules are never
+offered as a trade-off: candidates are screened before the solver, and a choice
+can only change the budget, the days or the goal.
 """
 
 from __future__ import annotations
@@ -16,7 +19,9 @@ from app.optimisation import BasketOptimiser, Requirements
 from app.optimisation.strategies import LowestCost, OptimisationStrategy
 from app.optimisation.types import Candidate
 from app.services.meal_schedule import meal_schedule
-from app.services.session_state import active_constraints
+from app.services.session_state import active_constraints, latest_basket
+
+OPTION_IDS = ("increase_budget", "reduce_days")
 
 
 class NegotiationError(ValueError):
@@ -107,9 +112,11 @@ def apply(agent, session: ShoppingSession, *, option_id: str | None = None, budg
     record = active_constraints(agent.db, session)
     if record is None:
         raise NegotiationError("There are no confirmed constraints to adjust.")
-    payload = dict(record.payload)
-    if option_id and budget is None and days is None:
-        raise NegotiationError("Pass the option's budget or days along with its id.")
+    payload = dict(record.payload)  # restrictions, preferences and targets carry over untouched
+    if option_id is not None and option_id not in OPTION_IDS:
+        raise NegotiationError("Unknown trade-off option.")
+    if budget is None and days is None and goal is None:
+        raise NegotiationError("Choose a budget, a number of days or a different goal.")
     if budget is not None:
         if budget <= 0:
             raise NegotiationError("Budget must be positive.")
@@ -120,3 +127,15 @@ def apply(agent, session: ShoppingSession, *, option_id: str | None = None, budg
         payload["days"] = int(days)
     agent.log("accept_tradeoff", f"Shopper chose: budget ${payload.get('budget')}, {payload.get('days')} days", session_id=session.id)
     return basket_builder.build(agent, session, goal, payload_override=payload, origin="negotiation")
+
+
+def cancel(agent, session: ShoppingSession) -> dict:
+    """The shopper declines every trade-off (UC-03 failure scenario). Nothing is re-solved: the confirmed
+    constraints, the request's status and any earlier basket stay exactly as they were."""
+    record = active_constraints(agent.db, session)
+    if record is None:
+        raise NegotiationError("There is no negotiation to cancel.")
+    basket = latest_basket(agent.db, session.id)
+    agent.log("cancel_negotiation", "Shopper declined every trade-off; constraints unchanged",
+              rationale=f"Constraint set v{record.version} stays active", session_id=session.id)
+    return {"constraint_set_id": record.id, "version": record.version, "basket": basket}
