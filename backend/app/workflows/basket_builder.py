@@ -6,7 +6,8 @@
   (4) Nutrition & Compliance verifies basket    → passed / escalated (items withheld)
   (5) Personal Shopper presents it with an explanation
 
-If (3) is infeasible, UC-03 negotiation is invoked instead (extension 3a).
+If (3) is infeasible, UC-03 negotiation is invoked instead (extension 3a). If the solver
+times out, that is reported with a retry and is not treated as infeasibility (extension 3b).
 Owner: Intake & Optimisation.
 """
 
@@ -31,9 +32,10 @@ class BuildError(ValueError):
 
 @dataclass
 class BuildOutcome:
-    status: str  # ok | infeasible
+    status: str  # ok | infeasible | timed_out
     basket: Basket | None = None
     negotiation: dict | None = None
+    message: str = ""
     excluded: list[dict] = field(default_factory=list)
 
 
@@ -88,6 +90,14 @@ def build(
     optimiser = BasketOptimiser()
     solve_req = replace(req, budget=round(req.budget - reserve, 2)) if reserve and req.budget is not None else req
     result = optimiser.solve(solve_req, strategy, candidates, min_qty=min_qty, max_qty=max_qty, prefer=(prefer or set()) | set(favoured))
+    if result.timed_out:
+        # Not proof that nothing fits (UC-02 ext 3b): leave the request and any basket as they were.
+        has_basket = latest_basket(db, session.id) is not None
+        session.status = SessionStatus.basket_ready if has_basket else SessionStatus.open
+        agent.log("solver_timeout", "The optimiser hit its time limit; offered a retry",
+                  rationale=f"{result.solver_ms} ms", session_id=session.id)
+        return BuildOutcome(status="timed_out", excluded=excluded,
+                            message="Building the basket took too long, so nothing was changed. Please try again.")
     if not result.feasible:
         from app.workflows import negotiation
 

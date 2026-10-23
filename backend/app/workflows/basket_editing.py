@@ -109,6 +109,8 @@ def edit(agent, basket: Basket, text: str) -> dict:
         agent, session, basket.goal, payload_override=payload, origin="edit",
         min_qty=min_qty, max_qty=max_qty, exclude_products=excluded, prefer=set(current) - excluded, reserve=reserve,
     )
+    if outcome.status == "timed_out":
+        return {"status": "conflict", "message": outcome.message, "suggestions": []}
     if outcome.status != "ok":
         neg = outcome.negotiation or {}
         return {

@@ -32,6 +32,8 @@ def goals() -> list[dict]:
 def _outcome(ctx: AgentContext, outcome) -> dict:
     if outcome.status == "ok":
         return done(ctx, {"status": "ok", "basket": basket_out(ctx, outcome.basket)})
+    if outcome.status == "timed_out":
+        return done(ctx, {"status": "timed_out", "message": outcome.message})
     return done(ctx, {"status": "infeasible", "negotiation": outcome.negotiation})
 
 
