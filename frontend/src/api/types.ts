@@ -177,6 +177,7 @@ export interface NegotiationOption {
   detail: string;
   budget?: number;
   days?: number;
+  person_meals?: number;
 }
 
 export interface Negotiation {
@@ -187,6 +188,7 @@ export interface Negotiation {
   days: number;
   person_meals: number;
   shortfall: number | null;
+  timed_out: boolean;
 }
 
 export interface MealSlot {

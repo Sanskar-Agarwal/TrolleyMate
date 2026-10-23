@@ -39,15 +39,18 @@ interface ShopValue {
   cancel: () => Promise<void>;
   build: (goal: Goal) => Promise<void>;
   negotiate: (choice: { option_id?: string; budget?: number; days?: number }) => Promise<void>;
+  cancelNegotiation: () => Promise<void>;
   newSession: () => Promise<void>;
 }
 
 const ShopContext = createContext<ShopValue | null>(null);
 
-const BUILD_TOAST = (r: { status: string; basket?: Basket }): [string, Tone] =>
+const BUILD_TOAST = (r: { status: string; basket?: Basket; message?: string }): [string, Tone] =>
   r.status === "ok" && r.basket
     ? [`Basket ready: ${r.basket.items.length} items for ${money(r.basket.total)}`, "ok"]
-    : ["That doesn't fit. Pick a trade-off below.", "warn"];
+    : r.status === "timed_out"
+      ? [r.message ?? "That took too long. Please try again.", "warn"]
+      : ["That doesn't fit. Pick a trade-off below.", "warn"];
 
 export function ShopProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
@@ -145,7 +148,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
           if (kind === "compare") setView("prices");
           const edit = r.response.edit as { status?: string; suggestions?: Negotiation["options"]; message?: string } | undefined;
           if (edit?.status === "conflict" && edit.suggestions?.length) {
-            setNegotiation({ message: edit.message ?? "", options: edit.suggestions, blocked_roles: [], budget: null, days: 0, person_meals: 0, shortfall: null });
+            setNegotiation({ message: edit.message ?? "", options: edit.suggestions, blocked_roles: [], budget: null, days: 0, person_meals: 0, shortfall: null, timed_out: false });
           }
         }
         return r !== undefined;
@@ -176,7 +179,15 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       negotiate: async (choice) => {
         if (!sid) return;
         const r = await run("Building your basket", () => baskets.negotiate(sid, choice), { toast: BUILD_TOAST });
-        if (r) setNegotiation(r.status === "infeasible" ? r.negotiation : null);
+        // A timeout is not an answer: keep the current options so the shopper can retry.
+        if (r && r.status !== "timed_out") setNegotiation(r.status === "infeasible" ? r.negotiation : null);
+      },
+      cancelNegotiation: async () => {
+        if (!sid) return;
+        const r = await run("Keeping your original request", () => baskets.cancelNegotiation(sid), {
+          toast: () => ["Kept your request as it was. Nothing was changed.", "info"],
+        });
+        if (r) setNegotiation(null);
       },
       newSession: async () => {
         const r = await run("Starting a new shop", () => sessions.create(), { refresh: false, toast: () => ["New shop started", "info"] });

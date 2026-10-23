@@ -25,7 +25,9 @@ import type {
   WithTrace,
 } from "./types";
 
-type BuildResult = WithTrace<{ status: "ok"; basket: Basket } | { status: "infeasible"; negotiation: Negotiation }>;
+type BuildResult = WithTrace<
+  { status: "ok"; basket: Basket } | { status: "infeasible"; negotiation: Negotiation } | { status: "timed_out"; message: string }
+>;
 
 // --- Auth & system (Platform) ------------------------------------------------
 export const auth = {
@@ -69,6 +71,8 @@ export const baskets = {
   build: (sessionId: number, goal: Goal) => api<BuildResult>(`/sessions/${sessionId}/basket`, { body: { goal } }),
   negotiate: (sessionId: number, choice: { option_id?: string; budget?: number; days?: number; goal?: Goal }) =>
     api<BuildResult>(`/sessions/${sessionId}/negotiate`, { body: choice }),
+  cancelNegotiation: (sessionId: number) =>
+    api<WithTrace<{ status: "cancelled"; basket: Basket | null }>>(`/sessions/${sessionId}/negotiate/cancel`, { body: {} }),
   get: (id: number) => api<Basket>(`/baskets/${id}`),
   accept: (id: number) => api<WithTrace<{ basket: Basket }>>(`/baskets/${id}/accept`, { body: {} }),
 };
