@@ -8,7 +8,7 @@ const EXAMPLES = [
 ];
 
 export default function StartPanel() {
-  const { busy, focusChat } = useShop();
+  const { busy, focusChat, chat } = useShop();
   return (
     <div className="start">
       <section className="start-hero" aria-labelledby="start-title">
@@ -31,7 +31,7 @@ export default function StartPanel() {
         </div>
         <div className="start-examples">
           {EXAMPLES.map((e) => (
-            <button key={e.tag} className="example" onClick={() => focusChat(e.text)} disabled={!!busy} aria-label={`Use ${e.tag} example: ${e.text}`}>
+            <button key={e.tag} className="example" onClick={() => void chat(e.text)} disabled={!!busy} aria-label={`Use ${e.tag} example: ${e.text}`}>
               <span className="example-top"><strong>{e.tag}</strong><span className="example-arrow" aria-hidden="true">↗</span></span>
               <span className="example-budget">{e.budget}<span className="small muted"> budget</span></span>
               <span className="example-detail">{e.detail}</span>
