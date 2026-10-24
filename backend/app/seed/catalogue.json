@@ -4335,6 +4335,65 @@
         "buckwheat"
       ],
       "base_price": 4.0
+    },
+    {
+      "sku": "PRO-MAL-BAR",
+      "name": "Malformed Protein Bar 45g",
+      "brand": "Unknown",
+      "category": "snack",
+      "pack_size": 45,
+      "unit": "g",
+      "servings": 1,
+      "data_complete": false,
+      "nutrition": {
+        "kcal": null,
+        "protein_g": null,
+        "carbs_g": null,
+        "fat_g": null,
+        "fibre_g": null,
+        "veg_serves": null
+      },
+      "tags": [],
+      "perishable": false,
+      "shelf_life_days": 365,
+      "prep_minutes_per_serving": 0,
+      "substitution_group": "snack",
+      "ingredients": [],
+      "base_price": 2.5
+    },
+    {
+      "sku": "PRO-DIS-STEAK",
+      "name": "Discontinued Premium Steak 300g",
+      "brand": "Paddock",
+      "category": "protein",
+      "pack_size": 300,
+      "unit": "g",
+      "servings": 2,
+      "nutrition": {
+        "kcal": 600,
+        "protein_g": 60,
+        "carbs_g": 0,
+        "fat_g": 40,
+        "fibre_g": 0,
+        "veg_serves": 0
+      },
+      "tags": [
+        "beef",
+        "meat"
+      ],
+      "perishable": true,
+      "shelf_life_days": 3,
+      "prep_minutes_per_serving": 15,
+      "substitution_group": "red_meat",
+      "ingredients": [
+        "beef"
+      ],
+      "base_price": 14.0,
+      "unavailable_at": [
+        "GreenGrocer Express",
+        "ValueMart",
+        "FreshCo"
+      ]
     }
   ]
 }
