@@ -12,7 +12,7 @@ cd "$root/backend"
 
 echo "==> Frontend: installing packages"
 cd "$root/frontend"
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund  # exact versions from package-lock.json
 
 if [ ! -f "$root/.env" ]; then
   cp "$root/.env.example" "$root/.env"

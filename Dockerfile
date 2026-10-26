@@ -11,8 +11,9 @@ RUN npm run build
 FROM python:3.12-slim AS app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app/backend
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements.lock ./
+# Pinned, complete set — no resolver surprises on demo day (KAN-29).
+RUN pip install --no-cache-dir --no-deps -r requirements.lock && pip check
 COPY backend/ ./
 COPY --from=web /web/dist /app/frontend/dist
 ENV FRONTEND_DIST=../frontend/dist \
