@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -30,6 +31,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 WINDOWS = os.name == "nt"
 LOG: list[str] = []
+ANSI = re.compile(r"\x1b\[[0-9;]*m")  # terminal colour codes from npm/vite output
 
 
 def say(msg: str) -> None:
@@ -40,8 +42,8 @@ def say(msg: str) -> None:
 
 def run(cmd: list[str], cwd: Path, env: dict | None = None, tail: int = 4) -> str:
     started = time.perf_counter()
-    proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, shell=WINDOWS and cmd[0] in ("npm", "npx"))
-    out = (proc.stdout + proc.stderr).strip()
+    proc = subprocess.run(cmd, check=False, cwd=cwd, env=env, capture_output=True, text=True, shell=WINDOWS and cmd[0] in ("npm", "npx"))
+    out = ANSI.sub("", proc.stdout + proc.stderr).strip()
     took = time.perf_counter() - started
     if proc.returncode != 0:
         say(f"FAILED ({took:.0f}s): {' '.join(cmd)}\n{out[-3000:]}")
@@ -120,7 +122,7 @@ def journey(base: str) -> dict:
     assert built["status"] == "ok", f"basket build failed: {str(built)[:300]}"
     llm = json.loads(http("GET", f"{base}/api/system/llm")[1])
     return {"basket_total": built["basket"]["total"], "items": len(built["basket"]["items"]),
-            "trace_steps": len(built["trace"]), "fell_back": any(t["fell_back"] for t in built["trace"]), "llm": llm}
+            "trace_steps": len(built["trace"]), "llm_steps": [t for t in built["trace"] if t["llm"]], "llm": llm}
 
 
 def main() -> None:
@@ -177,9 +179,11 @@ def main() -> None:
         proc, base = serve(py, backend, env_down)
         try:
             result = journey(base)
-            assert result["fell_back"] and result["llm"]["mode"] == "degraded", result["llm"]
+            steps = result["llm_steps"]
+            assert steps and all(t["fell_back"] for t in steps), steps
+            assert result["llm"]["mode"] == "degraded", result["llm"]
             say(f"ok: AI provider unreachable -> {result['llm']['mode_label']}; basket still built "
-                f"(${result['basket_total']:.2f}) and every AI step flagged as a fallback")
+                f"(${result['basket_total']:.2f}) and all {len(steps)} AI steps in it flagged as fallbacks")
         finally:
             proc.terminate()
             proc.wait(timeout=20)
