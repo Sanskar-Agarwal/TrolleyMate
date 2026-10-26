@@ -18,9 +18,10 @@ export default function ModelBadge() {
   }, []);
 
   if (!status) return null;
-  const offline = status.provider === "mock";
-  const degraded = !offline && status.fallbacks > 0;
-  const title = status.config_error ?? status.last_error ?? `${status.calls} LLM calls this run`;
+  const offline = status.mode === "offline" || status.mode === "offline_unconfigured";
+  const degraded = status.mode === "degraded";
+  const detail = status.config_error ?? status.last_error;
+  const title = detail ? `${status.mode_label}. ${detail}` : `${status.mode_label}. ${status.calls} LLM calls this run.`;
   return (
     <span className={`chip ${offline ? "" : degraded ? "chip-amber" : "chip-produce"}`} title={title}>
       <span className="mono">{offline ? "Offline agent mode" : `${status.model}`}</span>

@@ -56,8 +56,24 @@ class LLMService:
     def model_name(self) -> str:
         return self.provider.model if self.provider else "rule-based"
 
+    @property
+    def mode(self) -> str:
+        """What is actually answering, so the UI can label it (KAN-29):
+        live · degraded (live with offline fallbacks) · offline (chosen) · offline_unconfigured."""
+        if self.provider is None:
+            return "offline_unconfigured" if self.config_error else "offline"
+        return "degraded" if self.fallbacks else "live"
+
     def status(self) -> dict:
+        labels = {
+            "live": f"Live AI ({self.model_name})",
+            "degraded": f"Live AI ({self.model_name}) with {self.fallbacks} offline fallback(s)",
+            "offline": "Offline agent mode: rule-based answers, no AI provider",
+            "offline_unconfigured": "Offline agent mode: AI provider not configured",
+        }
         return {
+            "mode": self.mode,
+            "mode_label": labels[self.mode],
             "provider": self.provider_name,
             "model": self.model_name,
             "configured_provider": self.settings.llm_provider,

@@ -349,6 +349,8 @@ export interface AuditEntry {
 }
 
 export interface LlmStatus {
+  mode: "live" | "degraded" | "offline" | "offline_unconfigured";
+  mode_label: string;
   provider: string;
   model: string;
   configured_provider: string;
