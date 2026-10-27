@@ -70,6 +70,7 @@ return (
       {data.split_plan.length > 0 && (
         <div className="stack" style={{ "--gap": "10px" } as React.CSSProperties}>
           <span className="eyebrow">Cheapest from each store · {data.retailers.length} stores compared</span>
+          <p className="small muted">Each item is listed under the store that sells it cheapest, with how much less it is than the next-cheapest store.</p>
           <div className="split-plan">
             {data.split_plan.map((store) => (
               <div key={store.retailer_id} className="split-store">
@@ -85,7 +86,7 @@ return (
                         {i.quantity > 1 && <span className="mono muted"> ×{i.quantity}</span>}
                         {i.on_special && <span className="chip chip-beet" style={{ marginLeft: 6 }}>special</span>}
                       </span>
-                      {i.saves_vs_next > 0 && <span className="mono saving">−{money(i.saves_vs_next)}</span>}
+                      {i.saves_vs_next > 0 && <span className="mono saving split-saving" title="Cheaper than the next-cheapest store by this much">−{money(i.saves_vs_next)}</span>}
                     </li>
                   ))}
                 </ul>

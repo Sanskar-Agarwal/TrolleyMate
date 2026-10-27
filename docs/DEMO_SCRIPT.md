@@ -21,9 +21,9 @@ If the campus VPN / LLM is unavailable, the app keeps working on the offline age
 | 7 | Sign out → **Dr Sam Patel** → open the case → *Request info* → **Safe — release**. | UC-06 extension, State machine 9.5; the compliance agent answers the dietitian. Do this **before** editing the basket, so the released item is still in it. |
 | 8 | Sign in as **Alex** again: item released, basket now "Safe-checked" and can be accepted. | The human decision is applied and remembered for this household. |
 | 9 | Chat *"Replace the lentils with chicken"*. | UC-09: LLM turns language into solver pins; mandatory rules stay. (C2) |
-| 10 | **Find a substitute** on an item → accept. | UC-04 trade-off sentence; declined swaps never re-offered. |
+| 10 | **Find a substitute** on an item → accept. | UC-04 trade-off sentence; declined swaps never re-offered. If the swap has less protein, the basket shows a nutrition gap and **Accept basket** waits until you click *I'm OK with this gap* (1.2.11) — say so, it's the gate working. |
 | 11 | **Compare stores** tab, switch baseline, point at **Cheapest from each store**. **When to buy** tab. | UC-05 split basket savings and the per-store shopping list (cheapest source for every item across 4 stores); 1.2.6 recurring-discount detection (e.g. cheddar on Tuesdays, turkey mince on Wednesdays). |
-| 12 | **Meal plan** tab → Plan my meals. | UC-08: recipes only from the basket, shared packs, gaps reported not silently filled. |
+| 12 | **Basket** tab → **Accept basket**, then **Meal plan** tab → Plan my meals. | UC-08: recipes only from the basket, shared packs, gaps reported not silently filled. |
 | 13 | **Start a new shop**: *"$30 for the week, three meals a day for two of us"* → confirm → build. | UC-03: infeasible → minimum extra budget **or** max days; pick one → rebuilt. |
 | 14 | Sign in as **Maya (founder)** → **Agent audit**: filter by agent, open a trace to show the raw prompt/response and model version. | Governance outside the supervisor chain; per-decision model attribution. (C2, C4) |
 | 15 | Show GitHub PRs + CI runs, Jira board/burndown, sprint tags. The whole journey above is also an automated test: `pytest tests/test_shopper_journey.py`. | Agile: iterations, reviews, feedback loops. (C3) |

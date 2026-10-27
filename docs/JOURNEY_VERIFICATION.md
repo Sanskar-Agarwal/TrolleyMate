@@ -40,9 +40,11 @@ Regression tests: `test_journey_fixes.py`, `test_intake.py::test_unrelated_corre
 `test_basket_constraints.py::test_non_protein_nutrition_targets_are_enforced` and `::test_unsupported_nutrient_target_is_flagged_not_silently_kept`.
 Each fails on the code before its fix.
 
-Not fixed here (other owners): pantry/snack chat additions skip the final budget check (C04), old
-dietary approvals are reused after an allergy's severity increases (R02/M04), and there is no account
-registration (M02).
+A browser walkthrough of the same script (27 Oct, real LLM) found one more:
+
+| # | Demo step | What broke | Fix |
+|---|---|---|---|
+| 4 | 8, 10 | The summary paragraph at the top of the basket kept the build-time total and items after a dietitian release or an accepted swap | `basket_builder.refresh_explanation` re-syncs the recorded facts and regenerates the summary; called after every review decision and accepted swap |
 
 ## 3. Seed data: four competing retailers
 
@@ -81,3 +83,38 @@ store (`split_plan` in `MarketAnalystAgent.compare`).
 | 1.2.15 | Dietitian review queue | `workflows/escalation.py`, `api/escalations.py` | `test_basket_flow.py`, `test_journey_fixes.py` | 5, 7–8 |
 
 Every row is also covered end to end by `test_shopper_journey.py`.
+
+## 5. Audit of every ticket marked Done (27 Oct)
+
+Each Done ticket was checked against its acceptance criteria in the 12 Oct delivery plan: by the
+test suite, by targeted API probes against a fresh mock-mode database, in the browser, and with
+`scripts/verify_clean.py` plus a Docker build and run.
+
+**Integration gap found:** Maaz's KAN-25 to KAN-29 work (15 commits on `Maaz`) had never been merged,
+so the release was missing it. It's now merged into `Sanskar`, conflict-free, and every test passes.
+
+| Ticket | Result | Notes |
+|---|---|---|
+| KAN-1 S01 contracts & baseline | Pass | `docs/API_CONTRACTS.md`, `docs/DECISIONS.md` (now merged) |
+| KAN-2 S02 intake | Fixed | Unrelated corrections dropped open questions (fixed); cancel keeps the last confirmed set |
+| KAN-3 S03 baskets & goals | Fixed | All 5 goals in budget and safe; non-protein targets now enforced; shopper pins may exceed the variety cap |
+| KAN-4 S04 meal plans | Pass | Uses only bought items and reports gaps |
+| KAN-7 P01 solver contract | Pass | Fixture tests |
+| KAN-8 P02 substitutions | Fixed | Rejected swaps aren't re-offered and unsafe ones are never offered; the summary and explanation now follow an accepted swap |
+| KAN-9 P03 negotiation | Pass | The minimum extra budget really is the minimum ($0.50 less is infeasible) |
+| KAN-10 P04 buy timing | Pass | No "wait" advice for perishables; advice never changes the basket |
+| KAN-13 C01 data contract | Pass | Provenance updated for 4 retailers (schema 1.1.0) |
+| KAN-14 C02 ingestion & units | Pass | Invalid sizes and units aren't normalised |
+| KAN-15 C03 savings | Pass | Every baseline works; incomplete options never claim savings |
+| KAN-16 C04 chat editing | Fixed | Pantry/snack additions could exceed the budget ($8.80 on $7) and were dropped by the next edit; now reserved from the budget and kept |
+| KAN-17 C05 price verification | Pass | Its fix is already in `main` |
+| KAN-19 R01 verdict contract | Pass | Contract tests |
+| KAN-20 R02 allergen cascade | Fixed | A dietitian "safe" decision was reused after an allergy became more severe; now only reused at the same severity or stricter |
+| KAN-21 R03 nutrition coverage | Fixed | Repairs for a protein gap suggested 2 kg of rice first; matching food groups now come first |
+| KAN-22 R04 preferences | Pass | Owner-only; can be deleted |
+| KAN-25 M01 interfaces & CI | Pass after merge | CI runs on PRs and on `main` |
+| KAN-26 M02 profiles | Pass after merge | Another shopper can't edit; a failed save keeps the profile (UI and API) |
+| KAN-27 M03 explanations & audit | Fixed after merge | The drawer shows its source records; the summary, totals and nutrition now refresh after changes |
+| KAN-28 M04 review queue | Fixed after merge | Expired reviews are requeued to another reviewer; held notices are cleared on decision |
+| KAN-29 M05 clean deployment | Pass after merge | `verify_clean.py` PASSED on the merged commit (pinned install, tests, build, offline and fallback startup) |
+| KAN-31 Docker & CI/CD | Pass | Image builds; container serves the UI and API from a clean start |

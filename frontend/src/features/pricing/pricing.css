@@ -129,5 +129,10 @@ td.cheapest {
 .split-store li {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
+}
+.split-saving {
+  white-space: nowrap;
+  flex-shrink: 0;
 }

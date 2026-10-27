@@ -48,7 +48,7 @@ export default function LoginPage() {
         <div className="docket-stage" aria-hidden="true">
           <span className="sticker sticker-a">Nut-free ✓</span>
           <span className="sticker sticker-b">Dietitian-checked</span>
-          <span className="sticker sticker-c">3 stores compared</span>
+          <span className="sticker sticker-c">4 stores compared</span>
           <div className="docket-shadow">
             <div className="docket">
               <p className="docket-quote">“$100 for this week, two meals a day for us two. Jamie has a nut allergy.”</p>
