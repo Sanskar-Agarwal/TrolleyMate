@@ -45,3 +45,4 @@ def test_dietitian_decision_clears_held_notice_and_explanation_facts(client, ale
         facts = client.get(f"/api/baskets/{b['id']}/explain", headers=alex).json()["facts"]
         assert name not in facts["withheld"]
         assert facts["total"] == after["total"]
+        assert f"${after['total']:.2f}" in after["summary"]  # the summary is rewritten, not left on the old total

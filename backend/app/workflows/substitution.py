@@ -106,6 +106,9 @@ def accept(agent, sub: Substitution) -> Basket:
     basket.recalc_total()
     _refresh_nutrition(agent, basket)
     agent.log("accept_substitution", f"Accepted: {sub.original.name} → {replacement.name}", basket_id=basket.id, session_id=sub.session_id)
+    from app.workflows.basket_builder import refresh_explanation
+
+    refresh_explanation(agent, basket)
     return basket
 
 

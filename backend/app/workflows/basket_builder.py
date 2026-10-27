@@ -176,6 +176,24 @@ def build(
     return BuildOutcome(status="ok", basket=basket, excluded=excluded)
 
 
+def refresh_explanation(agent, basket: Basket) -> None:
+    """Re-sync the recorded facts with the basket as it now stands (after a dietitian decision
+    or an accepted swap) and regenerate the summary, so neither describes the old basket."""
+    notes = dict(basket.notes or {})
+    if "facts" not in notes:
+        return
+    notes["facts"] = {
+        **notes["facts"],
+        "total": basket.total,
+        "withheld": [i.product.name for i in basket.items if i.withheld],
+        "items": [{"name": i.product.name, "qty": i.quantity, "reason": i.rationale} for i in basket.items],
+    }
+    basket.notes = notes
+    explanation = agent.ctx.manager.explain_for(basket)
+    if explanation["available"]:
+        basket.notes = {**basket.notes, "summary": explanation["text"]}
+
+
 def _new_version(db, session: ShoppingSession, payload: dict, origin: str) -> ConstraintSetRecord:
     version = (db.scalar(select(func.max(ConstraintSetRecord.version)).where(ConstraintSetRecord.session_id == session.id)) or 0) + 1
     record = ConstraintSetRecord(session_id=session.id, version=version, confirmed_at=datetime.now(), payload=payload, origin=origin)

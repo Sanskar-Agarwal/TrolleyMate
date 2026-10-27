@@ -154,29 +154,25 @@ def _apply(agent, case: EscalationCase, decision: str) -> None:
     basket = db.get(Basket, case.basket_id)
     if item is None or basket is None or basket.status == BasketStatus.superseded:
         return
+    from app.workflows.basket_builder import refresh_explanation
+
     name = item.product.name
-    # The "held" notice and withheld fact no longer apply once a dietitian has decided.
+    # The "held" notice no longer applies once a dietitian has decided.
     notes = dict(basket.notes or {})
     notes["notifications"] = [n for n in notes.get("notifications", []) if not n.startswith(f"{name} is held")]
-    facts = dict(notes.get("facts") or {})
-    facts["withheld"] = [w for w in facts.get("withheld", []) if w != name]
     if decision == VerdictStatus.passed:
         item.withheld, item.compliance = False, ItemCompliance.compliant
         notes["notifications"].append(f"{name} was confirmed safe by a dietitian and added back to your basket.")
-        notes["facts"] = facts
         basket.notes = notes
         agent.log("release_item", f"{name} released to the basket after review", basket_id=basket.id)
     else:
         case.basket_item_id = None
         basket.items.remove(item)
         db.flush()
-        facts["items"] = [i for i in facts.get("items", []) if i.get("name") != name]
-        notes["facts"] = facts
         notes["notifications"].append(f"{name} was removed after dietitian review. Ask for a substitute if you need a replacement.")
         basket.notes = notes
         agent.log("exclude_item", f"{name} excluded from the basket after review", basket_id=basket.id)
     basket.recalc_total()
-    if basket.notes and "facts" in basket.notes:
-        basket.notes = {**basket.notes, "facts": {**basket.notes["facts"], "total": basket.total}}
     if not any(i.withheld for i in basket.items) and basket.status == BasketStatus.pending_review:
         basket.status = BasketStatus.verified
+    refresh_explanation(agent, basket)
