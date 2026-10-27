@@ -166,6 +166,24 @@ def test_incomplete_option_excluded_from_cheapest():
     assert result["cheapest"]["retailer_id"] != R2.id
 
 
+def test_split_basket_incomplete_when_item_unpriced_everywhere():
+    """If an item has no price at any retailer it is excluded from split_total and the split
+    basket option is marked incomplete — it must not silently appear as a complete option."""
+    # Oats priced at R1 only; Olive Oil has no price at either retailer.
+    no_olive_map = {
+        (101, 1): _quote(3.00),
+    }
+    analyst = _make_analyst(RETAILERS, no_olive_map)
+    result = analyst.compare(_basket(ITEMS), baseline_id=R1.id)
+
+    split = next(o for o in result["options"] if o["is_split"])
+    assert split["complete"] is False
+    assert "Olive Oil 500ml" in split["unpriced"]
+
+    # All single-retailer options are also incomplete, so no cheapest exists.
+    assert result["cheapest"] is None
+
+
 def test_zero_baseline_does_not_divide():
     """When baseline retailer has no priced items (base_total=0), saving_pct is 0.0, no exception."""
     # R1 (baseline) has no prices; R2 has both

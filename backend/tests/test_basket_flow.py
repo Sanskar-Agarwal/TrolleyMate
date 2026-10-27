@@ -3,6 +3,53 @@
 import pytest
 
 
+def _force_escalation_scenario(basket_id: int) -> None:
+    """Seed PRO-SCH-1K (data_complete=False → always uncertain) as a withheld item on the
+    given basket, along with the matching compliance verdict and escalation case.  Used when
+    the solver didn't happen to select an uncertain product so the dietitian path is always
+    exercised regardless of what the optimiser chose."""
+    from sqlalchemy import select
+
+    from app.core.db import SessionLocal
+    from app.domain import Basket, BasketItem, Product, Retailer
+    from app.domain.enums import BasketStatus, ItemCompliance, VerdictStatus
+    from app.domain.safety_audit import ComplianceVerdict, EscalationCase
+    from app.services.session_state import household_of
+
+    with SessionLocal() as db:
+        basket = db.get(Basket, basket_id)
+        from app.domain.requests_constraints import ShoppingSession
+        session = db.get(ShoppingSession, basket.session_id)
+        household = household_of(db, session)
+        product = db.scalar(select(Product).where(Product.sku == "PRO-SCH-1K"))
+        retailer = db.scalar(select(Retailer).limit(1))
+
+        item = BasketItem(
+            basket_id=basket.id, product_id=product.id, retailer_id=retailer.id,
+            quantity=1, pack_price=6.50, line_total=6.50,
+            compliance=ItemCompliance.uncertain, withheld=True,
+        )
+        db.add(item)
+        db.flush()
+
+        verdict = ComplianceVerdict(
+            basket_id=basket.id, status=VerdictStatus.escalated, confidence=0.4,
+            evidence={"restrictions": [], "products": [], "nutrition": None},
+        )
+        db.add(verdict)
+        db.flush()
+
+        basket.status = BasketStatus.pending_review
+
+        db.add(EscalationCase(
+            verdict_id=verdict.id, basket_id=basket.id, household_id=household.id,
+            basket_item_id=item.id, product_id=product.id,
+            reason="Ingredient list missing from the retailer feed",
+            evidence={"kind": "missing_data", "detail": "Ingredient list missing from the retailer feed"},
+        ))
+        db.commit()
+
+
 def confirmed_session(client, headers, text):
     s = client.post("/api/sessions", headers=headers).json()["session"]
     rid = client.post(f"/api/sessions/{s['id']}/requests", json={"text": text}, headers=headers).json()["intake"]["request_id"]
@@ -47,9 +94,10 @@ def test_infeasible_budget_offers_tradeoffs_then_rebuilds(client, riley):
 def test_uncertain_item_is_withheld_and_dietitian_can_release_it(client, alex, sam):
     sid = confirmed_session(client, alex, "$100 for the week, two meals a day")
     b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=alex).json()["basket"]
-    withheld = [i for i in b["items"] if i["withheld"]]
-    if not withheld:
-        pytest.skip("Solver did not pick an uncertain product this run")
+    if not any(i["withheld"] for i in b["items"]):
+        # Solver did not naturally select an uncertain product; seed one so this path always runs.
+        _force_escalation_scenario(b["id"])
+        b = client.get(f"/api/baskets/{b['id']}", headers=alex).json()
     assert b["status"] == "pending_review"
     queue = client.get("/api/escalations", headers=sam).json()["cases"]
     case = next(c for c in queue if c["basket_id"] == b["id"])
@@ -86,7 +134,7 @@ def test_substitution_edit_mealplan_compare_timing(client, riley):
     assert plan["planned"] > 0 and plan["days"]
 
     cmp = client.get(f"/api/baskets/{b['id']}/comparison", headers=riley).json()
-    assert len(cmp["options"]) == 4 and cmp["insight"]
+    assert len(cmp["options"]) == len(cmp["retailers"]) + 1 and cmp["insight"]
 
     timing = client.get(f"/api/baskets/{b['id']}/buy-timing", headers=riley).json()["advice"]
     assert len(timing) == len([i for i in b["items"] if not i["withheld"]])
