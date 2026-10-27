@@ -1,7 +1,7 @@
 # Catalogue Data Provenance
 
-**Schema version:** 1.0.0  
-**Generated:** 2026-10-20  
+**Schema version:** 1.1.0  
+**Generated:** 2026-10-27  
 **Owner:** Chen-Ju Lin (KAN-13)  
 **Agreed with:** Reyon (Retailer integration, KAN-14)
 
@@ -14,8 +14,9 @@
 | GreenGrocer Express | Sydney Metro | `catalogue` | Premium grocer; higher default markup; discount on fruit/veg |
 | ValueMart | Sydney Metro | `catalogue` | Budget chain; discount on pantry/carb; markup on veg |
 | FreshCo | Sydney Metro | `partner_api` | Simulates live partner API; quotes seeded 30 h old to demonstrate stale-refresh |
+| Harvest Market | Sydney Metro | `catalogue` | Discount grocer; cheaper protein/dairy, dearer fruit/snacks; 21 own specials; bananas out of stock |
 
-The demo uses **three** retailers, which satisfies the "bounded multi-retailer" requirement of 1.2.7 and extends the minimum two-retailer contract agreed with Reyon.
+The demo uses **four** retailers, which satisfies the "bounded multi-retailer" requirement of 1.2.7 and extends the minimum two-retailer contract agreed with Reyon. The price comparison prices every basket item at all four and lists the cheapest source per item (`split_plan`).
 
 ---
 
@@ -33,7 +34,7 @@ All data in `catalogue.json` is **synthetic** — it was authored for the demo a
 
 ## Product catalogue
 
-- **60 + 2 products** across 7 categories: `protein`, `carb`, `veg`, `dairy`, `fruit`, `pantry`, `snack`.
+- **107 products** (including the two fixtures below) across 7 categories: `protein`, `carb`, `veg`, `dairy`, `fruit`, `pantry`, `snack`.
 - All products have: SKU, name, brand, category, pack size, unit (g / ml / each), servings, nutrition (per pack), ingredients, tags, perishable flag, shelf-life, prep time, substitution group.
 - Pricing: `base_price` in AUD; each retailer applies category multipliers (see `retailers[].multipliers`).
 - Specials: some products carry a `special` block with a weekday and discounted price.
@@ -58,11 +59,12 @@ Two products are included specifically to exercise error paths (KAN-13 acceptanc
 | SKU | Type | Description |
 |---|---|---|
 | `PRO-MAL-BAR` | **Malformed** | Nutrition panel is `null` throughout — simulates a retailer feed where the nutrition block could not be parsed. `data_complete: false`. No ingredients list. |
-| `PRO-DIS-STEAK` | **Discontinued / fully unavailable** | Listed in catalogue but marked `unavailable_at` all three retailers — simulates a delisted item still present in a cached feed. Generates no `PriceQuote` rows. |
+| `PRO-DIS-STEAK` | **Discontinued / fully unavailable** | Listed in catalogue but marked `unavailable_at` all four retailers — simulates a delisted item still present in a cached feed. Generates no `PriceQuote` rows. |
 | `PRO-SCH-1K` | **Incomplete** | `data_complete: false`, empty ingredients — real partial-data example from a retailer that does not publish ingredient lists. |
 | `FreshCo` quotes | **Stale** | All current FreshCo quotes are captured 30 h ago and have `status = stale` — drives the stale-refresh flow (UC-03). |
 | `PRO-LMB-500` | **Retailer exclusion** | Unavailable at ValueMart only. |
 | `CRB-GFP-500` | **Retailer exclusion** | Unavailable at GreenGrocer Express only. |
+| `FRU-BAN-1K` | **Retailer exclusion** | Unavailable at Harvest Market only. |
 
 ---
 

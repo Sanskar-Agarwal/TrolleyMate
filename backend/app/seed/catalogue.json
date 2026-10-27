@@ -1,7 +1,7 @@
 {
   "_comment": "Demo catalogue. Prices are base AUD; each retailer applies its own multipliers (see retailers). Nutrition is per pack. Edit freely \u2014 run `python -m app.seed --reset` to reload.",
-  "schema_version": "1.0.0",
-  "generated_at": "2026-10-20",
+  "schema_version": "1.1.0",
+  "generated_at": "2026-10-27",
   "data_provenance": "synthetic",
   "retailers": [
     {
@@ -33,6 +33,18 @@
         "default": 1.0,
         "protein": 0.93,
         "dairy": 0.95
+      }
+    },
+    {
+      "name": "Harvest Market",
+      "region": "Sydney Metro",
+      "source": "catalogue",
+      "multipliers": {
+        "default": 0.99,
+        "protein": 0.9,
+        "dairy": 0.92,
+        "fruit": 1.05,
+        "snack": 1.08
       }
     }
   ],
@@ -628,6 +640,13 @@
             3,
             5
           ]
+        },
+        "Harvest Market": {
+          "price": 5.6,
+          "weekdays": [
+            2,
+            5
+          ]
         }
       }
     },
@@ -775,7 +794,7 @@
         "soybeans",
         "water"
       ],
-      "base_price": 3.6
+      "base_price": 3.7
     },
     {
       "sku": "PRO-CKP-400",
@@ -806,7 +825,16 @@
         "water",
         "salt"
       ],
-      "base_price": 1.2
+      "base_price": 1.2,
+      "specials": {
+        "Harvest Market": {
+          "price": 0.96,
+          "weekdays": [
+            0,
+            3
+          ]
+        }
+      }
     },
     {
       "sku": "PRO-LEN-500",
@@ -993,7 +1021,16 @@
       "substitution_group": "poultry",
       "ingredients": [],
       "data_complete": false,
-      "base_price": 6.5
+      "base_price": 6.5,
+      "specials": {
+        "Harvest Market": {
+          "price": 5.2,
+          "weekdays": [
+            5,
+            1
+          ]
+        }
+      }
     },
     {
       "sku": "CRB-BAS-1K",
@@ -1183,6 +1220,13 @@
           "price": 3.0,
           "weekdays": [
             1,
+            6
+          ]
+        },
+        "Harvest Market": {
+          "price": 3.04,
+          "weekdays": [
+            3,
             6
           ]
         }
@@ -1386,6 +1430,13 @@
             4,
             5
           ]
+        },
+        "Harvest Market": {
+          "price": 2.24,
+          "weekdays": [
+            1,
+            4
+          ]
         }
       }
     },
@@ -1573,6 +1624,13 @@
             2,
             3
           ]
+        },
+        "Harvest Market": {
+          "price": 3.04,
+          "weekdays": [
+            6,
+            2
+          ]
         }
       }
     },
@@ -1756,6 +1814,13 @@
             2,
             5,
             6
+          ]
+        },
+        "Harvest Market": {
+          "price": 1.76,
+          "weekdays": [
+            4,
+            0
           ]
         }
       }
@@ -1943,7 +2008,16 @@
       "ingredients": [
         "lactose-free milk"
       ],
-      "base_price": 5.2
+      "base_price": 5.2,
+      "specials": {
+        "Harvest Market": {
+          "price": 4.16,
+          "weekdays": [
+            2,
+            5
+          ]
+        }
+      }
     },
     {
       "sku": "DAI-OAT-1L",
@@ -2150,6 +2224,13 @@
             4,
             5
           ]
+        },
+        "Harvest Market": {
+          "price": 6.0,
+          "weekdays": [
+            0,
+            3
+          ]
         }
       }
     },
@@ -2191,7 +2272,10 @@
             5
           ]
         }
-      }
+      },
+      "unavailable_at": [
+        "Harvest Market"
+      ]
     },
     {
       "sku": "FRU-APL-1K",
@@ -2344,6 +2428,13 @@
             4,
             5,
             6
+          ]
+        },
+        "Harvest Market": {
+          "price": 3.36,
+          "weekdays": [
+            5,
+            1
           ]
         }
       }
@@ -2533,6 +2624,13 @@
             2,
             3,
             5
+          ]
+        },
+        "Harvest Market": {
+          "price": 3.2,
+          "weekdays": [
+            3,
+            6
           ]
         }
       }
@@ -2724,6 +2822,13 @@
             5,
             6
           ]
+        },
+        "Harvest Market": {
+          "price": 4.4,
+          "weekdays": [
+            1,
+            4
+          ]
         }
       }
     },
@@ -2899,6 +3004,13 @@
             5,
             6
           ]
+        },
+        "Harvest Market": {
+          "price": 2.4,
+          "weekdays": [
+            6,
+            2
+          ]
         }
       }
     },
@@ -3067,7 +3179,16 @@
       "prep_minutes_per_serving": 2,
       "base_price": 3.8,
       "data_complete": true,
-      "substitution_group": "citrus"
+      "substitution_group": "citrus",
+      "specials": {
+        "Harvest Market": {
+          "price": 3.04,
+          "weekdays": [
+            4,
+            0
+          ]
+        }
+      }
     },
     {
       "sku": "FRU-STR-250",
@@ -3257,6 +3378,13 @@
             3,
             5
           ]
+        },
+        "Harvest Market": {
+          "price": 4.4,
+          "weekdays": [
+            2,
+            5
+          ]
         }
       }
     },
@@ -3437,6 +3565,13 @@
             0,
             3
           ]
+        },
+        "Harvest Market": {
+          "price": 2.0,
+          "weekdays": [
+            0,
+            3
+          ]
         }
       }
     },
@@ -3610,6 +3745,13 @@
           "weekdays": [
             2,
             4
+          ]
+        },
+        "Harvest Market": {
+          "price": 1.44,
+          "weekdays": [
+            5,
+            1
           ]
         }
       }
@@ -3792,7 +3934,16 @@
       "ingredients": [
         "pumpkin seeds"
       ],
-      "base_price": 4.0
+      "base_price": 4.0,
+      "specials": {
+        "Harvest Market": {
+          "price": 3.2,
+          "weekdays": [
+            3,
+            6
+          ]
+        }
+      }
     },
     {
       "sku": "FRT-AVO-EA",
@@ -3944,6 +4095,13 @@
           "price": 3.78,
           "weekdays": [
             3,
+            4
+          ]
+        },
+        "Harvest Market": {
+          "price": 3.6,
+          "weekdays": [
+            1,
             4
           ]
         }
@@ -4107,7 +4265,16 @@
       "ingredients": [
         "brazil nuts"
       ],
-      "base_price": 4.5
+      "base_price": 4.5,
+      "specials": {
+        "Harvest Market": {
+          "price": 3.6,
+          "weekdays": [
+            6,
+            2
+          ]
+        }
+      }
     },
     {
       "sku": "PRO-BLK-400",
@@ -4268,7 +4435,16 @@
         "ginger",
         "salt"
       ],
-      "base_price": 4.5
+      "base_price": 4.5,
+      "specials": {
+        "Harvest Market": {
+          "price": 3.6,
+          "weekdays": [
+            4,
+            0
+          ]
+        }
+      }
     },
     {
       "sku": "CAR-BAR-500",
@@ -4392,7 +4568,8 @@
       "unavailable_at": [
         "GreenGrocer Express",
         "ValueMart",
-        "FreshCo"
+        "FreshCo",
+        "Harvest Market"
       ]
     }
   ]

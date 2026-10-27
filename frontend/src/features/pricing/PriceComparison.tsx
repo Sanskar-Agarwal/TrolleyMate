@@ -67,6 +67,34 @@ return (
         ))}
       </div>
 
+      {data.split_plan.length > 0 && (
+        <div className="stack" style={{ "--gap": "10px" } as React.CSSProperties}>
+          <span className="eyebrow">Cheapest from each store · {data.retailers.length} stores compared</span>
+          <div className="split-plan">
+            {data.split_plan.map((store) => (
+              <div key={store.retailer_id} className="split-store">
+                <div className="spread">
+                  <strong>{store.name}</strong>
+                  <span className="mono">{money(store.subtotal)}</span>
+                </div>
+                <ul>
+                  {store.items.map((i) => (
+                    <li key={i.item_id} className="small">
+                      <span>
+                        {i.product}
+                        {i.quantity > 1 && <span className="mono muted"> ×{i.quantity}</span>}
+                        {i.on_special && <span className="chip chip-beet" style={{ marginLeft: 6 }}>special</span>}
+                      </span>
+                      {i.saves_vs_next > 0 && <span className="mono saving">−{money(i.saves_vs_next)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="table-scroll">
         <table className="data">
           <thead>

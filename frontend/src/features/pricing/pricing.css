@@ -105,3 +105,29 @@ td.cheapest {
     order: 3;
   }
 }
+
+/* Split basket as a per-store shopping list */
+.split-plan {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.split-store {
+  padding: 10px 14px;
+  background: var(--surface);
+  border: var(--bd) solid var(--edge);
+  border-radius: var(--radius-m);
+  box-shadow: var(--lift-sm);
+}
+.split-store ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.split-store li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}

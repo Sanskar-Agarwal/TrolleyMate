@@ -199,3 +199,23 @@ def test_zero_baseline_does_not_divide():
     assert result["baseline"]["total"] == 0.00
     for opt in result["options"]:
         assert opt["saving_pct"] == 0.0
+
+
+def test_split_plan_lists_cheapest_store_for_every_item_across_four_retailers(client, riley):
+    from tests.test_basket_flow import confirmed_session
+
+    sid = confirmed_session(client, riley, "$80 for the week, two meals a day for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley).json()["basket"]
+    cmp = client.get(f"/api/baskets/{b['id']}/comparison", headers=riley).json()
+    assert {r["name"] for r in cmp["retailers"]} == {"GreenGrocer Express", "ValueMart", "FreshCo", "Harvest Market"}
+
+    split = next(o for o in cmp["options"] if o["is_split"])
+    plan = cmp["split_plan"]
+    assert round(sum(s["subtotal"] for s in plan), 2) == split["total"]
+    planned = {i["item_id"]: s["retailer_id"] for s in plan for i in s["items"]}
+    priced_rows = [r for r in cmp["rows"] if r["prices"]]
+    assert len(planned) == len(priced_rows)
+    for row in priced_rows:
+        assert planned[row["item_id"]] == row["cheapest_retailer_id"]
+        cheapest_line = row["prices"][str(row["cheapest_retailer_id"])]["line"]
+        assert all(p["line"] >= cheapest_line for p in row["prices"].values())

@@ -114,6 +114,7 @@ class MarketAnalystAgent(Agent):
         baseline = next((r for r in retailers if r.id == baseline_id), retailers[0])
         rows, totals, unpriced = [], {r.id: 0.0 for r in retailers}, {r.id: [] for r in retailers}
         split_total, split_unpriced, winners = 0.0, [], {r.name: 0 for r in retailers}
+        by_store: dict[int, list[dict]] = {r.id: [] for r in retailers}
         latest = self._latest_quotes([i.product_id for i in b.items])
 
         for item in b.items:
@@ -132,6 +133,12 @@ class MarketAnalystAgent(Agent):
                 cheapest = min(prices, key=lambda rid: prices[rid]["line"])
                 split_total += prices[cheapest]["line"]
                 winners[next(r.name for r in retailers if r.id == cheapest)] += 1
+                others = [p["line"] for rid, p in prices.items() if rid != cheapest]
+                by_store[cheapest].append({
+                    "item_id": item.id, "product": item.product.name, "quantity": item.quantity,
+                    "line": prices[cheapest]["line"], "on_special": prices[cheapest]["on_special"],
+                    "saves_vs_next": round(min(others) - prices[cheapest]["line"], 2) if others else 0.0,
+                })
             else:
                 cheapest = None
                 split_unpriced.append(item.product.name)
@@ -177,6 +184,12 @@ class MarketAnalystAgent(Agent):
             "options": options,
             "rows": rows,
             "retailers": [{"id": r.id, "name": r.name, "source": r.source} for r in retailers],
+            # The split basket as a shopping list: what to buy at each store, cheapest source per item.
+            "split_plan": [
+                {"retailer_id": r.id, "name": r.name, "items": by_store[r.id],
+                 "subtotal": round(sum(i["line"] for i in by_store[r.id]), 2)}
+                for r in retailers if by_store[r.id]
+            ],
             "cheapest": cheapest,
             "insight": insight,
             "complete": cheapest is not None,

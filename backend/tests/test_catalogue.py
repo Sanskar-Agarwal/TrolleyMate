@@ -32,7 +32,7 @@ SEED_DIR = Path(__file__).resolve().parent.parent / "app" / "seed"
 
 def test_catalogue_has_schema_version():
     cat = load_catalogue()
-    assert cat["schema_version"] == "1.0.0"
+    assert cat["schema_version"] == "1.1.0"
 
 
 def test_catalogue_has_generated_at():

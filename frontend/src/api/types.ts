@@ -264,6 +264,12 @@ export interface Comparison {
     cheapest_retailer_id: number | null;
   }[];
   retailers: { id: number; name: string; source: string }[];
+  split_plan: {
+    retailer_id: number;
+    name: string;
+    items: { item_id: number; product: string; quantity: number; line: number; on_special: boolean; saves_vs_next: number }[];
+    subtotal: number;
+  }[];
   cheapest: ComparisonOption | null;
   insight: string | null;
   complete: boolean;
