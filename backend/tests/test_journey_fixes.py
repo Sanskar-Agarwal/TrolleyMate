@@ -46,3 +46,92 @@ def test_dietitian_decision_clears_held_notice_and_explanation_facts(client, ale
         assert name not in facts["withheld"]
         assert facts["total"] == after["total"]
         assert f"${after['total']:.2f}" in after["summary"]  # the summary is rewritten, not left on the old total
+
+
+def test_dietitian_approval_is_not_reused_after_allergy_becomes_more_severe(client, alex, sam):
+    # R02/M04: a "safe" decision reviewed against a moderate lactose intolerance says nothing
+    # about a severe one, so the same product must be re-checked, not trusted.
+    sid = confirmed_session(client, alex, "$100 for the week, two meals a day")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=alex).json()["basket"]
+    if not any(i["withheld"] for i in b["items"]):
+        _force_escalation_scenario(b["id"])
+    case = next(c for c in client.get("/api/escalations", headers=sam).json()["cases"]
+                if c["basket_id"] == b["id"] and c["status"] != "resolved")
+    client.post(f"/api/escalations/{case['id']}/begin", headers=sam)
+    client.post(f"/api/escalations/{case['id']}/resolve", json={"decision": "passed", "note": "ok"}, headers=sam)
+
+    member = next(m for m in client.get("/api/households/me", headers=alex).json()["members"] if m["name"] == "Alex")
+    stricter = [{"restriction": r["restriction"], "kind": r["kind"], "severity": "severe"} for r in member["restrictions"]]
+    r = client.put(f"/api/households/me/members/{member['id']}",
+                   json={"name": "Alex", "age_group": member["age_group"], "restrictions": stricter}, headers=alex)
+    assert r.status_code == 200, r.text
+
+    from sqlalchemy import select
+
+    from app.agents.context import AgentContext
+    from app.core.db import SessionLocal
+    from app.domain import Household, Product, User
+    from app.llm import get_llm
+
+    with SessionLocal() as db:
+        household = db.scalar(select(Household).join(User).where(User.email == "alex@trolleymate.demo"))
+        product = db.scalar(select(Product).where(Product.name == case["product"]))
+        agent = AgentContext(db=db, llm=get_llm()).compliance
+        finding = agent.screen_product(product, agent.restrictions_for(household, None), household.id)
+    assert finding.status != "compliant"
+    assert not any(f.get("kind") == "human_review" for f in finding.findings)
+
+
+def test_protein_gap_repairs_suggest_protein_foods_first(client, alex):
+    from sqlalchemy import select
+
+    from app.agents.context import AgentContext
+    from app.core.db import SessionLocal
+    from app.domain import Basket, Household, Product, User
+    from app.llm import get_llm
+
+    sid = confirmed_session(client, alex, "$100 for the week, two meals a day")
+    bid = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=alex).json()["basket"]["id"]
+    with SessionLocal() as db:
+        basket = db.get(Basket, bid)
+        household = db.scalar(select(Household).join(User).where(User.email == "alex@trolleymate.demo"))
+        gap = {"nutrient": "protein_g", "required": 1680, "provided": 1530, "short_by": 150}
+        nutrition = {"gaps": [gap], "coverage": [{**gap, "met": False, "accepted": False}]}
+        repairs = AgentContext(db=db, llm=get_llm()).compliance.nutrition_repairs(basket, nutrition, household, {})
+        categories = [db.get(Product, r["product_id"]).category for r in repairs]
+    assert repairs and categories[0] == "protein", categories
+
+
+def test_pantry_additions_respect_budget_and_survive_later_edits(client, riley):
+    # C04: extras added from chat are outside the solver, so they must still fit the budget and
+    # must not vanish when the next edit rebuilds the basket.
+    sid = confirmed_session(client, riley, "$7 for 1 day, dinner only for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    refused = client.post(f"/api/baskets/{b['id']}/edit", json={"text": "add olive oil"}, headers=riley).json()
+    assert refused["status"] == "conflict"
+    assert client.get(f"/api/baskets/{b['id']}", headers=riley).json()["total"] == b["total"]
+
+    sid = confirmed_session(client, riley, "$40 for 3 days, dinner only for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    b = client.post(f"/api/baskets/{b['id']}/edit", json={"text": "add olive oil"}, headers=riley).json()["basket"]
+    r = client.post(f"/api/baskets/{b['id']}/edit", json={"text": "add chocolate"}, headers=riley).json()
+    assert r["status"] == "ok"
+    names = {i["product"]["name"] for i in r["basket"]["items"]}
+    assert {"Olive Oil 500ml", "Dark Chocolate 45g"} <= names
+    assert r["basket"]["total"] <= 40
+
+
+def test_explanation_nutrition_follows_an_accepted_swap(client, riley):
+    sid = confirmed_session(client, riley, "$80 for the week, two meals a day for myself")
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley).json()["basket"]
+    for item in b["items"]:
+        sub = client.post(f"/api/baskets/{b['id']}/items/{item['id']}/substitute", json={}, headers=riley).json()["substitution"]
+        if sub["status"] == "pending":
+            break
+    else:
+        return
+    client.post(f"/api/substitutions/{sub['id']}/accept", headers=riley)
+    after = client.get(f"/api/baskets/{b['id']}", headers=riley).json()
+    facts = client.get(f"/api/baskets/{b['id']}/explain", headers=riley).json()["facts"]
+    assert facts["nutrition"] == after["nutrition"]["provided"]
+    assert facts["nutrition_adequate"] == after["nutrition"]["adequate"]

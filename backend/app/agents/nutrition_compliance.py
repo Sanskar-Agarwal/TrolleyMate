@@ -42,6 +42,9 @@ from app.services.preference_memory import KINDS, favoured_by, matches, restrict
 # (ingredient, restriction, provider) → LLM judgement. Shared across requests: label
 # semantics don't change, and this keeps real-LLM screening fast.
 _INGREDIENT_CACHE: dict[tuple[str, str, str], dict] = {}
+_SEVERITY_RANK = {Severity.severe: 3, Severity.moderate: 2, Severity.mild: 1, Severity.preference: 0}
+# Food group whose products best close each nutrition gap.
+_GAP_GROUP = {"protein_g": "protein", "veg_serves": "veg", "staple_serves": "carb"}
 
 
 @dataclass
@@ -76,7 +79,7 @@ class NutritionComplianceAgent(Agent):
 
     def restrictions_for(self, household: Household, payload: dict | None) -> list[dict]:
         """Household mandatory restrictions ∪ request restrictions, keeping the strictest severity."""
-        rank = {Severity.severe: 3, Severity.moderate: 2, Severity.mild: 1, Severity.preference: 0}
+        rank = _SEVERITY_RANK
         merged: dict[str, dict] = {}
         for r in household.mandatory_restrictions() + list((payload or {}).get("restrictions", [])):
             rid = normalise_restriction(r["restriction"])
@@ -276,7 +279,11 @@ class NutritionComplianceAgent(Agent):
                     "adds": round(per_pack * qty, 1), "closes_gap": qty == needed, "cost": cost,
                     "retailer": o.retailer.name, "within_budget": spare is None or cost <= spare + 1e-6,
                 })
-            options.sort(key=lambda r: (not r["closes_gap"], not r["within_budget"], r["cost"]))
+            # Suggest foods from the matching group first (protein for a protein gap, not 2 kg of rice).
+            group = _GAP_GROUP.get(nutrient)
+            category = {o.product.id: o.product.category for o in offers}
+            options.sort(key=lambda r: (category[r["product_id"]] != group if group else False,
+                                        not r["closes_gap"], not r["within_budget"], r["cost"]))
             repairs += options[:limit]
         self.log(
             "suggest_repairs", f"{len(repairs)} candidate repair(s) for {', '.join(open_gaps)}",
@@ -410,9 +417,16 @@ class NutritionComplianceAgent(Agent):
 
     def _prior_decision(self, product_id: int, household_id: int, restrictions: list[dict]) -> EscalationCase | None:
         """Latest dietitian decision for this product and household — only if it was made
-        against every restriction that applies now. A decision reviewed before a new
-        allergy was added says nothing about that allergy, so it must not be reused."""
-        current = {r["restriction"] for r in restrictions}
+        against every restriction that applies now, at the same severity or stricter. A decision
+        reviewed before a new allergy was added, or before one became more severe, says nothing
+        about the stricter rule, so it must not be reused."""
+        def covers(case: EscalationCase) -> bool:
+            reviewed = {r["restriction"]: _SEVERITY_RANK.get(r.get("severity"), 0) for r in case.requirements}
+            return all(
+                r["restriction"] in reviewed and reviewed[r["restriction"]] >= _SEVERITY_RANK.get(r.get("severity"), 3)
+                for r in restrictions
+            )
+
         cases = self.db.scalars(
             select(EscalationCase)
             .where(
@@ -423,7 +437,7 @@ class NutritionComplianceAgent(Agent):
             .order_by(EscalationCase.resolved_at.desc())
         )
         for case in cases:
-            if current <= {r["restriction"] for r in case.requirements}:
+            if covers(case):
                 return case
         return None
 
