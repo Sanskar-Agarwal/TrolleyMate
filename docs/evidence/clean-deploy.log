@@ -1,0 +1,22 @@
+[18:27:40] Clean verification on win32, Python 3.13.7, work dir C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk
+[18:27:40] ok (0s): git archive --format=zip -o C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src.zip HEAD
+[18:27:41] ok (0s): git rev-parse --short HEAD
+    665c941
+[18:27:41] Staged git HEAD (665c941) -> C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src
+[18:27:51] ok (10s): C:\Python313\python.exe -m venv .venv
+[18:28:00] ok (9s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src\backend\.venv\Scripts\python.exe -m pip install -q --upgrade pip
+[18:29:00] ok (59s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src\backend\.venv\Scripts\python.exe -m pip install -q --no-deps -r requirements.lock
+[18:29:01] ok (1s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src\backend\.venv\Scripts\python.exe -m pip check
+    No broken requirements found.
+[18:29:11] ok (10s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src\backend\.venv\Scripts\python.exe -m pip install -q -r requirements-dev.txt
+[18:34:19] ok (308s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-j82vlihk\src\backend\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+    ...............................................s........x............... [ 30%] | ........................................................................ [ 61%] | ........................................................................ [ 91%] | ...................                                                      [100%]
+[18:34:38] ok (19s): npm ci --no-audit --no-fund
+    added 151 packages in 17s | npm WARN deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+[18:34:45] ok (7s): npm test
+    Test Files  4 passed (4) | Tests  20 passed (20) | Start at  18:34:41 | Duration  3.83s (transform 1.32s, setup 0ms, import 3.91s, tests 1.62s, environment 6.44s)
+[18:34:56] ok (11s): npm run build
+    dist/assets/bricolage-grotesque-latin-500-normal-CV-uA8Lw.woff          27.28 kB | dist/assets/index-CrcARW8j.css                                          52.60 kB │ gzip:   9.74 kB | dist/assets/index-BkSw6V30.js                                          349.38 kB │ gzip: 107.86 kB | ✓ built in 2.57s
+[18:35:03] ok: no AI key -> Offline agent mode: rule-based answers, no AI provider; basket $16.73, 6 items, 5 agent steps; UI served at /
+[18:35:15] ok: AI provider unreachable -> Live AI (campus-qwen) with 2 offline fallback(s); basket still built ($16.73) and all 1 AI steps in it flagged as fallbacks
+[18:35:15] PASSED: clean build, tests, startup, offline mode and network-failure fallback all verified

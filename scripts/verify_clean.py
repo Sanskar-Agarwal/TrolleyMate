@@ -42,7 +42,7 @@ def say(msg: str) -> None:
 
 def run(cmd: list[str], cwd: Path, env: dict | None = None, tail: int = 4) -> str:
     started = time.perf_counter()
-    proc = subprocess.run(cmd, check=False, cwd=cwd, env=env, capture_output=True, text=True, shell=WINDOWS and cmd[0] in ("npm", "npx"))
+    proc = subprocess.run(cmd, check=False, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", shell=WINDOWS and cmd[0] in ("npm", "npx"))
     out = ANSI.sub("", proc.stdout + proc.stderr).strip()
     took = time.perf_counter() - started
     if proc.returncode != 0:
@@ -183,7 +183,7 @@ def main() -> None:
             assert steps and all(t["fell_back"] for t in steps), steps
             assert result["llm"]["mode"] == "degraded", result["llm"]
             say(f"ok: AI provider unreachable -> {result['llm']['mode_label']}; basket still built "
-                f"(${result['basket_total']:.2f}) and all {len(steps)} AI steps in it flagged as fallbacks")
+                f"(${result['basket_total']:.2f}) with every AI step ({len(steps)}) flagged as a fallback")
         finally:
             proc.terminate()
             proc.wait(timeout=20)
