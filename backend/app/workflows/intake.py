@@ -86,6 +86,11 @@ def _questions(draft: dict, ambiguities: list[dict]) -> list[dict]:
     return qs
 
 
+def _still_open(pending: list[dict], draft: dict) -> list[dict]:
+    """Clarifying questions not answered by the latest draft (required fields are re-derived by _questions)."""
+    return [q for q in pending if q["field"] not in REQUIRED and draft.get(q["field"]) in (None, 0, [])]
+
+
 def _stage_after_update(req: ShoppingRequest) -> None:
     if req.pending_questions:
         req.stage = IntakeStage.awaiting_clarification
@@ -187,7 +192,9 @@ def correct(agent, req: ShoppingRequest, *, text: str | None = None, patch: dict
         draft = _apply_patch(draft, patch)
     draft = _apply_household(session, draft, agent.db)
     req.draft_payload = draft
-    req.pending_questions = _questions(draft, [])
+    # An unrelated correction must not silently drop questions the shopper hasn't answered yet.
+    new_ambiguities = result.data.get("ambiguities", []) if result else []
+    req.pending_questions = _questions(draft, _still_open(req.pending_questions, draft) + new_ambiguities)
     if req.mode == InputMode.text and req.correction_count >= get_settings().max_corrections:
         req.mode = InputMode.form
     _stage_after_update(req)
@@ -204,7 +211,7 @@ def submit_form(agent, req: ShoppingRequest, form: dict) -> ShoppingRequest:
     req.mode = InputMode.form
     draft = _apply_household(req.session, _apply_patch(dict(req.draft_payload), form), agent.db)
     req.draft_payload = draft
-    req.pending_questions = _questions(draft, [])
+    req.pending_questions = _questions(draft, _still_open(req.pending_questions, draft))
     _stage_after_update(req)
     if not req.pending_questions:
         req.stage = IntakeStage.awaiting_confirmation
