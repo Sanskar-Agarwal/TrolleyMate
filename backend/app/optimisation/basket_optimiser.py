@@ -96,7 +96,14 @@ class BasketOptimiser:
             at_least([c.nutrient(nutrient) for c in pool], minimum)
         at_least([c.product.servings if c.role == "protein" else 0 for c in pool], req.protein_servings)
         at_least([c.product.servings if c.role == "carb" else 0 for c in pool], req.carb_servings)
-        at_least([c.product.servings if c.is_breakfast else 0 for c in pool], req.breakfast_servings)
+        at_least([c.product.servings if c.is_breakfast and c.role is None else 0 for c in pool], req.breakfast_servings)
+        # A breakfast recipe has two slots (e.g. oats + fruit). Cover both from breakfast-only foods,
+        # since the meal plan saves bread and eggs for the lunches and dinners that need them.
+        at_least([c.product.servings if c.is_breakfast_side and c.role is None else 0 for c in pool], 2 * req.breakfast_meals)
+        # Bread and eggs can fill a dinner or a breakfast but not both: count the overlap once.
+        if req.breakfast_meals:
+            at_least([c.product.servings if c.role in ("protein", "carb") or c.is_breakfast_side else 0 for c in pool],
+                     req.protein_servings + req.carb_servings + 2 * req.breakfast_meals)
 
         # Variety: no single food group (e.g. legumes, rice) may supply more than its share of a role.
         needs = {"protein": req.protein_servings, "carb": req.carb_servings, "veg": req.veg_serves}

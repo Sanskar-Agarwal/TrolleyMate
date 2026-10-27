@@ -23,6 +23,8 @@ from app.services.dietary_rules import label, normalise_restriction
 from app.services.session_state import household_of
 
 REQUIRED = ("budget", "household_size", "meals_per_day", "days")
+# Share of an adult serve each age group eats (Australian Guide to Healthy Eating, rounded).
+PORTION_FACTORS = {"child": 0.6, "teen": 1.0, "adult": 1.0, "senior": 0.85}
 QUESTIONS = {
     "budget": "What's your budget for this shop?",
     "household_size": "How many people are you shopping for?",
@@ -66,6 +68,15 @@ def _apply_household(session: ShoppingSession, draft: dict, db) -> dict:
         note = f"Shopping for {household.size} (from your household profile)."
         if note not in assumptions:
             assumptions.append(note)
+    # Portions follow the profile only when shopping for exactly that household.
+    out.pop("portions", None)
+    if household.members and out.get("household_size") == household.size:
+        portions = round(sum(PORTION_FACTORS.get(m.age_group, 1.0) for m in household.members), 2)
+        if portions != household.size:
+            out["portions"] = portions
+            note = f"Portions sized for your household's ages ({portions:g} adult serves per meal)."
+            if note not in assumptions:
+                assumptions.append(note)
     restrictions = {r["restriction"]: r for r in out.get("restrictions", [])}
     for r in household.mandatory_restrictions():
         restrictions[r["restriction"]] = {**r, "label": label(r["restriction"]), "locked": True}

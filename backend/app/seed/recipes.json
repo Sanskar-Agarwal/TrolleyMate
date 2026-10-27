@@ -26,8 +26,8 @@
     {"id": "tuna-rice-bowls", "name": "Tuna rice bowls", "meal_type": "main", "minutes": 10, "needs": [["tuna"], ["rice"], ["mixed_veg", "capsicum", "spinach"]], "optional": []},
     {"id": "chicken-couscous", "name": "Chicken & roast veg couscous", "meal_type": "main", "minutes": 25, "needs": [["chicken"], ["couscous"], ["zucchini", "capsicum", "carrot"]], "optional": []},
     {"id": "chickpea-pasta", "name": "Chickpea & tomato pasta", "meal_type": "main", "minutes": 20, "needs": [["chickpeas", "lentils", "tuna"], ["pasta"], ["canned_tomato", "pasta_sauce", "spinach"]], "optional": [["onion"]]},
-    {"id": "legume-grain-bowl", "name": "Warm legume & grain bowl", "meal_type": "main", "minutes": 20, "needs": [["chickpeas", "lentils", "tofu"], ["rice", "couscous", "potato"], ["veg"]], "optional": [["onion"]], "generic": true},
-    {"id": "protein-plate", "name": "Simple protein, starch & veg plate", "meal_type": "main", "minutes": 25, "needs": [["protein"], ["rice", "pasta", "potato", "couscous", "noodles", "bread", "wraps"], ["veg"]], "optional": [], "generic": true},
+    {"id": "legume-grain-bowl", "name": "Warm legume & grain bowl", "meal_type": "main", "minutes": 20, "needs": [["chickpeas", "lentils", "tofu"], ["rice", "couscous", "potato", "grain"], ["veg"]], "optional": [["onion"]], "generic": true},
+    {"id": "protein-plate", "name": "Simple protein, starch & veg plate", "meal_type": "main", "minutes": 25, "needs": [["protein"], ["rice", "pasta", "potato", "couscous", "noodles", "bread", "wraps", "grain"], ["veg"]], "optional": [], "generic": true},
     {"id": "simple-breakfast", "name": "Simple breakfast", "meal_type": "breakfast", "minutes": 5, "needs": [["breakfast"], ["breakfast", "fruit", "dairy"]], "optional": [], "generic": true}
   ]
 }

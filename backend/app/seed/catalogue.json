@@ -794,7 +794,7 @@
         "soybeans",
         "water"
       ],
-      "base_price": 3.7
+      "base_price": 3.0
     },
     {
       "sku": "PRO-CKP-400",
@@ -2770,7 +2770,10 @@
         "fibre_g": 14,
         "veg_serves": 0
       },
-      "tags": [],
+      "tags": [
+        "bread",
+        "breakfast"
+      ],
       "ingredients": [
         "wheat flour",
         "salt",
@@ -2802,6 +2805,7 @@
         "veg_serves": 0
       },
       "tags": [
+        "grain",
         "gluten-free"
       ],
       "ingredients": [
@@ -2848,7 +2852,9 @@
         "fibre_g": 14,
         "veg_serves": 0
       },
-      "tags": [],
+      "tags": [
+        "pasta"
+      ],
       "ingredients": [
         "durum wheat semolina"
       ],
@@ -4463,6 +4469,7 @@
         "veg_serves": 0
       },
       "tags": [
+        "grain",
         "vegan"
       ],
       "perishable": false,
@@ -4500,6 +4507,7 @@
         "veg_serves": 0
       },
       "tags": [
+        "grain",
         "vegan",
         "gluten-free"
       ],
