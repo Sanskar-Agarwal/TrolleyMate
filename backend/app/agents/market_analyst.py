@@ -113,7 +113,7 @@ class MarketAnalystAgent(Agent):
         retailers = self.retailers
         baseline = next((r for r in retailers if r.id == baseline_id), retailers[0])
         rows, totals, unpriced = [], {r.id: 0.0 for r in retailers}, {r.id: [] for r in retailers}
-        split_total, winners = 0.0, {r.name: 0 for r in retailers}
+        split_total, split_unpriced, winners = 0.0, [], {r.name: 0 for r in retailers}
         latest = self._latest_quotes([i.product_id for i in b.items])
 
         for item in b.items:
@@ -134,6 +134,7 @@ class MarketAnalystAgent(Agent):
                 winners[next(r.name for r in retailers if r.id == cheapest)] += 1
             else:
                 cheapest = None
+                split_unpriced.append(item.product.name)
             rows.append({"item_id": item.id, "product": item.product.name, "quantity": item.quantity, "prices": prices, "cheapest_retailer_id": cheapest})
 
         base_total = round(totals[baseline.id], 2)
@@ -147,7 +148,7 @@ class MarketAnalystAgent(Agent):
             }
 
         options = [option(r.name, totals[r.id], r.id, unpriced[r.id]) for r in retailers]
-        options.append(option("Split basket (cheapest per item)", split_total, None, [], True))
+        options.append(option("Split basket (cheapest per item)", split_total, None, split_unpriced, True))
         complete = [o for o in options if o["complete"]]
         cheapest = min(complete, key=lambda o: o["total"]) if complete else None
 

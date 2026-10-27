@@ -145,6 +145,13 @@ def test_normalise_millilitres():
     assert result.basis == "100ml"
 
 
+def test_normalise_litres():
+    result = normalise(2.00, 1, "l")
+    assert result is not None
+    assert result.basis == "100ml"
+    assert abs(result.value - 0.20) < 0.001
+
+
 def test_normalise_each():
     result = normalise(6.20, 12, "each")
     assert result is not None
@@ -237,3 +244,32 @@ def test_unavailable_product_refresh_marks_quote_unavailable(client):
         assert result is None
         db.flush()
         assert stale.status == QuoteStatus.unavailable
+
+
+def test_superseded_quote_retains_source_type(client):
+    """Superseding a quote at runtime must not overwrite its source_type — the field records
+    how the price was obtained (live, synthetic, recorded), which is historical fact.
+    test_history_quotes_are_recorded covers seed data; this covers the runtime path."""
+    from app.agents.context import AgentContext
+    from app.agents.market_analyst import MarketAnalystAgent
+    from app.core.db import SessionLocal
+
+    with SessionLocal() as db:
+        freshco = db.scalar(select(Retailer).where(Retailer.name == "FreshCo"))
+        stale = db.scalar(
+            select(PriceQuote)
+            .where(PriceQuote.retailer_id == freshco.id, PriceQuote.status == QuoteStatus.stale)
+            .limit(1)
+        )
+        original_source = stale.source_type
+        product = db.get(Product, stale.product_id)
+        old_id = stale.id
+
+        ctx = AgentContext(db=db, llm=None)
+        analyst = MarketAnalystAgent(ctx)
+        analyst.current_quote(product, freshco, refresh=True)
+        db.flush()
+
+        old_row = db.get(PriceQuote, old_id)
+        assert old_row.status == QuoteStatus.superseded
+        assert old_row.source_type == original_source  # "live" for FreshCo; must not be rewritten
