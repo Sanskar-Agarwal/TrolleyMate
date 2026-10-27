@@ -104,6 +104,8 @@ class BasketOptimiser:
                 groups.setdefault((c.role, c.product.substitution_group or c.product.sku), []).append(i)
         for (role, _), members in groups.items():
             cap = max(self.GROUP_SHARE[role] * needs[role], max(pool[i].role_units for i in members))
+            # Variety is a soft rule: a quantity the shopper explicitly pinned may exceed it.
+            cap = max(cap, sum(pool[i].role_units * min_qty.get(pool[i].product.id, 0) for i in members))
             rows.append([pool[i].role_units if i in members else 0 for i in range(n)])
             lbs.append(0)
             ubs.append(cap)
