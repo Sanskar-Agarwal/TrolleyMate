@@ -11,6 +11,8 @@ so it needs no class here.
 from __future__ import annotations
 
 import json
+import re
+import time
 
 import httpx
 
@@ -32,6 +34,8 @@ class OpenAICompatibleProvider(LLMProvider):
         self.timeout = settings.llm_timeout_s
         self.temperature = settings.llm_temperature
         self.json_mode = settings.llm_json_mode
+        self.max_retries = settings.llm_max_retries
+        self.retry_max_wait = settings.llm_retry_max_wait_s
 
     def generate(self, *, system: str, user: str, schema: dict | None) -> str:
         if schema is not None:
@@ -45,19 +49,45 @@ class OpenAICompatibleProvider(LLMProvider):
             body["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
 
-        response = httpx.post(f"{self.base_url}/chat/completions", json=body, headers=headers, timeout=self.timeout)
+        response = self._post(body, headers)
         if response.status_code == 400 and "response_format" in body:
             # Some servers (older vLLM / proxies) reject JSON mode — retry with prompt-only JSON.
             body.pop("response_format")
-            response = httpx.post(
-                f"{self.base_url}/chat/completions", json=body, headers=headers, timeout=self.timeout
-            )
+            response = self._post(body, headers)
         if response.status_code >= 400:
             raise LLMError(f"{response.status_code} from {self.base_url}: {response.text[:300]}")
         try:
             return response.json()["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, ValueError) as exc:
             raise LLMError(f"Unexpected response shape: {response.text[:300]}") from exc
+
+
+    def _post(self, body: dict, headers: dict) -> httpx.Response:
+        """POST, waiting out short rate limits (e.g. Groq's tokens-per-minute cap) instead of
+        failing the whole step. A long requested wait isn't worth stalling the shopper for."""
+        for attempt in range(self.max_retries + 1):
+            response = httpx.post(f"{self.base_url}/chat/completions", json=body, headers=headers, timeout=self.timeout)
+            if response.status_code not in (429, 503) or attempt == self.max_retries:
+                return response
+            wait = retry_after(response)
+            if wait is None or wait > self.retry_max_wait:
+                return response
+            time.sleep(wait)
+        return response
+
+
+def retry_after(response: httpx.Response) -> float | None:
+    """Seconds the server asked us to wait: the Retry-After header, or "try again in 1.5s"."""
+    header = response.headers.get("retry-after")
+    if header:
+        try:
+            return float(header)
+        except ValueError:
+            pass
+    match = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", response.text)
+    if match:
+        return int(match.group(1) or 0) * 60 + float(match.group(2))
+    return 1.0 if response.status_code == 503 else None
 
 
 class AnthropicProvider(LLMProvider):

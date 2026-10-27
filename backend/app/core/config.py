@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_timeout_s: float = 45.0
+    # Rate limits (HTTP 429/503): retry this many times, but only if the server asks us to wait
+    # no longer than llm_retry_max_wait_s; otherwise fall back to the offline mock straight away.
+    llm_max_retries: int = 2
+    llm_retry_max_wait_s: float = 8.0
     llm_temperature: float = 0.2
     # Ask OpenAI-compatible servers for JSON mode. Turn off if the server rejects it.
     llm_json_mode: bool = True
