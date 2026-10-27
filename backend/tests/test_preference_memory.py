@@ -305,3 +305,33 @@ def test_forgetting_a_preference_leaves_no_stored_copy(client, riley):
     assert "anchovies" not in everything and "sardines" not in everything
     _, carried, _ = later_session(client, riley)
     assert carried == []
+
+
+def _decline_first_swap(client, headers, text="$80 for the week, two meals a day for myself"):
+    sid = client.post("/api/sessions", headers=headers).json()["session"]["id"]
+    rid = client.post(f"/api/sessions/{sid}/requests", json={"text": text}, headers=headers).json()["intake"]["request_id"]
+    client.post(f"/api/requests/{rid}/confirm", headers=headers)
+    b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=headers).json()["basket"]
+    for item in b["items"]:
+        sub = client.post(f"/api/baskets/{b['id']}/items/{item['id']}/substitute", json={}, headers=headers).json()["substitution"]
+        if sub["status"] == "pending":
+            client.post(f"/api/substitutions/{sub['id']}/reject", headers=headers)
+            return item["product"]["name"], sub["replacement"]["name"]
+    raise AssertionError("no swap offered")
+
+
+def test_declining_the_same_swap_twice_is_learned_as_a_dislike(client, riley):
+    original, replacement = _decline_first_swap(client, riley)
+    assert not [p for p in client.get("/api/households/me", headers=riley).json()["preferences"] if p["source"] == "learned"]
+    again = _decline_first_swap(client, riley)
+    assert again == (original, replacement)
+    learned = [p for p in client.get("/api/households/me", headers=riley).json()["preferences"] if p["source"] == "learned"]
+    assert [(p["kind"], p["value"]) for p in learned] == [("dislike", replacement.lower())]
+
+
+def test_a_like_is_never_overridden_by_learning(client, riley):
+    original, replacement = _decline_first_swap(client, riley)
+    remember(client, riley, "like", replacement.lower())
+    _decline_first_swap(client, riley)
+    prefs = client.get("/api/households/me", headers=riley).json()["preferences"]
+    assert not [p for p in prefs if p["source"] == "learned"]
