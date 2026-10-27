@@ -1,6 +1,6 @@
 """UC-06 ext — dietitian review queue & founder exception queue. Owner: Platform & Governance."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -72,7 +72,14 @@ def assign(case_id: int, body: AssignIn, ctx: AgentContext = Depends(reviewer_co
     target = ctx.db.get(User, body.reviewer_id)
     if target is None:
         raise not_found("Reviewer")
-    case = escalation.assign(ctx.compliance, _case(ctx, case_id), target)
+    # Dietitians can take a case themselves; only the founder hands cases to someone else.
+    case = _case(ctx, case_id)
+    if ctx.user.role != UserRole.founder:
+        if target.id != ctx.user.id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the founder can assign a case to another reviewer.")
+        if case.assigned_to_id not in (None, ctx.user.id):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "This case is already assigned to another reviewer.")
+    case = escalation.assign(ctx.compliance, case, target)
     return done(ctx, {"case": case_out(case)})
 
 

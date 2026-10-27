@@ -60,14 +60,17 @@ def raise_case(agent, verdict: ComplianceVerdict, item: BasketItem, household: H
     return case
 
 
-def assign(agent, case: EscalationCase, reviewer: User | None = None) -> EscalationCase:
-    """assignTo(d) [d is authorised]; picks the least-loaded dietitian if none given (ext 3a/3c)."""
+def assign(agent, case: EscalationCase, reviewer: User | None = None, *, exclude: set[int] | None = None) -> EscalationCase:
+    """assignTo(d) [d is authorised]; picks the least-loaded dietitian if none given (ext 3a/3c).
+    `exclude` skips reviewers who just let the case time out, so a requeue goes to someone else."""
     db = agent.db
+    if case.status not in (CaseStatus.open, CaseStatus.assigned):
+        raise EscalationError(f"Case #{case.id} is {case.status.replace('_', ' ')}; only waiting cases can be reassigned.")
     if reviewer is None:
         load = (
             select(User, func.count(EscalationCase.id))
             .outerjoin(EscalationCase, (EscalationCase.assigned_to_id == User.id) & (EscalationCase.status != CaseStatus.resolved))
-            .where(User.role == UserRole.dietitian)
+            .where(User.role == UserRole.dietitian, User.id.not_in(exclude or set()))
             .group_by(User.id)
             .order_by(func.count(EscalationCase.id), User.id)
         )
@@ -88,9 +91,17 @@ def sweep_sla(agent) -> int:
     stale = agent.db.scalars(
         select(EscalationCase).where(EscalationCase.status == CaseStatus.assigned, EscalationCase.assigned_at < cutoff)
     ).all()
+    released: dict[int, int] = {}
     for case in stale:
+        released[case.id] = case.assigned_to_id
         case.status, case.assigned_to_id, case.assigned_at = CaseStatus.open, None, None
         agent.log("release_reviewer", f"Case #{case.id} returned to queue (review SLA expired)", basket_id=case.basket_id)
+    # Retry assignment for everything waiting (ext 3a), never back to the reviewer who timed out.
+    waiting = agent.db.scalars(
+        select(EscalationCase).where(EscalationCase.status == CaseStatus.open, EscalationCase.assigned_to_id.is_(None))
+    ).all()
+    for case in waiting:
+        assign(agent, case, exclude={released[case.id]} if case.id in released else None)
     return len(stale)
 
 
