@@ -79,6 +79,7 @@ class MarketAnalystAgent(Agent):
             product_id=product.id, retailer_id=retailer.id, price=data.price,
             unit_price=unit.value if unit else None, unit_basis=unit.basis if unit else "",
             on_special=data.on_special, captured_at=data.captured_at, status=QuoteStatus.fresh,
+            source_type=data.source,
         )
         self.db.add(new)
         self.db.flush()
@@ -196,13 +197,27 @@ class MarketAnalystAgent(Agent):
             "refreshed_quotes": self.refreshed,
         }
 
-    def explain_difference(self, product: Product) -> str:
+    def explain_difference(self, product: Product, asked_about: str | None = None) -> str:
+        """Why one store is cheaper for this product, from the recorded quotes only (1.2.8)."""
         quotes = [(r, self.current_quote(product, r)) for r in self.retailers]
         priced = sorted([(r, q) for r, q in quotes if q], key=lambda rq: rq[1].price)
         if not priced:
             return f"No current prices for {product.name}."
         lo, hi = priced[0], priced[-1]
-        return f"{product.name} is ${lo[1].price:.2f} at {lo[0].name} vs ${hi[1].price:.2f} at {hi[0].name}."
+        parts = [f"{product.name} is ${lo[1].price:.2f} at {lo[0].name} vs ${hi[1].price:.2f} at {hi[0].name}."]
+        if lo[1].on_special:
+            parts.append(f"{lo[0].name} has it on special right now.")
+        elif lo[1].unit_price is not None and lo[1].unit_basis:
+            parts.append(f"That's ${lo[1].unit_price:.2f} per {lo[1].unit_basis} at {lo[0].name}.")
+        asked = next((r for r, q in priced if asked_about and r.name.lower() in asked_about.lower()), None)
+        if asked is not None and asked.id != lo[0].id:
+            q = next(q for r, q in priced if r.id == asked.id)
+            parts.append(f"{asked.name} isn't the cheapest for this one: it's ${q.price - lo[1].price:.2f} more than {lo[0].name}.")
+        missing = [r.name for r, q in quotes if not q]
+        if missing:
+            parts.append(f"No current price at {', '.join(missing)}.")
+        self.log("explain_price", parts[0], rationale=" ".join(parts[1:]), confidence=1.0)
+        return " ".join(parts)
 
     # --- Buy timing (1.2.6) -----------------------------------------------
 

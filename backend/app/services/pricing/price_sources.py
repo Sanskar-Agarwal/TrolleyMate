@@ -1,27 +1,34 @@
 """PriceSource «interface» and its two adapters (class diagram, Pricing package).
 
 Feature diagram: Price Data Freshness is XOR — Real-time (≤1 h, needs Partner API)
-or Daily refresh (≤24 h, catalogue feed). Both adapters here simulate their feed
-from `seed/catalogue.json` so the prototype runs offline.
-
-TODO(pricing owner): replace `PartnerApiAdapter._fetch` with a real HTTP call to a
-retailer/partner API, or a scraper of a public catalogue, behind the same interface.
+or Daily refresh (≤24 h, catalogue feed). The catalogue feed is simulated from
+`seed/catalogue.json`. The partner adapter calls PARTNER_API_URL when it's set and falls
+back to the simulated feed otherwise; every quote says where it came from (`source`).
+Recorded real prices can also be loaded from a file: `python -m app.services.pricing.importer`.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
+import httpx
+
+from app.core.config import get_settings
 from app.domain.basket_products import Product
+from app.domain.enums import QuoteSource
 from app.domain.pricing import Retailer
 
 CATALOGUE_PATH = Path(__file__).resolve().parents[2] / "seed" / "catalogue.json"
+
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -29,6 +36,7 @@ class QuoteData:
     price: float
     on_special: bool
     captured_at: datetime
+    source: str = QuoteSource.synthetic
 
 
 class PriceSource(Protocol):
@@ -84,7 +92,40 @@ class CatalogueFeedAdapter:
 
 
 class PartnerApiAdapter(CatalogueFeedAdapter):
-    """Real-time partner API (≤1 h freshness). Simulated — see module TODO."""
+    """Real-time partner API (≤1 h freshness).
+
+    Contract: GET {PARTNER_API_URL}/prices?retailer=<name>&sku=<sku> (Bearer PARTNER_API_KEY)
+    → 200 {"price": 4.5, "on_special": false, "captured_at": "2026-10-27T09:00:00"}, or 404 when
+    the retailer doesn't stock it. Without a URL, or if the feed is down, the simulated price is
+    used and labelled synthetic, so a fallback is never presented as a live quote."""
+
+    def quote_for(self, product: Product, retailer: Retailer) -> QuoteData | None:
+        settings = get_settings()
+        if not settings.partner_api_url:
+            return self._fetch(product, retailer)
+        try:
+            return self._fetch_live(product, retailer, settings)
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            log.warning("Partner price feed failed for %s at %s (%s); using simulated price", product.sku, retailer.name, exc)
+            return self._fetch(product, retailer)
+
+    def _fetch_live(self, product: Product, retailer: Retailer, settings) -> QuoteData | None:
+        headers = {"Authorization": f"Bearer {settings.partner_api_key}"} if settings.partner_api_key else {}
+        response = httpx.get(
+            f"{settings.partner_api_url.rstrip('/')}/prices", params={"retailer": retailer.name, "sku": product.sku},
+            headers=headers, timeout=settings.partner_api_timeout_s,
+        )
+        if response.status_code == 404:
+            return None
+        if response.status_code >= 400:
+            raise ValueError(f"HTTP {response.status_code} from the partner feed")
+        body = response.json()
+        price = float(body["price"])
+        if price <= 0:
+            raise ValueError(f"non-positive price {price}")
+        captured = datetime.fromisoformat(body["captured_at"]) if body.get("captured_at") else datetime.now()
+        return QuoteData(price=round(price, 2), on_special=bool(body.get("on_special", False)),
+                         captured_at=captured, source=QuoteSource.live)
 
 
 def source_for(retailer: Retailer) -> PriceSource:

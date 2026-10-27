@@ -33,6 +33,7 @@ from app.core.config import get_settings
 from app.domain import Basket, ComplianceVerdict, EscalationCase, Household, Ingredient, Product
 from app.domain.enums import CaseStatus, ItemCompliance, Severity, VerdictStatus
 from app.optimisation.types import Requirements
+from app.services import allergen_guidance
 from app.services.catalogue import disliked_by, optimisable_products
 from app.services.compliance_verdict import VerdictEvidence, outcome
 from app.services.dietary_rules import label, normalise_restriction, violating_tags
@@ -404,7 +405,9 @@ class NutritionComplianceAgent(Agent):
     def _judge(self, product: Product, ingredient: Ingredient, restriction: str) -> dict:
         key = (ingredient.name, restriction, self.llm.provider_name)
         if key not in _INGREDIENT_CACHE:
-            result = self.think("assess_ingredient", {"product": product.name, "ingredient": ingredient.name, "restriction": restriction})
+            guidance = [{"id": n.id, "text": n.text, "risk": n.risk} for n in allergen_guidance.retrieve(ingredient.name, restriction)]
+            result = self.think("assess_ingredient", {"product": product.name, "ingredient": ingredient.name, "restriction": restriction,
+                                                      "guidance": guidance, "source": allergen_guidance.SOURCE})
             # A real model may answer 85 for 85%; the verdict contract only accepts 0-1.
             judgement = {**result.data, "confidence": min(max(float(result.data["confidence"]), 0.0), 1.0)}
             _INGREDIENT_CACHE[key] = judgement

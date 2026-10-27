@@ -89,7 +89,7 @@ class PersonalShopperAgent(Agent):
             response.update(kind="edit", edit={k: v for k, v in result.items() if k != "basket"})
             if result["status"] == "ok":
                 response["basket_id"] = result["basket"].id
-                response["reply"] = "Done — " + ", ".join(result["applied"]) + "." + (
+                response["reply"] = "Done — " + ", ".join(result["applied"]) + ". " + basket_editing.describe_diff(result["diff"]) + (
                     " " + " ".join(result["conflicts"]) if result.get("conflicts") else "")
             else:
                 response["reply"] = result.get("question") or result.get("message")
@@ -99,6 +99,10 @@ class PersonalShopperAgent(Agent):
         elif intent == "meal_plan":
             plan = self.plan_meals(basket)
             response.update(kind="meal_plan", meal_plan_id=plan.id, reply=plan.summary)
+        elif intent == "price_question":
+            response.update(kind="price", reply=self._answer_price_question(basket, text))
+        elif intent == "edit_household":
+            response.update(kind="household", reply=self._edit_household(s, text, has_basket=basket is not None))
         elif intent == "compare_prices":
             report = self.ctx.analyst.compare(basket)
             response.update(kind="compare", reply=report["insight"] or "I couldn't price enough items to compare stores.")
@@ -108,6 +112,64 @@ class PersonalShopperAgent(Agent):
 
         _remember(s, "assistant", response["reply"])
         return response
+
+
+    # "Why is the chicken cheaper at ValueMart?" — one product, from recorded quotes (1.2.8)
+    def _answer_price_question(self, basket: Basket | None, text: str) -> str:
+        from app.services.catalogue import find_products, match_item
+
+        item = match_item(basket, text) if basket is not None else None
+        product = item.product if item is not None else next(iter(find_products(self.db, text, limit=1)), None)
+        if product is None:
+            return "Which product do you mean? For example: \"why is the chicken cheaper at ValueMart?\""
+        return self.ctx.analyst.explain_difference(product, asked_about=text)
+
+    # "Jamie is now vegetarian" — chat can add to the profile; removing stays on the Household page (1.2.13)
+    def _edit_household(self, s: ShoppingSession, text: str, *, has_basket: bool) -> str:
+        from app.domain import DietaryProfile, HouseholdMember
+        from app.services.dietary_rules import RESTRICTION_RULES, label, normalise_restriction
+        from app.services.session_state import household_of
+
+        household = household_of(self.db, s)
+        result = self.think("household_edit", {"text": text, "members": [m.name for m in household.members]})
+        done, refused = [], []
+        for op in result.data.get("operations", []):
+            rid = normalise_restriction(op["restriction"]) if op.get("restriction") else None
+            if rid is not None and rid not in RESTRICTION_RULES:
+                refused.append(f"I don't know the restriction \"{op['restriction']}\".")
+                continue
+            kind = RESTRICTION_RULES[rid]["kind"] if rid else None
+            severity = op.get("severity") or ("moderate" if kind == "intolerance" else "severe")
+            if op["op"] == "remove":
+                refused.append("To remove a member or an allergy, use the Household page so you can see exactly what changes.")
+            elif op["op"] == "add_member":
+                if any(m.name.lower() == op["member"].lower() for m in household.members):
+                    refused.append(f"{op['member']} is already in your household.")
+                    continue
+                member = HouseholdMember(name=op["member"], age_group=op.get("age_group") or "adult")
+                if rid:
+                    member.dietary_profiles.append(DietaryProfile(restriction=rid, kind=kind, severity=severity))
+                household.add_member(member)
+                done.append(f"added {member.name} ({member.age_group})" + (f" who avoids {label(rid).lower()}" if rid else ""))
+            elif op["op"] == "add_restriction":
+                member = next((m for m in household.members if m.name.lower() == op["member"].lower()), None)
+                if member is None or rid is None:
+                    refused.append(f"I couldn't find {op['member']} in your household." if member is None else "Which restriction?")
+                    continue
+                if any(p.restriction == rid for p in member.dietary_profiles):
+                    refused.append(f"{member.name} already avoids {label(rid).lower()}.")
+                    continue
+                member.dietary_profiles.append(DietaryProfile(restriction=rid, kind=kind, severity=severity))
+                done.append(f"{member.name} now avoids {label(rid).lower()} ({severity})")
+        if done:
+            self.db.flush()
+            self.ctx.manager.log("update_profile", "From chat: " + "; ".join(done), session_id=s.id)
+        if not done and not refused:
+            return result.data.get("clarification_question") or "What should I change in your household?"
+        reply = ("Saved to your household: " + "; ".join(done) + "." if done else "") + (" " + " ".join(refused) if refused else "")
+        if done and has_basket:
+            reply += " Your current basket was built before this change, so start a new shop to apply it."
+        return reply.strip()
 
 
 def _remember(s: ShoppingSession, role: str, text: str) -> None:

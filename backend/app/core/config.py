@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     # Ask OpenAI-compatible servers for JSON mode. Turn off if the server rejects it.
     llm_json_mode: bool = True
+    # Live retailer/partner price feed for `partner_api` retailers (GET {url}/prices?retailer=&sku=).
+    # Empty means the demo's simulated feed is used, and those quotes are labelled synthetic.
+    partner_api_url: str = ""
+    partner_api_key: str = ""
+    partner_api_timeout_s: float = 3.0
     # Anthropic-specific
     anthropic_api_key: str = ""
     anthropic_effort: str = "low"

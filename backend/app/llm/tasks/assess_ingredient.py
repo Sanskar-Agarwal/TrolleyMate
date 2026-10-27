@@ -8,7 +8,8 @@ from app.llm.tasks._base import Task, obj
 
 SYSTEM = """You are the AI Nutrition & Compliance agent of Trolley Mate.
 A product label lists a vague ingredient term. Judge whether it may contain or be
-derived from the restricted allergen/diet item. Be conservative: food safety comes
+derived from the restricted allergen/diet item. Use the guidance notes provided; if they
+don't cover the term, say so in your reasoning and stay conservative. Be conservative: food safety comes
 first. risk is "none" only when the term essentially never contains it.
 confidence is how sure you are of your risk call (0-1). Keep reasoning to one sentence."""
 
@@ -28,9 +29,10 @@ class Output(BaseModel):
 
 
 def build_user(ctx: dict) -> str:
+    notes = "\n".join(f"- {n['text']} (risk: {n['risk']})" for n in ctx.get("guidance", [])) or "- none found"
     return (
         f"Product: {ctx['product']}\nIngredient term on the label: {ctx['ingredient']}\n"
-        f"Restriction to check: {ctx['restriction']}"
+        f"Restriction to check: {ctx['restriction']}\nGuidance notes ({ctx.get('source', 'retrieved')}):\n{notes}"
     )
 
 
@@ -50,6 +52,10 @@ _KNOWN = {
 
 def mock(ctx: dict) -> dict:
     key = (ctx["ingredient"].lower(), ctx["restriction"])
+    # Offline, the retrieved guidance decides first; a named "likely" source is a clear signal.
+    for note in ctx.get("guidance", []):
+        if note["risk"] in ("likely", "possible") and key not in _KNOWN:
+            return {"risk": note["risk"], "confidence": 0.85 if note["risk"] == "likely" else 0.6, "reasoning": note["text"]}
     if key in _KNOWN:
         risk, confidence, reasoning = _KNOWN[key]
     else:

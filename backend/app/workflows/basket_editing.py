@@ -120,7 +120,33 @@ def edit(agent, basket: Basket, text: str) -> dict:
     new_basket = outcome.basket
     if extras:
         _add_extras(agent, new_basket, extras)
-    return {"status": "ok", "basket": new_basket, "applied": applied, "conflicts": conflicts}
+    return {"status": "ok", "basket": new_basket, "applied": applied, "conflicts": conflicts,
+            "diff": basket_diff(basket, new_basket)}
+
+
+def basket_diff(before: Basket, after: Basket) -> dict:
+    """What a chat edit actually changed: items added, removed or re-quantified, and the total."""
+    old = {i.product.name: i.quantity for i in before.items if not i.withheld}
+    new = {i.product.name: i.quantity for i in after.items if not i.withheld}
+    return {
+        "added": [{"product": n, "quantity": q} for n, q in new.items() if n not in old],
+        "removed": [{"product": n, "quantity": q} for n, q in old.items() if n not in new],
+        "changed": [{"product": n, "from": old[n], "to": q} for n, q in new.items() if n in old and old[n] != q],
+        "total_before": round(before.total, 2), "total_after": round(after.total, 2),
+    }
+
+
+def describe_diff(diff: dict) -> str:
+    parts = []
+    if diff["added"]:
+        parts.append("Added " + ", ".join(f"{d['product']} ×{d['quantity']}" for d in diff["added"]))
+    if diff["removed"]:
+        parts.append("Removed " + ", ".join(d["product"] for d in diff["removed"]))
+    if diff["changed"]:
+        parts.append("Changed " + ", ".join(f"{d['product']} ×{d['from']}→×{d['to']}" for d in diff["changed"]))
+    delta = diff["total_after"] - diff["total_before"]
+    parts.append(f"Total ${diff['total_before']:.2f} → ${diff['total_after']:.2f} ({'+' if delta >= 0 else '−'}${abs(delta):.2f})")
+    return ". ".join(parts) + "."
 
 
 def _category(db, product_id: int) -> str:
