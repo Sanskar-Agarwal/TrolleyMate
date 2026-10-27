@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from app.core.config import get_settings
 from app.domain import ConstraintSetRecord, ShoppingRequest, ShoppingSession
 from app.domain.enums import InputMode, IntakeStage, RequestStatus
+from app.optimisation.types import normalise_nutrient
 from app.services.dietary_rules import label, normalise_restriction
 from app.services.session_state import household_of
 
@@ -69,6 +70,16 @@ def _apply_household(session: ShoppingSession, draft: dict, db) -> dict:
     for r in household.mandatory_restrictions():
         restrictions[r["restriction"]] = {**r, "label": label(r["restriction"]), "locked": True}
     out["restrictions"] = list(restrictions.values())
+    targets = {}
+    for t in out.get("nutritional_targets", []):
+        nutrient = normalise_nutrient(t["nutrient"])
+        if nutrient is None:
+            note = f"I can't check {t['nutrient'].replace('_', ' ')} from product data yet, so that target isn't part of this shop."
+            if note not in assumptions:
+                assumptions.append(note)
+            continue
+        targets[nutrient] = {**t, "nutrient": nutrient}
+    out["nutritional_targets"] = list(targets.values())
     saved_prefs = {f"{p.kind}:{p.value}" for p in household.preferences}
     out["preferences"] = sorted(set(out.get("preferences", [])) | saved_prefs)
     out["assumptions"] = assumptions

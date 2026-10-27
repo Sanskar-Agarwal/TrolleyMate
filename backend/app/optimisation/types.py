@@ -10,6 +10,18 @@ from app.services.meal_schedule import meal_schedule
 
 ROLE_CATEGORIES = ("protein", "carb", "veg")
 NUTRIENTS = ("kcal", "protein_g", "carbs_g", "fat_g", "fibre_g", "veg_serves")
+_NUTRIENT_ALIASES = {
+    "protein": "protein_g", "calories": "kcal", "energy": "kcal", "carbs": "carbs_g", "carbohydrates": "carbs_g",
+    "carbs_g": "carbs_g", "fat": "fat_g", "fibre": "fibre_g", "fiber": "fibre_g", "fiber_g": "fibre_g",
+    "veg": "veg_serves", "vegetables": "veg_serves", "veg_serves": "veg_serves",
+}
+
+
+def normalise_nutrient(name: str) -> str | None:
+    """Map a target's nutrient name onto a catalogue nutrition field, or None if we can't check it."""
+    key = name.strip().lower().replace(" ", "_")
+    key = _NUTRIENT_ALIASES.get(key, key)
+    return key if key in NUTRIENTS else None
 
 
 @dataclass
@@ -66,6 +78,8 @@ class Requirements:
     protein_servings: float
     carb_servings: float
     breakfast_servings: float
+    # Shopper targets for nutrients without a default requirement (e.g. fibre_g), as basket totals.
+    extra_minimums: dict[str, float] = field(default_factory=dict)
 
     KCAL_PER_MEAL = 550
     PROTEIN_PER_MAIN = 22
@@ -81,18 +95,27 @@ class Requirements:
         person_meals = size * sum(len(slots) for slots in schedule)
         breakfast = size * sum("Breakfast" in slots for slots in schedule)
         main = person_meals - breakfast
-        protein = cls.PROTEIN_PER_MAIN * main
+        defaults = {"kcal": cls.KCAL_PER_MEAL * person_meals, "protein_g": cls.PROTEIN_PER_MAIN * main,
+                    "veg_serves": cls.VEG_PER_MAIN * main}
+        extra: dict[str, float] = {}
         for t in p.get("nutritional_targets", []):
-            if t["nutrient"] == "protein_g":
-                protein = max(protein, float(t["minimum_per_day"]) * size * d)
+            nutrient = normalise_nutrient(t["nutrient"])
+            if nutrient is None:
+                continue  # intake flags targets we can't check; they never reach a confirmed set
+            total = float(t["minimum_per_day"]) * size * d
+            if nutrient in defaults:
+                defaults[nutrient] = max(defaults[nutrient], total)
+            else:
+                extra[nutrient] = max(extra.get(nutrient, 0.0), total)
         return cls(
             household_size=size, days=d, meals_per_day=mpd,
             budget=(p.get("budget") if budget is ... else budget),
             person_meals=person_meals, main_meals=main, breakfast_meals=breakfast,
-            kcal=cls.KCAL_PER_MEAL * person_meals, protein_g=protein,
-            veg_serves=cls.VEG_PER_MAIN * main,
+            kcal=defaults["kcal"], protein_g=defaults["protein_g"],
+            veg_serves=defaults["veg_serves"],
             protein_servings=main, carb_servings=main,
             breakfast_servings=math.ceil(1.6 * breakfast),
+            extra_minimums=extra,
         )
 
     def as_dict(self) -> dict:

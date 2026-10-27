@@ -44,3 +44,36 @@ def test_changed_constraints_require_a_rebuilt_basket(client, riley):
     rid = client.post(f"/api/sessions/{sid}/requests", json={"text": "$80 for 5 days, dinner only"}, headers=riley).json()["intake"]["request_id"]
     assert client.post(f"/api/requests/{rid}/confirm", headers=riley).status_code == 200
     assert client.post(f"/api/baskets/{basket['id']}/accept", headers=riley).status_code == 400
+
+
+def _catalogue_pool(db):
+    from sqlalchemy import select
+
+    retailer = db.scalar(select(Retailer).limit(1))
+    return [Candidate(p, retailer, 4.0) for p in db.scalars(select(Product)) if p.nutrition and p.nutrition.get("kcal")]
+
+
+@pytest.mark.parametrize("name,nutrient", [("fibre_g", "fibre_g"), ("fiber", "fibre_g"), ("carbs", "carbs_g")])
+def test_non_protein_nutrition_targets_are_enforced(client, name, nutrient):
+    from app.core.db import SessionLocal
+
+    payload = {"budget": 1000, "household_size": 2, "days": 7, "meals_per_day": 2}
+    with SessionLocal() as db:
+        pool = _catalogue_pool(db)
+        baseline = BasketOptimiser().solve(Requirements.from_constraints(ConstraintSet.from_payload(payload)), strategy_for("lowest_cost"), pool)
+        target = round(baseline.nutrition[nutrient] / 14 * 1.5, 1)  # per person per day, 50% above what we'd buy anyway
+        req = Requirements.from_constraints(ConstraintSet.from_payload(
+            {**payload, "nutritional_targets": [{"nutrient": name, "minimum_per_day": target}]}))
+        result = BasketOptimiser().solve(req, strategy_for("lowest_cost"), pool)
+    assert req.extra_minimums[nutrient] == pytest.approx(target * 14)
+    assert result.feasible, result.message
+    assert result.nutrition[nutrient] >= target * 14 - 0.1
+
+
+def test_unsupported_nutrient_target_is_flagged_not_silently_kept(client, riley):
+    sid = client.post("/api/sessions", headers=riley).json()["session"]["id"]
+    rid = client.post(f"/api/sessions/{sid}/requests", json={"text": "$80 for the week, dinners for one"}, headers=riley).json()["intake"]["request_id"]
+    patch = {"nutritional_targets": [{"nutrient": "iron_mg", "minimum_per_day": 18}, {"nutrient": "fiber", "minimum_per_day": 25}]}
+    intake = client.post(f"/api/requests/{rid}/correct", json={"patch": patch}, headers=riley).json()["intake"]
+    assert intake["draft"]["nutritional_targets"] == [{"nutrient": "fibre_g", "minimum_per_day": 25}]
+    assert any("iron mg" in a for a in intake["draft"]["assumptions"])

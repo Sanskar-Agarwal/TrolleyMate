@@ -92,6 +92,8 @@ class BasketOptimiser:
         at_least([c.nutrient("kcal") for c in pool], req.kcal)
         at_least([c.nutrient("protein_g") for c in pool], req.protein_g)
         at_least([c.nutrient("veg_serves") for c in pool], req.veg_serves)
+        for nutrient, minimum in req.extra_minimums.items():
+            at_least([c.nutrient(nutrient) for c in pool], minimum)
         at_least([c.product.servings if c.role == "protein" else 0 for c in pool], req.protein_servings)
         at_least([c.product.servings if c.role == "carb" else 0 for c in pool], req.carb_servings)
         at_least([c.product.servings if c.is_breakfast else 0 for c in pool], req.breakfast_servings)
