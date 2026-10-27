@@ -1,0 +1,29 @@
+# Render blueprint: one web service built from the Dockerfile (React app + FastAPI on port 8000).
+# Connect the repo once in Render (New → Blueprint); every push to main then redeploys automatically.
+# The free plan has no persistent disk: SQLite resets on each deploy or restart and the demo data
+# is reseeded on startup, so the demo always starts clean.
+services:
+  - type: web
+    name: trolleymate
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_ON_STARTUP
+        value: "true"
+      # AI provider. Leave these blank to run on the offline rule-based agents.
+      - key: LLM_PROVIDER
+        sync: false
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
