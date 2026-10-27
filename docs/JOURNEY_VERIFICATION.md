@@ -118,3 +118,45 @@ so the release was missing it. It's now merged into `Sanskar`, conflict-free, an
 | KAN-28 M04 review queue | Fixed after merge | Expired reviews are requeued to another reviewer; held notices are cleared on decision |
 | KAN-29 M05 clean deployment | Pass after merge | `verify_clean.py` PASSED on the merged commit (pinned install, tests, build, offline and fallback startup) |
 | KAN-31 Docker & CI/CD | Pass | Image builds; container serves the UI and API from a clean start |
+
+## 6. What the codebase still doesn't do (27 Oct)
+
+All 15 Stage 1 requirements have working code, tests and a demo step (section 4). The list below is
+what's missing or only simulated, checked against the code itself rather than Jira.
+
+**Gaps a marker could notice in the demo**
+
+| Gap | Where | Impact |
+|---|---|---|
+| No real retailer data: all four stores are simulated from `seed/catalogue.json` | `services/pricing/price_sources.py` (`PartnerApiAdapter._fetch` TODO) | Say so in the demo; there's no public Coles/Woolworths API |
+| No account registration: only the seeded demo accounts can sign in | `api/auth.py` has login only | 1.2.13 says "accounts"; profiles work, sign-up doesn't exist |
+| Real-LLM run unreliable on the current key: Groq's free tier rate-limits (429) about half the calls during a basket build | `.env` | Use the Campus Qwen proxy (`.env.example` still has placeholders) or a paid key |
+| Meal plans can leave meals unplanned because the optimiser doesn't know about recipes | `optimisation/*` | Gaps are reported honestly (e.g. 11 of 14 meals) |
+| Portions don't scale by age group: a child counts as a full adult serve | `optimisation/types.py` | Over-buys for families with children |
+| Submission packaging script missing: `verify_clean.py --source release.zip` refers to `package_submission.py`, which doesn't exist | `scripts/` | Needed for the Canvas zip |
+
+**Smaller features from the team backlog (`TEAM_GUIDE.md`) that aren't built**
+
+- Substitution offers only one candidate, not the top 3; no proactive out-of-stock flags.
+- Negotiation has only two trade-off types (raise the budget, cover fewer days).
+- No price-history chart: `GET /api/products/{id}/history` exists, but the UI never calls it.
+- Buy timing uses a simple recurring-discount rule (no moving average or regression).
+- No CSV/JSON price importer.
+- Products whose unit price can't be normalised show "no price" but aren't explicitly flagged.
+- No before/after diff for a chat edit: the chat just says "Done — replaced X with Y".
+- No "Why is X cheaper at Y?" chat intent: `MarketAnalystAgent.explain_difference` exists but nothing calls it.
+- Preferences aren't learned from declined swaps (`Preference.source = "learned"` is never set).
+- No RAG over allergen guidance (FSANZ is only cited as the source of the nutrition targets).
+- Only 3 E-number additives are in the allergen knowledge base.
+- No LLM-written recipe steps on meal cards.
+- No toast for the shopper when a dietitian resolves a case.
+- No audit dashboard charts.
+- Household profile can't be edited from chat.
+
+**Repo and process housekeeping**
+
+- `.github/CODEOWNERS` still has the `@SANSKAR_GITHUB`-style placeholders for four of the five owners.
+- No sprint tags (`sprint-1`, `sprint-2`), although the demo script shows them as Agile evidence.
+- CI runs only on pull requests and pushes to `main`, so `Sanskar` needs a PR to `main` before it's CI-checked.
+- No hosted deployment or Postgres option: the image builds and runs locally only.
+- `.claude/launch.json` uses the Windows venv path, so it fails on macOS.
