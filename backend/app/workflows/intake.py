@@ -18,10 +18,13 @@ from sqlalchemy import func, select
 from app.core.config import get_settings
 from app.domain import ConstraintSetRecord, ShoppingRequest, ShoppingSession
 from app.domain.enums import InputMode, IntakeStage, RequestStatus
+from app.optimisation.types import normalise_nutrient
 from app.services.dietary_rules import label, normalise_restriction
 from app.services.session_state import household_of
 
 REQUIRED = ("budget", "household_size", "meals_per_day", "days")
+# Share of an adult serve each age group eats (Australian Guide to Healthy Eating, rounded).
+PORTION_FACTORS = {"child": 0.6, "teen": 1.0, "adult": 1.0, "senior": 0.85}
 QUESTIONS = {
     "budget": "What's your budget for this shop?",
     "household_size": "How many people are you shopping for?",
@@ -65,10 +68,29 @@ def _apply_household(session: ShoppingSession, draft: dict, db) -> dict:
         note = f"Shopping for {household.size} (from your household profile)."
         if note not in assumptions:
             assumptions.append(note)
+    # Portions follow the profile only when shopping for exactly that household.
+    out.pop("portions", None)
+    if household.members and out.get("household_size") == household.size:
+        portions = round(sum(PORTION_FACTORS.get(m.age_group, 1.0) for m in household.members), 2)
+        if portions != household.size:
+            out["portions"] = portions
+            note = f"Portions sized for your household's ages ({portions:g} adult serves per meal)."
+            if note not in assumptions:
+                assumptions.append(note)
     restrictions = {r["restriction"]: r for r in out.get("restrictions", [])}
     for r in household.mandatory_restrictions():
         restrictions[r["restriction"]] = {**r, "label": label(r["restriction"]), "locked": True}
     out["restrictions"] = list(restrictions.values())
+    targets = {}
+    for t in out.get("nutritional_targets", []):
+        nutrient = normalise_nutrient(t["nutrient"])
+        if nutrient is None:
+            note = f"I can't check {t['nutrient'].replace('_', ' ')} from product data yet, so that target isn't part of this shop."
+            if note not in assumptions:
+                assumptions.append(note)
+            continue
+        targets[nutrient] = {**t, "nutrient": nutrient}
+    out["nutritional_targets"] = list(targets.values())
     saved_prefs = {f"{p.kind}:{p.value}" for p in household.preferences}
     out["preferences"] = sorted(set(out.get("preferences", [])) | saved_prefs)
     out["assumptions"] = assumptions
@@ -84,6 +106,11 @@ def _questions(draft: dict, ambiguities: list[dict]) -> list[dict]:
                 continue
             qs.append({"field": a["field"], "question": a["question"]})
     return qs
+
+
+def _still_open(pending: list[dict], draft: dict) -> list[dict]:
+    """Clarifying questions not answered by the latest draft (required fields are re-derived by _questions)."""
+    return [q for q in pending if q["field"] not in REQUIRED and draft.get(q["field"]) in (None, 0, [])]
 
 
 def _stage_after_update(req: ShoppingRequest) -> None:
@@ -187,7 +214,9 @@ def correct(agent, req: ShoppingRequest, *, text: str | None = None, patch: dict
         draft = _apply_patch(draft, patch)
     draft = _apply_household(session, draft, agent.db)
     req.draft_payload = draft
-    req.pending_questions = _questions(draft, [])
+    # An unrelated correction must not silently drop questions the shopper hasn't answered yet.
+    new_ambiguities = result.data.get("ambiguities", []) if result else []
+    req.pending_questions = _questions(draft, _still_open(req.pending_questions, draft) + new_ambiguities)
     if req.mode == InputMode.text and req.correction_count >= get_settings().max_corrections:
         req.mode = InputMode.form
     _stage_after_update(req)
@@ -204,7 +233,7 @@ def submit_form(agent, req: ShoppingRequest, form: dict) -> ShoppingRequest:
     req.mode = InputMode.form
     draft = _apply_household(req.session, _apply_patch(dict(req.draft_payload), form), agent.db)
     req.draft_payload = draft
-    req.pending_questions = _questions(draft, [])
+    req.pending_questions = _questions(draft, _still_open(req.pending_questions, draft))
     _stage_after_update(req)
     if not req.pending_questions:
         req.stage = IntakeStage.awaiting_confirmation

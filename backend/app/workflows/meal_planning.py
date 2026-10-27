@@ -32,6 +32,7 @@ def generate(agent, basket: Basket) -> MealPlan:
     result = meal_planner.plan(
         basket,
         household_size=int(req.get("household_size", 1)),
+        portions=float(req.get("portions") or 0) or None,
         days=int(req.get("days", 7)),
         meals_per_day=float(req.get("meals_per_day", 2)),
     )

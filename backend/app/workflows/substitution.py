@@ -106,6 +106,9 @@ def accept(agent, sub: Substitution) -> Basket:
     basket.recalc_total()
     _refresh_nutrition(agent, basket)
     agent.log("accept_substitution", f"Accepted: {sub.original.name} → {replacement.name}", basket_id=basket.id, session_id=sub.session_id)
+    from app.workflows.basket_builder import refresh_explanation
+
+    refresh_explanation(agent, basket)
     return basket
 
 
@@ -126,6 +129,14 @@ def reject(agent, sub: Substitution) -> Basket:
         _remove_item(basket, item, f"{item.product.name} was removed from your basket.")
     agent.log("reject_substitution", f"Declined: {sub.original.name} → {sub.replacement.name if sub.replacement else '—'}",
               basket_id=basket.id, session_id=session.id)
+    if sub.replacement is not None:
+        from app.services.preference_memory import learn_from_declined_swap
+
+        learned = learn_from_declined_swap(db, household_of(db, session), sub.replacement)
+        if learned is not None:
+            agent.log("learn_preference", f"Learned: dislike {learned.value}",
+                      rationale=f"Declined as a substitute {learned.meta['declined_swaps']} times; shown under remembered preferences.",
+                      basket_id=basket.id, session_id=session.id)
     return basket
 
 

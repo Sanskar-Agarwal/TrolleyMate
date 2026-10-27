@@ -10,6 +10,7 @@ a registered dietitian in the loop for anything the AI can't confirm.
 - **Architecture:** Supervisor–Worker agents with deterministic services and a human approval gate — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Team split & git workflow:** [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md)
 - **Demo walkthrough:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+- **Interfaces and permissions:** [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) · **Technology decisions:** [docs/DECISIONS.md](docs/DECISIONS.md)
 - **CI and container releases:** [docs/CI_CD.md](docs/CI_CD.md)
 
 ## Quick start

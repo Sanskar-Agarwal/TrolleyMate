@@ -1,6 +1,10 @@
-"""UC-07 — agent audit log (founder sees raw prompts/responses). Owner: Platform & Governance."""
+"""UC-07 — agent audit log (founder sees raw prompts/responses). Owner: Platform & Governance.
 
-from fastapi import APIRouter, Depends, Query
+The log is written only by the AI Technical Manager and has no write endpoints, so no
+agent or shopper action can edit or remove a recorded decision.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.agents.context import AgentContext
@@ -36,6 +40,8 @@ def audit_log(
 
 @router.get("/stats")
 def stats(ctx: AgentContext = Depends(agent_context)) -> dict:
+    if ctx.user.role != UserRole.founder:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the founder can view system-wide audit statistics.")
     per_agent = ctx.db.execute(select(AuditRecord.agent, func.count()).group_by(AuditRecord.agent)).all()
     per_provider = ctx.db.execute(select(AuditRecord.provider, func.count()).group_by(AuditRecord.provider)).all()
     open_cases = ctx.db.scalar(select(func.count()).select_from(EscalationCase).where(EscalationCase.status != CaseStatus.resolved))

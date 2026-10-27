@@ -1,3 +1,4 @@
--r requirements.txt
-pytest>=8
-ruff>=0.6
+# Test and lint tools on top of the pinned runtime set.
+-r requirements.lock
+pytest==9.1.1
+ruff==0.17.0

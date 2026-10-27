@@ -12,7 +12,7 @@ Pop-Location
 
 Write-Host "==> Frontend: installing packages"
 Push-Location "$root\frontend"
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund  # exact versions from package-lock.json
 Pop-Location
 
 if (-not (Test-Path "$root\.env")) {

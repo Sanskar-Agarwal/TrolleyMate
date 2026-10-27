@@ -79,6 +79,7 @@ class MarketAnalystAgent(Agent):
             product_id=product.id, retailer_id=retailer.id, price=data.price,
             unit_price=unit.value if unit else None, unit_basis=unit.basis if unit else "",
             on_special=data.on_special, captured_at=data.captured_at, status=QuoteStatus.fresh,
+            source_type=data.source,
         )
         self.db.add(new)
         self.db.flush()
@@ -114,6 +115,7 @@ class MarketAnalystAgent(Agent):
         baseline = next((r for r in retailers if r.id == baseline_id), retailers[0])
         rows, totals, unpriced = [], {r.id: 0.0 for r in retailers}, {r.id: [] for r in retailers}
         split_total, split_unpriced, winners = 0.0, [], {r.name: 0 for r in retailers}
+        by_store: dict[int, list[dict]] = {r.id: [] for r in retailers}
         latest = self._latest_quotes([i.product_id for i in b.items])
 
         for item in b.items:
@@ -132,6 +134,12 @@ class MarketAnalystAgent(Agent):
                 cheapest = min(prices, key=lambda rid: prices[rid]["line"])
                 split_total += prices[cheapest]["line"]
                 winners[next(r.name for r in retailers if r.id == cheapest)] += 1
+                others = [p["line"] for rid, p in prices.items() if rid != cheapest]
+                by_store[cheapest].append({
+                    "item_id": item.id, "product": item.product.name, "quantity": item.quantity,
+                    "line": prices[cheapest]["line"], "on_special": prices[cheapest]["on_special"],
+                    "saves_vs_next": round(min(others) - prices[cheapest]["line"], 2) if others else 0.0,
+                })
             else:
                 cheapest = None
                 split_unpriced.append(item.product.name)
@@ -177,19 +185,39 @@ class MarketAnalystAgent(Agent):
             "options": options,
             "rows": rows,
             "retailers": [{"id": r.id, "name": r.name, "source": r.source} for r in retailers],
+            # The split basket as a shopping list: what to buy at each store, cheapest source per item.
+            "split_plan": [
+                {"retailer_id": r.id, "name": r.name, "items": by_store[r.id],
+                 "subtotal": round(sum(i["line"] for i in by_store[r.id]), 2)}
+                for r in retailers if by_store[r.id]
+            ],
             "cheapest": cheapest,
             "insight": insight,
             "complete": cheapest is not None,
             "refreshed_quotes": self.refreshed,
         }
 
-    def explain_difference(self, product: Product) -> str:
+    def explain_difference(self, product: Product, asked_about: str | None = None) -> str:
+        """Why one store is cheaper for this product, from the recorded quotes only (1.2.8)."""
         quotes = [(r, self.current_quote(product, r)) for r in self.retailers]
         priced = sorted([(r, q) for r, q in quotes if q], key=lambda rq: rq[1].price)
         if not priced:
             return f"No current prices for {product.name}."
         lo, hi = priced[0], priced[-1]
-        return f"{product.name} is ${lo[1].price:.2f} at {lo[0].name} vs ${hi[1].price:.2f} at {hi[0].name}."
+        parts = [f"{product.name} is ${lo[1].price:.2f} at {lo[0].name} vs ${hi[1].price:.2f} at {hi[0].name}."]
+        if lo[1].on_special:
+            parts.append(f"{lo[0].name} has it on special right now.")
+        elif lo[1].unit_price is not None and lo[1].unit_basis:
+            parts.append(f"That's ${lo[1].unit_price:.2f} per {lo[1].unit_basis} at {lo[0].name}.")
+        asked = next((r for r, q in priced if asked_about and r.name.lower() in asked_about.lower()), None)
+        if asked is not None and asked.id != lo[0].id:
+            q = next(q for r, q in priced if r.id == asked.id)
+            parts.append(f"{asked.name} isn't the cheapest for this one: it's ${q.price - lo[1].price:.2f} more than {lo[0].name}.")
+        missing = [r.name for r, q in quotes if not q]
+        if missing:
+            parts.append(f"No current price at {', '.join(missing)}.")
+        self.log("explain_price", parts[0], rationale=" ".join(parts[1:]), confidence=1.0)
+        return " ".join(parts)
 
     # --- Buy timing (1.2.6) -----------------------------------------------
 

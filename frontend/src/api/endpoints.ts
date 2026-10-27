@@ -30,6 +30,8 @@ type BuildResult = WithTrace<{ status: "ok"; basket: Basket } | { status: "infea
 // --- Auth & system (Platform) ------------------------------------------------
 export const auth = {
   login: (email: string, password: string) => api<{ token: string; user: User }>("/auth/login", { body: { email, password } }),
+  register: (body: { display_name: string; email: string; password: string; household_name?: string }) =>
+    api<{ token: string; user: User }>("/auth/register", { body }),
   me: () => api<User>("/auth/me"),
   demoAccounts: () => api<{ email: string; display_name: string; role: string }[]>("/auth/demo-accounts"),
 };
@@ -144,6 +146,9 @@ export const escalations = {
     api<WithTrace<{ case: EscalationCase }>>(`/escalations/${id}/request-info`, { body: { question } }),
   resolve: (id: number, decision: "passed" | "failed", note: string) =>
     api<WithTrace<{ case: EscalationCase }>>(`/escalations/${id}/resolve`, { body: { decision, note } }),
+  reviewers: () => api<{ id: number; display_name: string; role: string }[]>("/escalations/reviewers"),
+  assign: (id: number, reviewerId: number) =>
+    api<WithTrace<{ case: EscalationCase }>>(`/escalations/${id}/assign`, { body: { reviewer_id: reviewerId } }),
 };
 export const audit = {
   list: (params: { agent?: string; session_id?: number; basket_id?: number; limit?: number } = {}) => {

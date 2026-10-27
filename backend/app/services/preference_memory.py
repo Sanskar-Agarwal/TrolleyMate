@@ -89,3 +89,33 @@ def restriction_hint(kind: str, value: str, household_restrictions: set[str]) ->
         f"{label(rid)} looks like an allergy or diet. A preference only matches product names; "
         "add it to a member's restrictions to have every ingredient checked."
     )
+
+
+LEARN_AFTER_DECLINES = 2
+
+
+def learn_from_declined_swap(db, household, product: Product) -> Preference | None:
+    """1.2.12: after the household declines swaps to the same product LEARN_AFTER_DECLINES times,
+    remember it as a learned dislike so it stops being suggested. Never overrides something the
+    shopper said themselves (a like or an existing dislike), and it's listed and forgettable like any other."""
+    from sqlalchemy import func, select
+
+    from app.domain import ShoppingSession, Substitution
+    from app.domain.enums import SubStatus
+
+    value = normalise_value(product.name)
+    if any(p.value == value for p in household.preferences):
+        return None
+    declines = db.scalar(
+        select(func.count(Substitution.id))
+        .join(ShoppingSession, ShoppingSession.id == Substitution.session_id)
+        .where(ShoppingSession.household_id == household.id,
+               Substitution.replacement_product_id == product.id,
+               Substitution.status == SubStatus.rejected)
+    )
+    if declines < LEARN_AFTER_DECLINES:
+        return None
+    pref = Preference(kind="dislike", value=value, source="learned", meta={"declined_swaps": declines})
+    household.preferences.append(pref)
+    db.flush()
+    return pref

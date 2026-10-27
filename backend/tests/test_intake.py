@@ -82,6 +82,18 @@ def test_unanswered_optional_question_blocks_confirmation(client, riley):
     assert client.post(f"/api/requests/{rid}/confirm", headers=riley).status_code == 200
 
 
+@pytest.mark.parametrize("correction", [{"patch": {"budget": 90}}, {"text": "make it $90"}])
+def test_unrelated_correction_keeps_unanswered_question(client, riley, correction):
+    sid = client.post("/api/sessions", headers=riley).json()["session"]["id"]
+    draft = client.post(f"/api/sessions/{sid}/requests", json={"text": "$80 for the week, dinners for two, high protein"}, headers=riley).json()["intake"]
+    asked = {q["field"] for q in draft["questions"]}
+    assert "nutritional_targets" in asked
+    after = client.post(f"/api/requests/{draft['request_id']}/correct", json=correction, headers=riley).json()["intake"]
+    assert after["draft"]["budget"] == 90
+    assert "nutritional_targets" in {q["field"] for q in after["questions"]}
+    assert client.post(f"/api/requests/{draft['request_id']}/confirm", headers=riley).status_code == 400
+
+
 @pytest.mark.parametrize("patch", [
     {"budget": -10}, {"budget": "cheap"}, {"budget": True},
     {"household_size": 1.5}, {"household_size": 21}, {"days": 0},

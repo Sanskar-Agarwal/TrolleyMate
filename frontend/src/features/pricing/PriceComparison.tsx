@@ -67,6 +67,35 @@ return (
         ))}
       </div>
 
+      {data.split_plan.length > 0 && (
+        <div className="stack" style={{ "--gap": "10px" } as React.CSSProperties}>
+          <span className="eyebrow">Cheapest from each store · {data.retailers.length} stores compared</span>
+          <p className="small muted">Each item is listed under the store that sells it cheapest, with how much less it is than the next-cheapest store.</p>
+          <div className="split-plan">
+            {data.split_plan.map((store) => (
+              <div key={store.retailer_id} className="split-store">
+                <div className="spread">
+                  <strong>{store.name}</strong>
+                  <span className="mono">{money(store.subtotal)}</span>
+                </div>
+                <ul>
+                  {store.items.map((i) => (
+                    <li key={i.item_id} className="small">
+                      <span>
+                        {i.product}
+                        {i.quantity > 1 && <span className="mono muted"> ×{i.quantity}</span>}
+                        {i.on_special && <span className="chip chip-beet" style={{ marginLeft: 6 }}>special</span>}
+                      </span>
+                      {i.saves_vs_next > 0 && <span className="mono saving split-saving" title="Cheaper than the next-cheapest store by this much">−{money(i.saves_vs_next)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="table-scroll">
         <table className="data">
           <thead>
@@ -92,9 +121,13 @@ return (
                         <>
                           {money(p.line)}
                           {p.on_special && <span className="chip chip-beet" style={{ marginLeft: 6 }}>special</span>}
-                          {p.unit_price != null && (
+                          {p.unit_price != null ? (
                             <div className="muted" style={{ fontSize: "0.7rem" }}>
                               {money(p.unit_price)}/{p.unit_basis === "each" ? "ea" : p.unit_basis}
+                            </div>
+                          ) : (
+                            <div title="The pack size couldn't be converted to a price per 100 g, 100 mL or each, so this price isn't compared per unit.">
+                              <span className="chip chip-amber" style={{ fontSize: "0.65rem" }}>no unit price</span>
                             </div>
                           )}
                         </>

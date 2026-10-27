@@ -26,8 +26,7 @@ Maaz is also **integration lead**: CI/CD, Docker, deployment, merging, release t
 | Reyon | `agents/nutrition_compliance.py`, `services/dietary_rules.py`, `api/compliance.py`, `api/preferences.py` | `assess_ingredient` | `compliance/`, `preferences/` |
 | Maaz | `core/*`, `main.py`, `agents/base.py`, `agents/context.py`, `agents/technical_manager.py`, `workflows/escalation.py`, `api/auth.py`, `api/households.py`, `api/escalations.py`, `api/audit.py`, `api/system.py`, `llm/service.py`, `llm/providers.py`, `domain/*` | `explain`, `supply_information`, `chat_reply` | `profile/`, `review/`, `admin/`, `explain/`, `components/`, `auth/` |
 
-`.github/CODEOWNERS` encodes this so the right person is asked to review automatically —
-**put everyone's GitHub username into it** (placeholders are `@SANSKAR_GITHUB` etc.).
+`.github/CODEOWNERS` encodes this so the right person is asked to review automatically.
 
 ### Shared files — coordinate before editing
 

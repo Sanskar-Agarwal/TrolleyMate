@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from app.llm.tasks._base import Task, obj
 
-INTENTS = ["new_request", "clarify_answer", "edit_basket", "explain", "meal_plan", "compare_prices", "chat"]
+INTENTS = ["new_request", "clarify_answer", "edit_basket", "explain", "meal_plan", "compare_prices",
+           "price_question", "edit_household", "chat"]
 
 SYSTEM = f"""You route messages for Trolley Mate, an AI grocery personal shopper.
 Classify the shopper's latest message into exactly one intent:
@@ -18,7 +19,9 @@ Classify the shopper's latest message into exactly one intent:
 - edit_basket: asks to change the current basket (swap, remove, add, cheaper, more of)
 - explain: asks why something was chosen or how the basket was built
 - meal_plan: asks for meals/recipes from the basket
-- compare_prices: asks about prices, retailers, or savings
+- compare_prices: asks which store is cheapest overall, or about savings
+- price_question: asks about one product's price, e.g. "why is the chicken cheaper at ValueMart?"
+- edit_household: changes who's in the household or their diets/allergies, e.g. "Jamie is now vegetarian"
 - chat: anything else (greetings, thanks, help)
 Use the conversation state to decide. Intents: {", ".join(INTENTS)}.
 Also write a one-sentence `reply` the assistant could show while it works."""
@@ -55,6 +58,13 @@ def mock(ctx: dict) -> dict:
             return result("new_request", 0.75, "Starting a fresh request from that.")
         if not re.search(r"start over|new shop|forget that", text):
             return result("clarify_answer", 0.85, "Thanks — updating your request.")
+    if re.search(r"\bis (?:now )?(?:a )?(?:vegetarian|vegan|halal|coeliac|celiac|lactose intolerant|allergic)"
+                 r"|\bhas (?:a |an )?(?:mild |severe )?[a-z ]*allerg|\bjoin(?:s|ed) (?:us|the household)"
+                 r"|\badd (?:a |an )?(?:new )?(?:member|person|child|kid|teen|senior)\b|\badd [a-z]+, (?:a|an) (?:child|teen|adult|senior)"
+                 r"|\b(?:allergy|allergies|diet) (?:for|of) [a-z]+", text):
+        return result("edit_household", 0.8, "Updating your household profile.")
+    if re.search(r"why (?:is|are) .+ cheaper|cheaper at \w|how much (?:is|are|does)|price of ", text):
+        return result("price_question", 0.8, "Checking that price across stores.")
     if re.search(r"start over|new shop|another week|next week|instead i have", text):
         return result("new_request", 0.8, "Starting a fresh request.")
     if not state.get("has_basket"):

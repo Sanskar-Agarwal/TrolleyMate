@@ -15,7 +15,41 @@ const STATUS_CHIP: Record<string, string> = {
   resolved: "chip-produce",
 };
 
+/** Founder only: hand a waiting case to a specific reviewer (the founder can also take it). */
+function AssignControl({ c, onAssign, busy }: { c: EscalationCase; onAssign: (reviewerId: number) => void; busy: boolean }) {
+  const reviewers = useLoad(() => escalations.reviewers(), "reviewers");
+  const [choice, setChoice] = useState<number | "">("");
+  if (!reviewers.data) return null;
+  return (
+    <form
+      className="row assign"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (choice !== "") onAssign(choice);
+      }}
+    >
+      <label className="small" htmlFor={`assign-${c.id}`}>
+        <strong>{c.assigned_to ? "Reassign to" : "Assign to"}</strong>
+      </label>
+      <select id={`assign-${c.id}`} className="input" style={{ width: "auto" }} value={choice} onChange={(e) => setChoice(e.target.value ? Number(e.target.value) : "")}>
+        <option value="">Choose a reviewer</option>
+        {reviewers.data
+          .filter((r) => r.display_name !== c.assigned_to)
+          .map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.display_name} ({r.role})
+            </option>
+          ))}
+      </select>
+      <button className="btn btn-sm" disabled={busy || choice === ""}>
+        Assign
+      </button>
+    </form>
+  );
+}
+
 function CaseDetail({ c, onUpdate }: { c: EscalationCase; onUpdate: (c: EscalationCase) => void }) {
+  const { user } = useAuth();
   const [question, setQuestion] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,9 +135,12 @@ function CaseDetail({ c, onUpdate }: { c: EscalationCase; onUpdate: (c: Escalati
       {error && <div className="notice notice-beet">{error}</div>}
 
       {(c.status === "assigned" || c.status === "open") && (
-        <button className="btn btn-primary" onClick={() => act(() => escalations.begin(c.id))} disabled={busy}>
-          Start review
-        </button>
+        <div className="row">
+          <button className="btn btn-primary" onClick={() => act(() => escalations.begin(c.id))} disabled={busy}>
+            Start review
+          </button>
+          {user?.role === "founder" && <AssignControl c={c} busy={busy} onAssign={(id) => act(() => escalations.assign(c.id, id))} />}
+        </div>
       )}
 
       {reviewing && (

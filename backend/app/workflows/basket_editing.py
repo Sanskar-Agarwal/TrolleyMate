@@ -83,16 +83,31 @@ def edit(agent, basket: Basket, text: str) -> dict:
     if conflicts and not applied:
         return {"status": "conflict", "message": " ".join(conflicts), "suggestions": []}
 
-    # Pantry/snack additions aren't solver candidates: add them directly after the solve.
-    extras = {pid: q for pid, q in min_qty.items() if _category(db, pid) in ("pantry", "snack")}
-    for pid in extras:
-        min_qty.pop(pid)
+    # Pantry/snack items aren't solver candidates: they're added directly after the solve. Keep the
+    # ones already in the basket (unless this edit removes or reduces them) and reserve their cost,
+    # so the solved basket plus these extras still fits the budget.
+    extras = {pid: q for pid, q in current.items() if _category(db, pid) in ("pantry", "snack") and pid not in excluded}
+    for pid in [p for p in min_qty if _category(db, p) in ("pantry", "snack")]:
+        extras[pid] = max(extras.get(pid, 0), min_qty.pop(pid))
+    for pid, hi in max_qty.items():
+        if pid in extras:
+            extras[pid] = min(extras[pid], hi)
+    extras = {pid: q for pid, q in extras.items() if q > 0}
+    reserve = _extras_cost(agent, extras)
+    budget = payload.get("budget")
+    if budget is not None and reserve > float(budget) + 1e-6:
+        return {
+            "status": "conflict",
+            "message": f"Those extras would cost ${reserve:.2f}, more than your ${float(budget):.2f} budget, "
+                       "so I've left the basket as it was.",
+            "suggestions": [],
+        }
 
     from app.workflows import basket_builder
 
     outcome = basket_builder.build(
         agent, session, basket.goal, payload_override=payload, origin="edit",
-        min_qty=min_qty, max_qty=max_qty, exclude_products=excluded, prefer=set(current) - excluded,
+        min_qty=min_qty, max_qty=max_qty, exclude_products=excluded, prefer=set(current) - excluded, reserve=reserve,
     )
     if outcome.status != "ok":
         neg = outcome.negotiation or {}
@@ -105,13 +120,50 @@ def edit(agent, basket: Basket, text: str) -> dict:
     new_basket = outcome.basket
     if extras:
         _add_extras(agent, new_basket, extras)
-    return {"status": "ok", "basket": new_basket, "applied": applied, "conflicts": conflicts}
+    return {"status": "ok", "basket": new_basket, "applied": applied, "conflicts": conflicts,
+            "diff": basket_diff(basket, new_basket)}
+
+
+def basket_diff(before: Basket, after: Basket) -> dict:
+    """What a chat edit actually changed: items added, removed or re-quantified, and the total."""
+    old = {i.product.name: i.quantity for i in before.items if not i.withheld}
+    new = {i.product.name: i.quantity for i in after.items if not i.withheld}
+    return {
+        "added": [{"product": n, "quantity": q} for n, q in new.items() if n not in old],
+        "removed": [{"product": n, "quantity": q} for n, q in old.items() if n not in new],
+        "changed": [{"product": n, "from": old[n], "to": q} for n, q in new.items() if n in old and old[n] != q],
+        "total_before": round(before.total, 2), "total_after": round(after.total, 2),
+    }
+
+
+def describe_diff(diff: dict) -> str:
+    parts = []
+    if diff["added"]:
+        parts.append("Added " + ", ".join(f"{d['product']} ×{d['quantity']}" for d in diff["added"]))
+    if diff["removed"]:
+        parts.append("Removed " + ", ".join(d["product"] for d in diff["removed"]))
+    if diff["changed"]:
+        parts.append("Changed " + ", ".join(f"{d['product']} ×{d['from']}→×{d['to']}" for d in diff["changed"]))
+    delta = diff["total_after"] - diff["total_before"]
+    parts.append(f"Total ${diff['total_before']:.2f} → ${diff['total_after']:.2f} ({'+' if delta >= 0 else '−'}${abs(delta):.2f})")
+    return ". ".join(parts) + "."
 
 
 def _category(db, product_id: int) -> str:
     from app.domain import Product
 
     return db.get(Product, product_id).category
+
+
+def _extras_cost(agent, extras: dict[int, int]) -> float:
+    from app.domain import Product
+
+    total = 0.0
+    for pid, qty in extras.items():
+        offer = agent.ctx.analyst.offers([agent.db.get(Product, pid)])
+        if offer:
+            total += offer[0].price * qty
+    return round(total, 2)
 
 
 def _add_extras(agent, basket: Basket, extras: dict[int, int]) -> None:
@@ -124,7 +176,7 @@ def _add_extras(agent, basket: Basket, extras: dict[int, int]) -> None:
             continue
         o = offer[0]
         basket.add_item(BasketItem(product_id=pid, retailer_id=o.retailer.id, quote_id=o.quote_id, quantity=qty,
-                                   pack_price=o.price, line_total=o.price * qty, compliance=ItemCompliance.compliant,
+                                   pack_price=o.price, line_total=round(o.price * qty, 2), compliance=ItemCompliance.compliant,
                                    rationale="Added at your request"))
     agent.db.flush()
     basket.recalc_total()

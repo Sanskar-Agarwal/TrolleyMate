@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { households, type MemberInput } from "../../api/endpoints";
 import type { Household, HouseholdMember } from "../../api/types";
+import { useToast } from "../../components/Toast";
 import { useLoad } from "../../lib/useLoad";
 import PreferencesPanel from "../preferences/PreferencesPanel";
 import "./profile.css";
@@ -103,16 +104,21 @@ export default function HouseholdPage() {
   const [data, setData] = useState<Household | null>(null);
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const h = data ?? household.data;
 
+  // The editor stays open on failure so nothing typed is lost; the cards keep showing the
+  // last saved profile, which is what the server still has.
   async function save(fn: () => Promise<{ household: Household }>) {
     setError(null);
     try {
       const r = await fn();
       setData(r.household);
       setEditing(null);
+      toast("Saved. This applies from your next shop.");
     } catch (e) {
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      setError(message.includes("hasn't changed") ? message : `${message} Your saved profile hasn't changed.`);
     }
   }
 
@@ -132,7 +138,7 @@ export default function HouseholdPage() {
           Everyone's allergies and dietary rules are combined for every shop. Mandatory restrictions always beat preferences.
         </p>
       </div>
-      {error && <div className="notice notice-beet">{error}</div>}
+      {error && <div className="notice notice-beet" role="alert">{error}</div>}
 
       <div className="profile-grid">
         <section className="stack">

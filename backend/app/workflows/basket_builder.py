@@ -12,7 +12,7 @@ Owner: Intake & Optimisation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -48,7 +48,10 @@ def build(
     max_qty: dict[int, int] | None = None,
     exclude_products: set[int] | None = None,
     prefer: set[int] | None = None,
+    reserve: float = 0.0,
 ) -> BuildOutcome:
+    """`reserve` is budget already committed to items added outside the solver (pantry/snack
+    additions from a chat edit); the solver must fit the rest of the basket into what's left."""
     db, ctx = agent.db, agent.ctx
     record = active_constraints(db, session)
     if record is None:
@@ -83,11 +86,12 @@ def build(
     # (3) Solve.
     req = Requirements.from_constraints(cs)
     optimiser = BasketOptimiser()
-    result = optimiser.solve(req, strategy, candidates, min_qty=min_qty, max_qty=max_qty, prefer=(prefer or set()) | set(favoured))
+    solve_req = replace(req, budget=round(req.budget - reserve, 2)) if reserve and req.budget is not None else req
+    result = optimiser.solve(solve_req, strategy, candidates, min_qty=min_qty, max_qty=max_qty, prefer=(prefer or set()) | set(favoured))
     if not result.feasible:
         from app.workflows import negotiation
 
-        info = negotiation.analyse(agent, session, cs, req, strategy, candidates, result.message)
+        info = negotiation.analyse(agent, session, cs, solve_req, strategy, candidates, result.message)
         if payload_override is None:
             # The confirmed request itself can't be met. (A failed edit or trade-off
             # leaves the request — and the current basket — as they were.)
@@ -174,6 +178,32 @@ def build(
     session.status = SessionStatus.basket_ready
     session.goal = goal
     return BuildOutcome(status="ok", basket=basket, excluded=excluded)
+
+
+def refresh_explanation(agent, basket: Basket) -> None:
+    """Re-sync the recorded facts with the basket as it now stands (after a dietitian decision
+    or an accepted swap) and regenerate the summary, so neither describes the old basket."""
+    from app.agents.nutrition_compliance import saved_requirements
+
+    notes = dict(basket.notes or {})
+    if "facts" not in notes:
+        return
+    req = saved_requirements(basket)
+    if req is not None:
+        notes["nutrition"] = agent.ctx.compliance.assess_nutrition(basket, req)
+    nutrition = notes.get("nutrition") or {}
+    notes["facts"] = {
+        **notes["facts"],
+        "total": basket.total,
+        "withheld": [i.product.name for i in basket.items if i.withheld],
+        "items": [{"name": i.product.name, "qty": i.quantity, "reason": i.rationale} for i in basket.items],
+        "nutrition": nutrition.get("provided", notes["facts"].get("nutrition")),
+        "nutrition_adequate": nutrition.get("adequate", notes["facts"].get("nutrition_adequate")),
+    }
+    basket.notes = notes
+    explanation = agent.ctx.manager.explain_for(basket)
+    if explanation["available"]:
+        basket.notes = {**basket.notes, "summary": explanation["text"]}
 
 
 def _new_version(db, session: ShoppingSession, payload: dict, origin: str) -> ConstraintSetRecord:

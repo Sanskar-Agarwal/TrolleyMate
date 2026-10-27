@@ -27,7 +27,9 @@ class Stock:
     opened: bool = False
 
 
-def plan(basket: Basket, household_size: int, days: int, meals_per_day: float) -> dict:
+def plan(basket: Basket, household_size: int, days: int, meals_per_day: float, portions: float | None = None) -> dict:
+    """`portions` is how many adult serves one meal uses (a child counts ~0.6); defaults to the head count."""
+    serve = portions or household_size
     recipes = load_recipes()
     stock = [
         # Category is added as a tag so generic recipes ("protein", "carb", "veg") can match.
@@ -36,6 +38,7 @@ def plan(basket: Basket, household_size: int, days: int, meals_per_day: float) -
         for i in basket.items if not i.withheld
     ]
     schedule = meal_schedule(days, meals_per_day)
+    main_tags = frozenset(t for r in recipes if r["meal_type"] == "main" for need in r["needs"] for t in need)
     requested = sum(len(slots) for slots in schedule)
     used_count: dict[str, int] = {}
     reused: set[str] = set()
@@ -48,34 +51,38 @@ def plan(basket: Basket, household_size: int, days: int, meals_per_day: float) -
             meal_type = "breakfast" if slot == "Breakfast" else "main"
             options = [r for r in recipes if r["meal_type"] == meal_type]
             best, best_score, best_alloc = None, None, None
+            # Breakfast shouldn't eat the bread, eggs or pasta a later dinner depends on.
+            save = main_tags if meal_type == "breakfast" else frozenset()
             for r in options:
-                alloc = _allocate(r["needs"], available, household_size)
+                alloc = _allocate(r["needs"], available, serve, save)
                 if alloc is None:
                     continue
                 score = (
                     sum(2 for s in alloc if s.opened)
-                    + sum(1.5 for s in alloc if s.perishable and s.shelf_life <= 7 and day <= 3)
+                    # Use what's about to go off first: the closer to its last good day, the stronger the pull.
+                    + sum(1.5 * max(0, 4 - (s.shelf_life - day)) for s in alloc if s.perishable)
                     - 3 * used_count.get(r["id"], 0)
                     - (2.5 if r.get("generic") else 0)  # named recipes first; generic ones fill gaps
+                    - sum(10 for s in alloc if s.tags & save)
                 )
                 if best_score is None or score > best_score:
                     best, best_score, best_alloc = r, score, alloc
             if best is None:
-                need = _closest_missing(options, available, household_size)
+                need = _closest_missing(options, available, serve)
                 missing.append({"day": day, "slot": slot, **need})
                 meals.append({"slot": slot, "recipe": None, "missing": need["missing_tags"]})
                 continue
             for s in best_alloc:
                 if s.opened:
                     reused.add(s.name)
-                s.remaining -= household_size
+                s.remaining -= serve
                 s.opened = True
             extras = []
             for tags in best.get("optional", []):
-                extra = _allocate([tags], available, household_size)
+                extra = _allocate([tags], available, serve)
                 if extra:
                     ingredient = extra[0]
-                    ingredient.remaining -= household_size
+                    ingredient.remaining -= serve
                     if ingredient.opened:
                         reused.add(ingredient.name)
                     ingredient.opened = True
@@ -102,7 +109,7 @@ def plan(basket: Basket, household_size: int, days: int, meals_per_day: float) -
     }
 
 
-def _allocate(needs: list[list[str]], stock: list[Stock], servings: int) -> list[Stock] | None:
+def _allocate(needs: list[list[str]], stock: list[Stock], servings: float, save: frozenset[str] = frozenset()) -> list[Stock] | None:
     # Reserve stock while searching. A flexible ingredient must not starve a later,
     # more specific slot, and a product cannot supply more servings than it contains.
     chosen: list[Stock] = []
@@ -112,7 +119,7 @@ def _allocate(needs: list[list[str]], stock: list[Stock], servings: int) -> list
             return True
         choices = [s for s in stock if s.tags & set(needs[index])
                    and s.remaining - chosen.count(s) * servings >= servings]
-        choices.sort(key=lambda s: (not s.opened, s.shelf_life, -s.remaining))
+        choices.sort(key=lambda s: (bool(s.tags & save), not s.opened, s.shelf_life, -s.remaining))
         for item in choices:
             chosen.append(item)
             if fill(index + 1):

@@ -12,7 +12,9 @@ const ROLE_COPY: Record<string, string> = {
 };
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
+  const { signIn, register } = useAuth();
+  const [mode, setMode] = useState<"signin" | "register">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,8 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await signIn(as ?? email, as ? "demo1234" : password);
+      if (mode === "register" && !as) await register({ display_name: name, email, password });
+      else await signIn(as ?? email, as ? "demo1234" : password);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -48,7 +51,7 @@ export default function LoginPage() {
         <div className="docket-stage" aria-hidden="true">
           <span className="sticker sticker-a">Nut-free ✓</span>
           <span className="sticker sticker-b">Dietitian-checked</span>
-          <span className="sticker sticker-c">3 stores compared</span>
+          <span className="sticker sticker-c">4 stores compared</span>
           <div className="docket-shadow">
             <div className="docket">
               <p className="docket-quote">“$100 for this week, two meals a day for us two. Jamie has a nut allergy.”</p>
@@ -73,19 +76,38 @@ export default function LoginPage() {
         <ThemeToggle className="login-theme" />
         <form className="card stack" onSubmit={submit}>
           <span className="eyebrow">Your next shop starts here</span>
-          <h2>Welcome back</h2>
-          <p className="muted small">Sign in to plan around your household and budget.</p>
+          <h2>{mode === "signin" ? "Welcome back" : "Create your account"}</h2>
+          <p className="muted small">
+            {mode === "signin"
+              ? "Sign in to plan around your household and budget."
+              : "Set up a shopper account. You can add your household's allergies and preferences next."}
+          </p>
+          {mode === "register" && (
+            <label className="field">
+              <span>Your name</span>
+              <input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+          )}
           <label className="field">
             <span>Email</span>
             <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label className="field">
             <span>Password</span>
-            <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input
+              className="input" type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              minLength={mode === "register" ? 8 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required
+            />
           </label>
           {error && <div className="notice notice-beet" role="alert">{error}</div>}
           <button className="btn btn-primary" disabled={busy}>
-            {busy ? <span className="spinner" /> : "Sign in"}
+            {busy ? <span className="spinner" /> : mode === "signin" ? "Sign in" : "Create account"}
+          </button>
+          <button
+            type="button" className="btn btn-ghost small"
+            onClick={() => { setMode(mode === "signin" ? "register" : "signin"); setError(null); }}
+          >
+            {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
           </button>
         </form>
 

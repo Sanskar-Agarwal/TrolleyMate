@@ -92,9 +92,18 @@ class BasketOptimiser:
         at_least([c.nutrient("kcal") for c in pool], req.kcal)
         at_least([c.nutrient("protein_g") for c in pool], req.protein_g)
         at_least([c.nutrient("veg_serves") for c in pool], req.veg_serves)
+        for nutrient, minimum in req.extra_minimums.items():
+            at_least([c.nutrient(nutrient) for c in pool], minimum)
         at_least([c.product.servings if c.role == "protein" else 0 for c in pool], req.protein_servings)
         at_least([c.product.servings if c.role == "carb" else 0 for c in pool], req.carb_servings)
-        at_least([c.product.servings if c.is_breakfast else 0 for c in pool], req.breakfast_servings)
+        at_least([c.product.servings if c.is_breakfast and c.role is None else 0 for c in pool], req.breakfast_servings)
+        # A breakfast recipe has two slots (e.g. oats + fruit). Cover both from breakfast-only foods,
+        # since the meal plan saves bread and eggs for the lunches and dinners that need them.
+        at_least([c.product.servings if c.is_breakfast_side and c.role is None else 0 for c in pool], 2 * req.breakfast_meals)
+        # Bread and eggs can fill a dinner or a breakfast but not both: count the overlap once.
+        if req.breakfast_meals:
+            at_least([c.product.servings if c.role in ("protein", "carb") or c.is_breakfast_side else 0 for c in pool],
+                     req.protein_servings + req.carb_servings + 2 * req.breakfast_meals)
 
         # Variety: no single food group (e.g. legumes, rice) may supply more than its share of a role.
         needs = {"protein": req.protein_servings, "carb": req.carb_servings, "veg": req.veg_serves}
@@ -104,6 +113,8 @@ class BasketOptimiser:
                 groups.setdefault((c.role, c.product.substitution_group or c.product.sku), []).append(i)
         for (role, _), members in groups.items():
             cap = max(self.GROUP_SHARE[role] * needs[role], max(pool[i].role_units for i in members))
+            # Variety is a soft rule: a quantity the shopper explicitly pinned may exceed it.
+            cap = max(cap, sum(pool[i].role_units * min_qty.get(pool[i].product.id, 0) for i in members))
             rows.append([pool[i].role_units if i in members else 0 for i in range(n)])
             lbs.append(0)
             ubs.append(cap)
