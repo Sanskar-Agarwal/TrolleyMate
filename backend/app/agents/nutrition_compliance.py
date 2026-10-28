@@ -70,6 +70,15 @@ class Finding:
     def as_dict(self) -> dict:
         return {"product_id": self.product_id, "product": self.product, "status": self.status, "confidence": round(self.confidence, 2), "findings": self.findings}
 
+    def refusal(self) -> str:
+        """Why the shopper can't have this product, naming what was found (often a hidden ingredient):
+        'Honey Muesli Bars 6pk isn't safe for your household: contains whey powder (lactose); ...'."""
+        details = list(dict.fromkeys(d[:1].lower() + d[1:] for d in (fd["detail"].replace("_", " ") for fd in self.findings)))
+        found = "; ".join(details[:3]) + ("; and more" if len(details) > 3 else "")
+        if self.status == ItemCompliance.violation:
+            return f"{self.product} isn't safe for your household: {found}."
+        return f"{self.product} can't be confirmed safe for your household yet: {found}."
+
 
 class NutritionComplianceAgent(Agent):
     role_name = "AI Nutrition & Compliance"

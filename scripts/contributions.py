@@ -1,0 +1,241 @@
+"""Stage 2 contribution statement (KAN-24): each member's evidence from git, and the 100% check.
+
+    git fetch origin                                    # count everyone's latest pushed work
+    python scripts/contributions.py refresh             # rewrite the evidence section of docs/CONTRIBUTIONS.md
+    python scripts/contributions.py check               # every member has a share of every criterion, each totals 100%
+    python scripts/contributions.py check --ids PRIVATE.csv --out PRIVATE.md
+                                                        # also needs every student ID; writes the form-ready table
+
+Student IDs are never written into the repository: the IDs file is read from, and the form-ready statement
+written to, a path outside it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import re
+import subprocess
+import sys
+from collections import Counter
+from datetime import date
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+DOC = REPO / "docs" / "CONTRIBUTIONS.md"
+GITHUB = "https://github.com/rkn321/ELEC5620-Group5-TrolleyMate"
+START, END = "<!-- evidence:start -->", "<!-- evidence:end -->"
+
+# Stage 1 contribution-table order. Each member's names as they appear in git (author names, not emails).
+MEMBERS: dict[str, tuple[str, ...]] = {
+    "Sanskar Agarwal": ("Sanskar Agarwal",),
+    "Yat Man Peter Ho": ("Yat Man Peter Ho", "Peter Ho", "ho1dollar"),
+    "Chen-Ju Lin": ("Chen-Ju Lin", "chenju53"),
+    "Reyon Noronha": ("Reyon Noronha", "rkn321"),
+    "Maaz Shaikh": ("Maaz Shaikh", "cout-maze"),
+}
+CRITERIA = [("C1", "Implementation", 7), ("C2", "AI agents", 4), ("C3", "Agile", 4), ("C4", "Technology", 5)]
+_KAN = re.compile(r"\bKAN[- ]?(\d+)", re.IGNORECASE)
+_LEAD = re.compile(r"^(?:\s*KAN[- ]?\d+\s*(?:[A-Z]\d+\s*)?[,/&:\-]*\s*)+", re.IGNORECASE)  # "KAN-7 P01: ", "KAN-3, KAN-4: "
+_PR = re.compile(r"Merge pull request #(\d+) from \S+?/(\S+)")
+
+
+# --- Evidence from git --------------------------------------------------------------
+
+
+def _git(*args: str) -> str:
+    return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, encoding="utf-8", check=True).stdout
+
+
+def member_of(author: str) -> str | None:
+    return next((m for m, names in MEMBERS.items() if author in names), None)
+
+
+def gather() -> dict[str, dict]:
+    """Per member: tickets, commits merged to main and still on branches, PRs, main areas."""
+    main = set(_git("rev-list", "origin/main").split())
+    evidence = {m: {"tickets": {}, "merged": [], "unmerged": [], "prs": set(), "areas": Counter()} for m in MEMBERS}
+    for line in _git("log", "--remotes", "--no-merges", "--reverse", "--format=%H%x09%an%x09%ad%x09%s", "--date=short").splitlines():
+        sha, author, day, subject = line.split("\t", 3)
+        member = member_of(author)
+        if member is None:
+            continue
+        e = evidence[member]
+        (e["merged"] if sha in main else e["unmerged"]).append((sha, day, subject))
+        for key in _KAN.findall(subject):  # described by the ticket's first commit
+            e["tickets"].setdefault(int(key), _LEAD.sub("", subject))
+    via_merge: set[str] = set()
+    for line in _git("log", "origin/main", "--merges", "--format=%H%x09%s").splitlines():
+        sha, subject = line.split("\t", 1)
+        pr = _PR.search(subject)
+        label = f"[#{pr.group(1)}]({GITHUB}/pull/{pr.group(1)})" if pr else f"`{sha[:7]}` ({subject})"
+        for row in _git("log", "--no-merges", "--format=%H%x09%an", f"{sha}^1..{sha}^2").splitlines():
+            commit, author = row.split("\t", 1)
+            via_merge.add(commit)
+            if member_of(author):
+                evidence[member_of(author)]["prs"].add(label)
+    for e in evidence.values():
+        e["direct"] = sum(1 for sha, _, _ in e["merged"] if sha not in via_merge)
+    for member, names in MEMBERS.items():
+        for name in names:
+            files = _git("log", "origin/main", "--no-merges", f"--author={name}", "--name-only", "--format=")
+            evidence[member]["areas"].update(_area(f) for f in files.splitlines() if f.strip())
+    for e in evidence.values():
+        for sha, _, _ in e["unmerged"]:
+            e.setdefault("branches", set()).update(
+                b.strip() for b in _git("branch", "-r", "--contains", sha).splitlines() if "->" not in b)
+    return evidence
+
+
+def _area(path: str) -> str:
+    parts = path.split("/")
+    if parts[0] == "frontend" and len(parts) > 3 and parts[2] == "features":
+        return "/".join(parts[:4])
+    if parts[0] == "backend" and len(parts) > 2 and parts[1] in ("app", "tests"):
+        return "/".join(parts[:3]) if parts[1] == "app" and len(parts) > 3 else "/".join(parts[:2])
+    return parts[0] if len(parts) > 1 else path
+
+
+def render_evidence(evidence: dict[str, dict]) -> str:
+    head = _git("rev-parse", "--short", "origin/main").strip()
+    note = (f"_Generated by `python scripts/contributions.py refresh` on {date.today().isoformat()} from origin/main at "
+            f"`{head}` and every branch pushed to GitHub. Lines of code aren't counted: the project skeleton alone was "
+            "about 12,000 lines, so line counts say little about who did what._")
+    lines = [note, ""]
+    for member, e in evidence.items():
+        lines.append(f"### {member}")
+        tickets = ", ".join(f"KAN-{k} ({_short(text)})" for k, text in sorted(e["tickets"].items())) or "none in commit messages yet"
+        lines.append(f"- **Jira tickets in commits:** {tickets}")
+        if e["merged"]:
+            days = sorted(d for _, d, _ in e["merged"])
+            routes = sorted(e["prs"], key=lambda p: (not p.startswith("[#"), p)) + ([f"{_n(e['direct'])} pushed directly"] if e["direct"] else [])
+            lines.append(f"- **Merged to main:** {_n(len(e['merged']))}, {days[0]} to {days[-1]}; via {', '.join(routes)}")
+        else:
+            lines.append("- **Merged to main:** nothing yet")
+        if e["unmerged"]:
+            lines.append(f"- **Pushed, not merged yet:** {_n(len(e['unmerged']))} on {', '.join(sorted(e['branches']))}")
+        if e["areas"]:
+            lines.append("- **Main areas changed:** " + ", ".join(f"`{a}`" for a, _ in e["areas"].most_common(5)))
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def _short(text: str, limit: int = 72) -> str:
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0].rstrip(",;:- ") + "…"
+
+
+def _n(count: int) -> str:
+    return f"{count} commit{'' if count == 1 else 's'}"
+
+
+def replace_evidence(text: str, evidence_md: str) -> str:
+    """The document with only the generated section replaced; everything the team wrote is kept."""
+    before, _, rest = text.partition(START)
+    _, found, after = rest.partition(END)
+    if not found:
+        raise ValueError(f"{DOC.name} has no {START} ... {END} section")
+    return f"{before}{START}\n{evidence_md}\n{END}{after}"
+
+
+# --- The agreed percentages ----------------------------------------------------------
+
+
+def read_shares(text: str) -> dict[str, list[float | None]]:
+    """The agreed-percentages table: member → [C1, C2, C3, C4] (None where blank)."""
+    section = text.split("## Agreed percentages", 1)[-1].split("\n## ", 1)[0]
+    shares = {}
+    for row in section.splitlines():
+        cells = [c.strip().strip("*").strip() for c in row.strip().strip("|").split("|")]
+        if len(cells) != 1 + len(CRITERIA) or cells[0] in ("Member", "Total") or set(cells[0]) <= set("-: "):
+            continue
+        shares[cells[0]] = [_share(cells[0], code, c) for (code, _, _), c in zip(CRITERIA, cells[1:], strict=True)]
+    return shares
+
+
+def _share(member: str, code: str, cell: str) -> float | None:
+    value = cell.rstrip("%").strip()
+    try:
+        return float(value) if value else None
+    except ValueError:
+        raise ValueError(f"{member}, {code}: '{cell}' isn't a percentage") from None
+
+
+def problems(shares: dict[str, list[float | None]]) -> list[str]:
+    """Everything that stops the table going on the form. Empty when it's ready."""
+    found = []
+    if set(shares) != set(MEMBERS):
+        missing, unknown = set(MEMBERS) - set(shares), set(shares) - set(MEMBERS)
+        found += [f"{m} has no row" for m in sorted(missing)] + [f"'{m}' isn't a team member" for m in sorted(unknown)]
+    for i, (code, name, _) in enumerate(CRITERIA):
+        column = [row[i] for row in shares.values()]
+        blank = [m for m, row in shares.items() if row[i] is None]
+        if blank:
+            found.append(f"{code} {name}: no share agreed for {', '.join(blank)}")
+        elif any(v < 0 or v > 100 for v in column):
+            found.append(f"{code} {name}: every share must be between 0% and 100%")
+        elif abs(sum(column) - 100) > 0.01:
+            found.append(f"{code} {name}: totals {sum(column):g}%, not 100%")
+    return found
+
+
+def pending(shares: dict[str, list[float | None]]) -> bool:
+    """True while the team hasn't filled in any share yet."""
+    return all(v is None for row in shares.values() for v in row)
+
+
+def read_ids(path: Path) -> dict[str, str]:
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        return {row["Member"].strip(): row["Student ID"].strip() for row in csv.DictReader(f)}
+
+
+def form_ready(shares: dict[str, list[float | None]], ids: dict[str, str]) -> str:
+    head = "| Member | Student ID | " + " | ".join(f"{c} {n} ({m} marks)" for c, n, m in CRITERIA) + " |"
+    rows = [f"| {m} | {ids[m]} | " + " | ".join(f"{v:g}%" for v in shares[m]) + " |" for m in MEMBERS]
+    total = "| **Total** | | " + " | ".join(f"**{sum(r[i] for r in shares.values()):g}%**" for i in range(len(CRITERIA))) + " |"
+    return "\n".join([head, "|---" * (len(CRITERIA) + 2) + "|", *rows, total]) + "\n"
+
+
+def _read(path: Path) -> tuple[str, str]:
+    raw = path.read_bytes().decode("utf-8")
+    return raw.replace("\r\n", "\n"), "\r\n" if "\r\n" in raw else "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("refresh", help="rewrite the evidence section from git")
+    check = sub.add_parser("check", help="check the agreed percentages (and student IDs)")
+    check.add_argument("--ids", type=Path, help="private CSV with columns Member, Student ID (kept outside the repo)")
+    check.add_argument("--out", type=Path, help="where to write the form-ready statement (outside the repo)")
+    args = parser.parse_args(argv)
+
+    text, newline = _read(DOC)
+    if args.command == "refresh":
+        DOC.write_bytes(replace_evidence(text, render_evidence(gather())).replace("\n", newline).encode("utf-8"))
+        print(f"Updated the evidence in {DOC.relative_to(REPO)}")
+        return 0
+
+    try:
+        shares = read_shares(text)
+    except ValueError as exc:
+        print(f"- {exc}")
+        return 1
+    found = ["No shares agreed yet: the team fills in the table first."] if pending(shares) else problems(shares)
+    ids = read_ids(args.ids) if args.ids else {}
+    if args.ids:
+        found += [f"{m} has no student ID in {args.ids.name}" for m in MEMBERS if not ids.get(m)]
+    if args.out and REPO in (args.out.resolve(), *args.out.resolve().parents):
+        found.append("The form-ready statement has student IDs, so write it outside the repository.")
+    for problem in found:
+        print(f"- {problem}")
+    if found:
+        return 1
+    if args.out and args.ids:
+        args.out.write_text(form_ready(shares, ids), encoding="utf-8")
+        print(f"Wrote {args.out}")
+    print("Every criterion totals 100%." + (" Every member has a student ID." if args.ids else ""))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

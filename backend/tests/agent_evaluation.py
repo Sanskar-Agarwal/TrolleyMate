@@ -136,9 +136,11 @@ class ScriptedProvider(LLMProvider):
     exception in the script is raised instead, as a network failure would be."""
 
     model = "eval-script"
+    made = 0
 
     def __init__(self, *replies):
-        self.name = f"scripted-{id(self)}"  # its own cache key, so one case's answers never leak into another
+        ScriptedProvider.made += 1  # each gets its own cache key, so one case's answers never leak into another
+        self.name = f"scripted-{ScriptedProvider.made}"
         self.replies, self.calls = list(replies), 0
 
     def generate(self, *, system: str, user: str, schema: dict | None) -> str:
