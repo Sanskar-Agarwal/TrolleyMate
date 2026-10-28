@@ -34,3 +34,6 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Submission archives built by scripts/package_submission.py
+/release/
