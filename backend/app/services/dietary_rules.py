@@ -46,6 +46,22 @@ def normalise_restriction(value: str) -> str:
     return _ALIASES.get(key, key)
 
 
+# Allergen words as labels write them ("May contain: Tree Nuts", a product tagged "nuts").
+_LABEL_WORDS = {
+    "dairy": "milk", "nuts": "tree_nuts", "nut": "tree_nuts", "tree_nut": "tree_nuts", "peanut": "peanuts",
+    "eggs": "egg", "prawns": "shellfish", "crustacea": "shellfish", "sesame_seeds": "sesame", "soya": "soy",
+}
+
+
+def label_tag(value: str) -> str | None:
+    """The ingredient tag a label word names ('Tree Nuts' → tree_nuts), or None for a free-from
+    claim ('gluten-free', 'dairy_free'): that says something is absent, and isn't trusted either way."""
+    key = value.strip().lower().replace(" ", "_").replace("-", "_")
+    if key.endswith("_free"):
+        return None
+    return _LABEL_WORDS.get(key, key)
+
+
 def violating_tags(restriction: str) -> set[str]:
     rule = RESTRICTION_RULES.get(normalise_restriction(restriction))
     return set(rule["violating_tags"]) if rule else {normalise_restriction(restriction)}

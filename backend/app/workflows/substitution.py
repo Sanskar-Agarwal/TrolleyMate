@@ -92,6 +92,14 @@ def accept(agent, sub: Substitution) -> Basket:
     if item is None:
         raise SubstitutionError("The basket item no longer exists.")
     replacement = db.get(Product, sub.replacement_product_id)
+    # Screened when it was proposed; checked again now, as the household's restrictions or the
+    # product's data may have changed since (KAN-23).
+    from app.domain import ShoppingSession
+
+    session = db.get(ShoppingSession, sub.session_id)
+    payload = active_constraints(db, session).payload if session.active_constraint_set_id else {}
+    if agent.ctx.compliance.recheck(replacement, household_of(db, session), payload).status != ItemCompliance.compliant:
+        raise SubstitutionError(f"{replacement.name} no longer passes your household's dietary checks, so this swap can't be made.")
     item.product_id, item.retailer_id = replacement.id, sub.replacement_retailer_id
     item.quote_id = sub.facts.get("quote_id")
     item.pack_price = sub.replacement_price
@@ -134,7 +142,7 @@ def reject(agent, sub: Substitution) -> Basket:
 
         learned = learn_from_declined_swap(db, household_of(db, session), sub.replacement)
         if learned is not None:
-            agent.log("learn_preference", f"Learned: dislike {learned.value}",
+            agent.log("learn_preference", f"Learned a dislike preference (#{learned.id})",
                       rationale=f"Declined as a substitute {learned.meta['declined_swaps']} times; shown under remembered preferences.",
                       basket_id=basket.id, session_id=session.id)
     return basket

@@ -1,8 +1,8 @@
-# Compliance verdict contract (KAN-19, KAN-20, KAN-21, KAN-22)
+# Compliance verdict contract (KAN-19, KAN-20, KAN-21, KAN-22, KAN-23)
 
-What the AI Nutrition & Compliance agent returns to the other agents. Covers requirements
-1.2.10, 1.2.11 and 1.2.12, UC-06, UC-02 extension 4b (nutrition exceptions), and Stage 1 diagrams 7.4,
-8.4 and 9.4.
+What the AI Nutrition & Compliance agent returns to the other agents, and how it was evaluated. Covers
+requirements 1.2.10, 1.2.11 and 1.2.12, UC-06, UC-02 extension 4b (nutrition exceptions), and Stage 1
+diagrams 7.4, 8.4 and 9.4.
 
 | | |
 |---|---|
@@ -10,7 +10,8 @@ What the AI Nutrition & Compliance agent returns to the other agents. Covers req
 | Nutrition targets | [`backend/app/services/nutrition_targets.py`](../backend/app/services/nutrition_targets.py) |
 | Preference rules | [`backend/app/services/preference_memory.py`](../backend/app/services/preference_memory.py) |
 | Fixture catalogue | [`backend/tests/fixtures/compliance_cases.json`](../backend/tests/fixtures/compliance_cases.json) |
-| Tests | [`test_compliance_contract.py`](../backend/tests/test_compliance_contract.py), [`test_compliance_verification.py`](../backend/tests/test_compliance_verification.py), [`test_nutrition_coverage.py`](../backend/tests/test_nutrition_coverage.py), [`test_preference_memory.py`](../backend/tests/test_preference_memory.py), [`PreferencesPanel.test.tsx`](../frontend/src/features/preferences/PreferencesPanel.test.tsx) |
+| Evaluation set (KAN-23) | [`backend/tests/agent_evaluation.py`](../backend/tests/agent_evaluation.py), with results in [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md) |
+| Tests | [`test_compliance_contract.py`](../backend/tests/test_compliance_contract.py), [`test_compliance_verification.py`](../backend/tests/test_compliance_verification.py), [`test_nutrition_coverage.py`](../backend/tests/test_nutrition_coverage.py), [`test_preference_memory.py`](../backend/tests/test_preference_memory.py), [`test_agent_evaluation.py`](../backend/tests/test_agent_evaluation.py), [`PreferencesPanel.test.tsx`](../frontend/src/features/preferences/PreferencesPanel.test.tsx) |
 
 ## Verdicts
 
@@ -20,7 +21,7 @@ What the AI Nutrition & Compliance agent returns to the other agents. Covers req
 |---|---|---|
 | `compliant` | No restriction conflict found, evidence complete | May enter the basket |
 | `violation` | A known conflict with a mandatory restriction | Excluded |
-| `uncertain` | Evidence missing, vague or untrustworthy | Withheld; never inserted automatically (UC-06 ext 2a) |
+| `uncertain` | Evidence missing, vague or untrustworthy, or a check that couldn't be completed | Withheld; never inserted automatically (UC-06 ext 2a) |
 
 **Per basket** — state machine 9.4 final states; stored as `ComplianceVerdict.status`:
 
@@ -38,7 +39,7 @@ outside this contract.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "restrictions": [{"restriction": "tree_nuts", "severity": "severe", "label": "Tree nuts"}],
   "products": [{
     "product_id": 12, "product": "Basil Pesto 190g", "status": "violation", "confidence": 1.0,
@@ -49,11 +50,26 @@ outside this contract.
 }
 ```
 
-- `findings[].kind` is one of `contains`, `ambiguous`, `may_contain`, `missing_data`, `data_error`, `human_review`.
+- `findings[].kind` is one of `contains`, `ambiguous`, `may_contain`, `missing_data`, `data_error`,
+  `check_failed`, `no_rule`, `human_review`. Schema version 3 (KAN-23) added `check_failed` and `no_rule`.
+  Consumers show `detail` as text, so no consumer had to change.
   `data_error` marks evidence that can't be trusted (UC-06 failure scenario, 9.4 `dataSourceError`): an
   unreadable ingredient record or may-contain statement, or a composite that contains itself. The product
   is uncertain, so it is withheld and escalated; the readable rest of the record is still checked, so a
   known conflict still fails it.
+- `contains` also covers a product whose own label names a restricted allergen when no ingredient record
+  carries it (`The product is labelled shellfish, though no listed ingredient carries it`). A free-from
+  claim (`gluten-free`, `dairy_free`) is never read as an allergen, and never clears one either.
+- `ambiguous` is a vague label term the model judged `likely` (violation) or `possible` (uncertain). A
+  `none` clears the term only at the safety threshold (0.95) or above. Below it, the term stays `ambiguous`
+  and the product is uncertain.
+- `check_failed` is a vague term the model couldn't judge, because the call failed, the reply was off the
+  contract, or only the offline fallback answered and it found nothing. The fallback's rules can't vouch
+  for a term the live model was needed for. 9.4 `dataSourceError` → Uncertain.
+- `no_rule` is a restriction the knowledge base has no rule for (e.g. lupin), so no product can be
+  confirmed free of it.
+- May-contain statements are matched in label words: `Tree Nuts`, `peanut` and `dairy` count as
+  `tree_nuts`, `peanuts` and `milk`.
 - `ingredient` is the cascade path through composite ingredients.
 - A `violation` or `uncertain` product must carry at least one finding. Unknown keys are rejected,
   so a new piece of evidence has to be added to the schema first.
@@ -199,3 +215,93 @@ payload and the basket facts.
 | Store, show, change and delete | `test_a_preference_is_stored_and_shown_with_what_it_does`, `test_a_blank_preference_is_refused`, `test_a_preference_can_be_changed`, `test_changing_a_learned_preference_makes_it_the_shoppers_own`, `test_a_preference_cannot_duplicate_or_contradict_another`, `test_a_preference_can_be_forgotten`, `test_a_preference_of_an_unknown_kind_is_still_listed_and_can_be_forgotten`, plus the five `PreferencesPanel.test.tsx` cases |
 | Applied in later sessions, mandatory restrictions first | `test_saved_preferences_apply_to_later_sessions`, `test_a_change_does_not_rewrite_a_session_already_confirmed`, `test_mandatory_restrictions_come_before_a_like`, `test_a_like_wins_a_close_call_in_later_baskets`, `test_a_like_never_pulls_in_an_unsafe_product`, `test_a_dislike_beats_a_like`, `test_a_like_does_not_override_the_shoppers_goal`, `test_a_dislike_never_stands_in_for_an_allergy` |
 | Owner-only access and deletion | `test_preferences_need_sign_in`, `test_only_the_owner_can_see_change_or_forget_a_preference`, `test_staff_accounts_reach_no_ones_preferences`, `test_forgetting_a_preference_leaves_no_stored_copy` |
+
+## Changes by teammates in this area (since KAN-22)
+
+Merged to main between KAN-22 and KAN-23 (`git log 031b7a6..540bdc7`). KAN-23 regression-tests each one.
+
+| Change | What it does | Tests |
+|---|---|---|
+| FSANZ guidance retrieval for `assess_ingredient` (Sanskar, `f90dd12`) | [`services/allergen_guidance.py`](../backend/app/services/allergen_guidance.py) holds 21 short notes summarising FSANZ Standards 1.2.3 and 1.2.4. For each vague term the agent retrieves up to three notes that bear on the restriction (exact term first, then word overlap; generic words such as "emulsifier" don't match alone) and gives them to the model. Offline, the mock answers from a `likely` or `possible` note first. | `test_allergen_guidance.py`; evaluation T01–T03 |
+| Learned dislikes (Sanskar, `ca4a8e8`) | `preference_memory.learn_from_declined_swap`: when the household has declined swaps to the same product twice, `substitution.reject` remembers it as a dislike with `source: learned`. It never overrides anything the shopper said, and it is listed and forgettable like any other preference. Since KAN-23 its audit line names the kind and id only (`Learned a dislike preference (#12)`). | `test_declining_the_same_swap_twice_is_learned_as_a_dislike`, `test_a_like_is_never_overridden_by_learning`; evaluation S13 |
+| Repairs from the matching food group (Sanskar, `75dee5e`) | `nutrition_repairs` ranks protein foods first for a protein gap, vegetables for a vegetable gap, and grains for a staples gap, then gap closed, budget and cost. | `test_protein_gap_repairs_suggest_protein_foods_first`; evaluation T14 |
+| Dietitian decisions reused only at the same or a stricter severity (Sanskar, `75dee5e`) | `_prior_decision` reuses a resolved case only if it was reviewed against every restriction that applies now, each at the same severity or stricter. A decision made before an allergy was added, or became more severe, is ignored and the product is screened again. | `test_dietitian_approval_is_not_reused_after_allergy_becomes_more_severe`, `test_stale_dietitian_approval_is_not_reused_after_new_allergy`; evaluation T12, T13 |
+
+## Safety regression and capability evaluation (KAN-23)
+
+A fixed evaluation set of 42 cases, [`backend/tests/agent_evaluation.py`](../backend/tests/agent_evaluation.py),
+each run on a fresh database. The cases are grouped by the agent capability they exercise. An agent
+perceives its environment, makes decisions using tools and takes actions (Lecture 2, *Components of an
+Agent*; Tutorial 1, *AI Agent*). A judgement task is a bounded agent with explicit tools, and a high-impact
+action gets approval and policy (Lecture 4 part 2, *Not every service should become an agent*):
+
+| Capability | What is evaluated | Cases |
+|---|---|---|
+| Perception | Reading the household, the request and the product record: merging restrictions, hidden and composite ingredients, label wording, missing, corrupt or untagged data | 13 |
+| Tool-based decisions | Decisions made with the agent's tools: the `assess_ingredient` model, the FSANZ notes it retrieves, earlier dietitian decisions, the priced catalogue | 14 |
+| System actions | What happens to the basket: excluded, withheld, escalated, released only by a reviewer, re-checked when reused, audited | 15 |
+
+Every case is tagged with its input: `normal`, `unsafe` (should be refused or flagged), `uncertain`
+(evidence that can't be confirmed) or `failed_tool` (an outage, a malformed or off-contract reply, no
+fallback). Every capability has each kind. Model replies and outages are scripted, so a run is
+repeatable offline.
+
+```bash
+cd backend
+pytest tests/test_agent_evaluation.py                                         # the regression gate (CI)
+python -m tests.agent_evaluation --markdown ../docs/evidence/agent-evaluation.md   # record the results
+```
+
+**Observed results:** [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md) has every case,
+with what was expected, what was observed, and the same set run on main (`540bdc7`) beside it.
+**42 of 42 pass** on this branch. **26 of 42 pass on main**: the 16 that fail there are the gaps this
+ticket found and fixed.
+
+### Gaps found and fixed
+
+| Gap on main | Cases | Fix |
+|---|---|---|
+| Brazil nuts, prawns, cream and barley had no allergen tags (seed catalogue expansion, KAN-16). Alex could add Brazil nuts despite Jamie's severe tree-nut allergy, Raw Prawns passed shellfish and vegetarian, and Pearl Barley passed coeliac | P12, S09 | Tags added in `seed/catalogue.json` (Chester's file), and `mixed nuts` retagged `tree_nuts` |
+| A product labelled with an allergen whose ingredient record lacks the tag passed | P08 | The label is now evidence: `contains` "labelled ..., though no listed ingredient carries it" |
+| May-contain in label words (`Tree Nuts`, `peanut`) wasn't matched | P07 | Label words map to tags (`dietary_rules.label_tag`) |
+| A restriction with no rule (lupin) passed every product | P11 | `no_rule` → uncertain |
+| A `none` the model was 60% sure of cleared the term | T05 | `none` clears only at the 0.95 threshold |
+| A risk word off the contract (`High`, `LIKELY`) was read as `none` | T07 | `assess_ingredient.Output.risk` is `none \| possible \| likely` (case-insensitive), and an unreadable reply is `check_failed` |
+| A malformed reply or an outage fell back to rules that cleared the term | T08, T09, S15 | A fallback `none` is `check_failed` → uncertain |
+| With no fallback configured, an outage crashed verification | T10 | The failed check is `check_failed`: the item is withheld and escalated (9.4 `dataSourceError`) |
+| An outage's fallback answer was cached for the life of the process | T11 | Fallback answers are kept for one request only |
+| A chat edit carried pantry and snack extras into the rebuilt basket as `compliant` without re-screening them: a withheld item came back released, and peanut butter stayed after a new peanut allergy, so the basket could be accepted | S07, S08 | `basket_editing.edit` (Chester's file) screens carried-over extras again, leaves out any that no longer pass, and tells the shopper |
+| Accepting a swap trusted the screening done when it was proposed | S10 | `substitution.accept` (Peter's file) re-checks the replacement through `NutritionComplianceAgent.recheck` |
+| The learned-dislike audit line named the product | S13 | `substitution.reject` (Peter's file) names the kind and id only, as KAN-22 does |
+
+### Uncertain items stay withheld pending authorised review
+
+An uncertain item is withheld, left out of the total and nutrition, and escalated to the dietitian (S02,
+T10). While it is withheld the basket can't be accepted or meal-planned (S03). No shopper can start or
+decide its review (S04), and only a dietitian's `passed` releases it (S05). Rebuilding the basket keeps it
+withheld under the same case (S06). A chat edit (S07) or an earlier swap (S10) can't bring it back as safe,
+and an outage can't clear it (S15). `test_agent_evaluation.py` names these cases, so one can't drop out
+of the set unnoticed.
+
+### Limitations
+
+Recorded with the results in the evidence file. The ones that matter most:
+
+- **Offline knowledge.** In offline mode the rule-based judge clears any vague term it has no rule or
+  note for (`none` at 0.97, T04). A live model covers the rest.
+- **Unknown restrictions** make every product uncertain (P11). That's safe, but it floods the review
+  queue. Intake should refuse restriction ids outside the vocabulary (Sanskar's area).
+- **Re-verifying a built basket** (`POST /baskets/{id}/verify`, API only) fails it and blocks
+  acceptance (S14). It still leaves the unsafe product in the total and labels the basket `verified`.
+- **Safety lock scope.** UC-06's failure scenario locks the whole basket. The code withholds only the
+  affected product. Still to confirm with Maaz.
+- **Prompt injection.** Label text reaches the model verbatim. The output contract, the 0.95 threshold
+  and the FSANZ notes limit what a confident wrong answer can do. They don't remove the risk.
+- **Not yet run against a live model.** Model failures are scripted. A run on the Campus Qwen model is
+  still to do.
+
+| Acceptance criterion | Evidence |
+|---|---|
+| Run a fixed evaluation set covering perception, tool-based decisions and system actions, including unsafe/uncertain inputs and failed tools | `test_agent_evaluation.py`: the set's make-up is pinned (42 cases, every capability × input kind), and every case runs in CI |
+| Record observed results and limitations | [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md): expected, observed and the main baseline per case, plus limitations |
+| Uncertain items stay withheld pending authorised review | S02–S07, S10, S15 and T10, listed in `WITHHELD_UNTIL_REVIEW` |
