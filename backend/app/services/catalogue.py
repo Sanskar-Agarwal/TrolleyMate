@@ -43,10 +43,18 @@ def optimisable_products(db: Session) -> list[Product]:
 
 
 def find_products(db: Session, text: str, limit: int = 5) -> list[Product]:
+    """Return equally strongest matches, without silently broadening a specific request.
+
+    Compliance can choose between generic "milk" matches, but rejecting "almond milk"
+    must not make a weaker, unrelated milk match become the requested product.
+    """
     scored = [(match_score(p, text), p) for p in db.scalars(select(Product))]
     scored = [sp for sp in scored if sp[0] > 0]
     scored.sort(key=lambda sp: (-sp[0], sp[1].id))
-    return [p for _, p in scored[:limit]]
+    if not scored:
+        return []
+    best_score = scored[0][0]
+    return [p for score, p in scored if score == best_score][:limit]
 
 
 def match_item(basket: Basket, target: str) -> BasketItem | None:

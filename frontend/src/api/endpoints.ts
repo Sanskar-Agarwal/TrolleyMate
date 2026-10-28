@@ -25,7 +25,12 @@ import type {
   WithTrace,
 } from "./types";
 
-type BuildResult = WithTrace<{ status: "ok"; basket: Basket } | { status: "infeasible"; negotiation: Negotiation }>;
+type BuildResult = WithTrace<
+  | { status: "ok"; basket: Basket }
+  | { status: "infeasible"; negotiation: Negotiation }
+  | { status: "retryable"; reason: "timeout" | "solver_error"; message: string }
+  | { status: "cancelled"; message: string }
+>;
 
 // --- Auth & system (Platform) ------------------------------------------------
 export const auth = {
@@ -66,9 +71,14 @@ export const intake = {
 // --- UC-02 / UC-03 Baskets & negotiation (Sanskar, Peter) ----------------------
 export const baskets = {
   goals: () => api<{ id: Goal; label: string }[]>("/goals"),
-  build: (sessionId: number, goal: Goal) => api<BuildResult>(`/sessions/${sessionId}/basket`, { body: { goal } }),
-  negotiate: (sessionId: number, choice: { option_id?: string; budget?: number; days?: number; goal?: Goal }) =>
-    api<BuildResult>(`/sessions/${sessionId}/negotiate`, { body: choice }),
+  build: (sessionId: number, goal: Goal, operationId?: string) =>
+    api<BuildResult>(`/sessions/${sessionId}/basket`, { body: { goal, operation_id: operationId } }),
+  negotiate: (sessionId: number, choice: { option_id?: string; budget?: number; days?: number; goal?: Goal }, operationId?: string) =>
+    api<BuildResult>(`/sessions/${sessionId}/negotiate`, { body: { ...choice, operation_id: operationId } }),
+  cancelBuild: (sessionId: number, operationId: string) =>
+    api<WithTrace<{ status: "cancellation_requested" | "already_finished" | "not_running"; outcome?: "committed" | "cancelled" | "failed" }>>(
+      `/sessions/${sessionId}/basket-builds/${operationId}/cancel`, { body: {} },
+    ),
   get: (id: number) => api<Basket>(`/baskets/${id}`),
   accept: (id: number) => api<WithTrace<{ basket: Basket }>>(`/baskets/${id}/accept`, { body: {} }),
 };

@@ -15,7 +15,7 @@ a registered dietitian in the loop for anything the AI can't confirm.
 
 ## Quick start
 
-Needs Python 3.11+ and Node 22.12+ (Node 24 also works).
+Needs Python 3.12+ and Node 20.19+ (20.x), 22.12+ (22.x), or 24+.
 
 **Windows (PowerShell)**
 

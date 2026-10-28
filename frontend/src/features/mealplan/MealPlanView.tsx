@@ -65,6 +65,12 @@ export default function MealPlanView() {
           Each planned meal serves your household. Portions are allocated across the whole plan, so ingredients are not counted twice.
         </span>
       </div>
+      {plan.total_minutes != null && <p className="small muted">
+        Estimated cooking time: {plan.total_minutes} min across planned meals.
+        {plan.goal === "fastest_cook" && " Each slot prioritises the quickest recipe available in your basket."}
+        {plan.goal === "least_waste" && " Recipes prioritise ingredients nearing the end of their shelf life."}
+        {plan.portions_per_meal != null && ` Ingredients are allocated for ${plan.portions_per_meal} adult-equivalent portions per meal.`}
+      </p>}
       <p className="small muted">Assumed at home: {plan.assumed_at_home.join(", ")}. Perishable ingredients are scheduled within their recorded shelf life, starting on Day 1.</p>
       {plan.reused.length > 0 && (
         <p className="small"><strong>Shared across meals:</strong> {plan.reused.join(", ")}. These packs are used more than once within their available quantities.</p>
@@ -85,6 +91,7 @@ export default function MealPlanView() {
                     <span className="small muted">
                       {m.minutes} min · {m.servings} servings · {m.uses?.join(", ")}
                     </span>
+                    {!!m.ingredients?.length && <span className="small muted">Allocated: {m.ingredients.map((ingredient) => `${ingredient.name} (${ingredient.servings} serves)`).join(", ")}</span>}
                     {!!m.optional?.length && <span className="small muted">Also included: {m.optional.join(", ")}</span>}
                   </>
                 ) : (

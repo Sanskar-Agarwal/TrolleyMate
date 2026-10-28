@@ -119,6 +119,9 @@ def test_pantry_additions_respect_budget_and_survive_later_edits(client, riley):
     names = {i["product"]["name"] for i in r["basket"]["items"]}
     assert {"Olive Oil 500ml", "Dark Chocolate 45g"} <= names
     assert r["basket"]["total"] <= 40
+    assert f"${r['basket']['total']:.2f}" in r["basket"]["summary"]
+    facts = client.get(f"/api/baskets/{r['basket']['id']}/explain", headers=riley).json()["facts"]
+    assert facts["total"] == r["basket"]["total"]
 
 
 def test_explanation_nutrition_follows_an_accepted_swap(client, riley):

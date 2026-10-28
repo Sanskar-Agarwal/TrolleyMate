@@ -78,10 +78,16 @@ class PersonalShopperAgent(Agent):
         draft = next((r for r in reversed(s.requests) if r.status == "draft"), None)
         response: dict = {"intent": intent, "reply": decision.data.get("reply", "")}
 
-        if intent == "clarify_answer" and draft is not None:
+        if intent == "cancel_request" and draft is not None:
+            req = self.cancel(draft)
+            response.update(kind="intake", intake=intake.state(req), reply="Cancelled — your previous confirmed constraints are unchanged.")
+        elif intent == "correct_request" and draft is not None:
+            req = self.correct(draft, text=text)
+            response.update(kind="intake", intake=intake.state(req), reply=_intake_reply(req))
+        elif intent == "clarify_answer" and draft is not None:
             req = self.clarify(draft, text)
             response.update(kind="intake", intake=intake.state(req), reply=_intake_reply(req))
-        elif intent == "new_request" or (intent == "clarify_answer" and draft is None) or (basket is None and intent in ("edit_basket", "explain", "meal_plan", "compare_prices")):
+        elif intent == "new_request" or (intent in ("clarify_answer", "correct_request") and draft is None) or (basket is None and intent in ("edit_basket", "explain", "meal_plan", "compare_prices")):
             req = self.extract_constraints(s, text)
             response.update(kind="intake", intake=intake.state(req), reply=_intake_reply(req))
         elif intent == "edit_basket":

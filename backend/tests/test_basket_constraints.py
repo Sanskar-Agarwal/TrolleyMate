@@ -77,3 +77,107 @@ def test_unsupported_nutrient_target_is_flagged_not_silently_kept(client, riley)
     intake = client.post(f"/api/requests/{rid}/correct", json={"patch": patch}, headers=riley).json()["intake"]
     assert intake["draft"]["nutritional_targets"] == [{"nutrient": "fibre_g", "minimum_per_day": 25}]
     assert any("iron mg" in a for a in intake["draft"]["assumptions"])
+
+
+@pytest.mark.parametrize("reason", ["timeout", "solver_error"])
+def test_retryable_rebuild_preserves_accepted_basket_and_confirmed_request(client, riley, monkeypatch, reason):
+    from app.optimisation.types import OptimisationResult
+
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    old = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    assert client.post(f"/api/baskets/{old['id']}/accept", headers=riley).status_code == 200
+    before = client.get(f"/api/sessions/{sid}", headers=riley).json()
+    monkeypatch.setattr(BasketOptimiser, "solve", lambda *args, **kwargs: OptimisationResult(
+        False, message="Search incomplete.", failure_reason=reason))
+    response = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley)
+    assert response.status_code == 200
+    assert response.json()["status"] == "retryable"
+    assert response.json()["reason"] == reason
+    assert "Retry" in response.json()["message"]
+    after = client.get(f"/api/sessions/{sid}", headers=riley).json()
+    assert after["basket"]["id"] == old["id"] and after["basket"]["status"] == "accepted"
+    assert after["constraints"] == before["constraints"]
+    from app.core.db import SessionLocal
+    from app.domain import ShoppingSession
+    with SessionLocal() as db:
+        session = db.get(ShoppingSession, sid)
+        assert all(r.status == "confirmed" for r in session.requests)
+
+
+def test_pending_candidate_preserves_previous_accepted_basket(client, riley, monkeypatch):
+    from app.agents.nutrition_compliance import NutritionComplianceAgent
+    from app.domain.enums import ItemCompliance, VerdictStatus
+
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    old = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    assert client.post(f"/api/baskets/{old['id']}/accept", headers=riley).status_code == 200
+    original_verify = NutritionComplianceAgent.verify
+
+    def escalate(self, basket, *args, **kwargs):
+        verdict = original_verify(self, basket, *args, **kwargs)
+        basket.items[0].withheld = True
+        basket.items[0].compliance = ItemCompliance.uncertain
+        verdict.status = VerdictStatus.escalated
+        return verdict
+
+    monkeypatch.setattr(NutritionComplianceAgent, "verify", escalate)
+    response = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley)
+    pending = response.json()["basket"]
+    assert pending["status"] == "pending_review"
+    assert client.post(f"/api/baskets/{pending['id']}/accept", headers=riley).status_code == 400
+    assert client.get(f"/api/baskets/{old['id']}", headers=riley).json()["status"] == "accepted"
+
+
+def test_failed_verification_rolls_back_candidate_and_preserves_previous_basket(client, riley, monkeypatch):
+    from app.agents.nutrition_compliance import NutritionComplianceAgent
+    from app.domain.enums import VerdictStatus
+
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    old = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    assert client.post(f"/api/baskets/{old['id']}/accept", headers=riley).status_code == 200
+    original_verify = NutritionComplianceAgent.verify
+
+    def fail(self, basket, *args, **kwargs):
+        verdict = original_verify(self, basket, *args, **kwargs)
+        verdict.status = VerdictStatus.failed
+        return verdict
+
+    monkeypatch.setattr(NutritionComplianceAgent, "verify", fail)
+    response = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley)
+    assert response.status_code == 400
+    assert "failed dietary verification" in response.json()["detail"]
+    current = client.get(f"/api/sessions/{sid}", headers=riley).json()["basket"]
+    assert current["id"] == old["id"] and current["status"] == "accepted"
+
+
+def test_timeout_edit_reports_retry_without_claiming_constraint_conflict(client, riley, monkeypatch):
+    from app.optimisation.types import OptimisationResult
+
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    old = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    assert client.post(f"/api/baskets/{old['id']}/accept", headers=riley).status_code == 200
+    monkeypatch.setattr(BasketOptimiser, "solve", lambda *args, **kwargs: OptimisationResult(
+        False, message="The search timed out before finding a valid basket.", failure_reason="timeout"))
+    response = client.post(f"/api/baskets/{old['id']}/edit", json={"text": "add some chicken"}, headers=riley)
+    assert response.status_code == 200
+    assert response.json()["status"] == "conflict"
+    assert "Retry" in response.json()["message"]
+    assert "breaking" not in response.json()["message"]
+    current = client.get(f"/api/sessions/{sid}", headers=riley).json()["basket"]
+    assert current["id"] == old["id"] and current["status"] == "accepted"
+
+
+def test_edit_summary_includes_added_and_preserved_pantry_total(client, riley):
+    sid = confirmed_session(client, riley, "$100 for 3 days, dinner only for myself")
+    basket = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    response = client.post(f"/api/baskets/{basket['id']}/edit", json={"text": "add peanut butter"}, headers=riley)
+    assert response.json()["status"] == "ok", response.text
+    added = response.json()["basket"]
+    assert any(i["product"]["category"] == "pantry" for i in added["items"])
+    assert f"${added['total']:.2f}" in added["summary"]
+    response = client.post(f"/api/baskets/{added['id']}/edit", json={"text": "add some chicken"}, headers=riley)
+    assert response.json()["status"] == "ok", response.text
+    changed = response.json()["basket"]
+    assert f"${changed['total']:.2f}" in changed["summary"]
+    explanation = client.get(f"/api/baskets/{changed['id']}/explain", headers=riley).json()
+    assert explanation["facts"]["total"] == changed["total"]

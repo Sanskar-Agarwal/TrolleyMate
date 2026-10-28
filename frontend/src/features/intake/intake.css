@@ -241,6 +241,12 @@ kbd {
   border-bottom-color: var(--produce);
 }
 
+.intake-dietary { border: 0; padding: 0; margin: 0; min-width: 0; }
+.intake-dietary legend { margin-bottom: 12px; }
+.intake-edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.intake-edit-row .input { width: auto; min-width: 0; max-width: 100%; flex: 1 1 150px; }
+.intake-edit-row .chip { flex-shrink: 0; }
+
 /* ---------- Confirmed details drawer ---------- */
 .details-grid {
   margin: 0;

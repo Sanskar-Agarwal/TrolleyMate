@@ -8,8 +8,8 @@ when something goes wrong. Owner: Maaz (KAN-29). CI and image publishing: see [C
 
 | | Version | Check |
 |---|---|---|
-| Python | 3.11 or newer (3.12 in Docker) | `python --version` |
-| Node.js | 20 or newer (22 in CI) | `node --version` |
+| Python | 3.12 or newer (3.12 in Docker) | `python --version` |
+| Node.js | 20.19+ (20.x), 22.12+ (22.x), or 24+ (22 in CI) | `node --version` |
 | Docker (optional) | Compose v2.24+ | `docker compose version` |
 
 No AI key, database server or internet connection is needed to run the demo: the app ships with

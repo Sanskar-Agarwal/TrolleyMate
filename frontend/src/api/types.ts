@@ -194,6 +194,7 @@ export interface MealSlot {
   recipe_id?: string;
   servings?: number;
   minutes?: number;
+  ingredients?: { name: string; servings: number }[];
   uses?: string[];
   optional?: string[];
   missing?: string[];
@@ -202,6 +203,9 @@ export interface MealSlot {
 export interface MealPlan {
   id: number;
   basket_id: number;
+  goal?: Goal;
+  total_minutes?: number;
+  portions_per_meal?: number;
   summary: string;
   days: { day: number; meals: MealSlot[] }[];
   requested: number;

@@ -17,7 +17,7 @@ import "./ShopPage.css";
 const STAGES = ["Describe", "Confirm", "Basket", "Meals"] as const;
 
 function Workspace() {
-  const { state, trace, busy, error, clearError, negotiation, newSession, view, setView, focusChat } = useShop();
+  const { state, trace, busy, error, clearError, negotiation, newSession, view, setView, focusChat, canCancelBuild, cancellingBuild, cancelBuild } = useShop();
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
 
@@ -85,7 +85,7 @@ function Workspace() {
         </header>
 
         {hasBasket && <BudgetBar />}
-        {busy && <WorkingCard label={busy} />}
+        {busy && <WorkingCard label={busy} onCancel={canCancelBuild ? cancelBuild : undefined} cancelling={cancellingBuild} />}
 
         {error && (
           <div className="notice notice-beet" role="alert">

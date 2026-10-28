@@ -16,11 +16,11 @@ RESTRICTION_RULES: dict[str, dict] = {
     "fish": {"label": "Fish", "kind": "allergy", "violating_tags": {"fish"}},
     "shellfish": {"label": "Shellfish", "kind": "allergy", "violating_tags": {"shellfish"}},
     "sesame": {"label": "Sesame", "kind": "allergy", "violating_tags": {"sesame"}},
-    "vegetarian": {"label": "Vegetarian", "kind": "diet", "violating_tags": {"meat", "fish", "shellfish", "gelatine"}},
+    "vegetarian": {"label": "Vegetarian", "kind": "diet", "violating_tags": {"meat", "fish", "shellfish", "gelatine", "animal_rennet"}},
     "vegan": {
         "label": "Vegan",
         "kind": "diet",
-        "violating_tags": {"meat", "fish", "shellfish", "gelatine", "milk", "egg", "honey"},
+        "violating_tags": {"meat", "fish", "shellfish", "gelatine", "animal_rennet", "milk", "egg", "honey"},
     },
     "halal": {"label": "Halal", "kind": "diet", "violating_tags": {"pork", "alcohol"}},
     "pork_free": {"label": "No pork", "kind": "diet", "violating_tags": {"pork"}},

@@ -114,9 +114,11 @@ class Requirements:
         d = int(days if days is not None else p.get("days") or 7)
         mpd = float(p.get("meals_per_day") or 2)
         schedule = meal_schedule(d, mpd)
-        person_meals = math.ceil(portions * sum(len(slots) for slots in schedule) - 1e-9)
         breakfast = math.ceil(portions * sum("Breakfast" in slots for slots in schedule) - 1e-9)
-        main = person_meals - breakfast
+        # Round each role up independently: rounding breakfast must never take a
+        # fractional child's lunch/dinner portion away from the main requirement.
+        main = math.ceil(portions * sum(sum(slot != "Breakfast" for slot in slots) for slots in schedule) - 1e-9)
+        person_meals = main + breakfast
         defaults = {"kcal": cls.KCAL_PER_MEAL * person_meals, "protein_g": cls.PROTEIN_PER_MAIN * main,
                     "veg_serves": cls.VEG_PER_MAIN * main}
         extra: dict[str, float] = {}
@@ -124,7 +126,7 @@ class Requirements:
             nutrient = normalise_nutrient(t["nutrient"])
             if nutrient is None:
                 continue  # intake flags targets we can't check; they never reach a confirmed set
-            total = float(t["minimum_per_day"]) * portions * d
+            total = float(t["minimum_per_day"]) * size * d
             if nutrient in defaults:
                 defaults[nutrient] = max(defaults[nutrient], total)
             else:
@@ -155,3 +157,4 @@ class OptimisationResult:
     message: str = ""
     solver_ms: int = 0
     requirements: Requirements | None = None
+    failure_reason: str | None = None  # timeout | solver_error; None means proven/structural infeasibility
