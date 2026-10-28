@@ -1,0 +1,52 @@
+{
+  "result": "passed",
+  "verified_utc": "2026-10-28T12:52:42.799562+00:00",
+  "snapshot": {
+    "snapshot_utc": "2026-10-28T12:49:45.196484+00:00",
+    "source_head": "540bdc7c96634214c188db9513389af15ee99107",
+    "source_state": "current working source including uncommitted fixes and cancellation",
+    "context_file_count": 203,
+    "context_manifest_sha256": "5cd4a03a7cae8513b7a8ca7f03937fff38f16439407b9442db596d30407f606e",
+    "context": "/var/folders/tv/ly87y_cd5vzcqrw28_rhj9t40000gn/T/trolley-cancel-docker-h7yq216q/context"
+  },
+  "source_drift_since_snapshot": [],
+  "image_id": "sha256:f1bc498155c216d83c3dfe99216afee269000a6173b0b80108f1e3c26425a2e1",
+  "platform": "linux/arm64",
+  "build_exit_code": 0,
+  "http_smoke_exit_code": 0,
+  "knowledge_base_smoke_exit_code": 0,
+  "docker_health": "healthy",
+  "startup": "fresh disposable database seeded successfully; compiled frontend and authenticated API served",
+  "http_smoke_checks": [
+    "HTTP health",
+    "compiled UI and 2 linked assets",
+    "offline mode",
+    "demo sign-in and authenticated household",
+    "new shopper registration, household creation, login, and role restriction",
+    "cancellation denies another shopper and unauthenticated callers",
+    "pre-cancelled build returns cancelled and preserves the accepted basket, constraints, and session"
+  ],
+  "knowledge_base_checks": [
+    "seeded parmesan animal-rennet cascade rejected for vegetarian",
+    "seeded parmesan animal-rennet cascade rejected for vegan",
+    "no source env/secret files; isolated DB; runtime dependencies consistent"
+  ],
+  "test_address": "http://127.0.0.1:8028",
+  "runtime_mode": "offline mock; no live model credentials",
+  "cleanup": {
+    "container_removed": true,
+    "anonymous_database_volume_removed": true,
+    "temporary_image_removed": true,
+    "other_containers_untouched": true
+  },
+  "evidence_directory": "/Users/sanskar/Documents/Codex/2026-09-14/lo/outputs/release-verification/docker-cancel-6cea13f2",
+  "evidence_sha256": {
+    "build.log": "3faf32048a66dcf985788006dc1828aec80a04581bedede037798e8d80039996",
+    "http-smoke.log": "5e042d6be762018eee0485b0fd0d15923bdd3a9cef5d22b435a70e8a2f4fa88d",
+    "kb-smoke.log": "7029c50b01f16da1ddfcf8a04afac25e3dcdc959c829190417da2ceae43ba9ba",
+    "container.log": "2f8571f88a4c0b6274e6f555ca122e1c66b1809e5a554125b424e5ecc71a0fb2",
+    "cleanup.log": "f4ee13045808ffb7fe4e0015f16cb4d529f0ff6a4e729a8cec09b08d3ce193aa",
+    "context-manifest.json": "5cd4a03a7cae8513b7a8ca7f03937fff38f16439407b9442db596d30407f606e"
+  },
+  "scope": "Docker build and behavioral smoke validation of the recorded current working source, including real HTTP pre-cancellation and ownership checks. This is not a fresh full backend test-suite run, a concurrent in-flight cancellation timing test, or linux/amd64 validation."
+}

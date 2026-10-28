@@ -29,7 +29,7 @@ def test_fractional_average_is_distributed_instead_of_rounded_daily():
 def test_allocation_backtracks_when_flexible_slot_uses_unique_ingredient():
     milk = Stock(1, "Milk", {"milk", "breakfast"}, 1, 3, True)
     oats = Stock(2, "Oats", {"breakfast"}, 1, 30, False)
-    assert _allocate([["breakfast"], ["milk"]], [milk, oats], 1) == [oats, milk]
+    assert {a.stock.name: a.servings for a in _allocate([["breakfast"], ["milk"]], [milk, oats], 1)} == {"Oats": 1, "Milk": 1}
     assert milk.remaining == 1 and oats.remaining == 1
 
 
@@ -38,6 +38,70 @@ def test_missing_ingredients_account_for_shared_stock():
     recipe = {"name": "Breakfast", "needs": [["breakfast"], ["breakfast"]]}
     assert _allocate(recipe["needs"], [oats], 1) is None
     assert _closest_missing([recipe], [oats], 1)["missing_tags"] == ["breakfast"]
+
+
+def test_partial_packs_combine_without_double_counting_flexible_slots():
+    milk = Stock(1, "Milk", {"milk", "breakfast"}, 0.6, 3, True)
+    oats = Stock(2, "Oats", {"breakfast"}, 0.4, 30, False)
+    grain = Stock(3, "Grain", {"breakfast"}, 0.2, 30, False)
+    allocation = _allocate([["breakfast"], ["milk"]], [milk, oats, grain], 0.6)
+    assert {a.stock.name: a.servings for a in allocation} == pytest.approx({"Milk": 0.6, "Oats": 0.4, "Grain": 0.2})
+    assert _allocate([["breakfast"], ["milk"]], [milk, oats, grain], 0.7) is None
+
+
+def item(i, tag, servings, *, life=30, perishable=False):
+    return SimpleNamespace(id=i, quantity=1, withheld=False, product=SimpleNamespace(
+        name=f"{tag}-{i}", tags=[tag], category=tag, servings=servings, shelf_life_days=life, perishable=perishable))
+
+
+def test_optional_extra_does_not_starve_later_required_meal(monkeypatch):
+    monkeypatch.setattr(meal_planner, "load_recipes", lambda: [
+        {"id": "plate", "name": "Plate", "meal_type": "main", "minutes": 5,
+         "needs": [["carb"]], "optional": [["carb"]]}])
+    result = meal_planner.plan(SimpleNamespace(items=[item(1, "carb", 2)]), 1, 2, 1)
+    assert result["planned"] == 2
+    assert all(not d["meals"][0]["optional"] for d in result["days"])
+    assert result["leftovers"] == []
+
+
+def test_child_portions_are_fractional_and_all_consumption_is_accounted_for(monkeypatch):
+    monkeypatch.setattr(meal_planner, "load_recipes", lambda: [
+        {"id": "plate", "name": "Plate", "meal_type": "main", "minutes": 5, "needs": [["carb"]]}])
+    basket = SimpleNamespace(items=[item(1, "carb", 1), item(2, "carb", 1)])
+    result = meal_planner.plan(basket, 1, 3, 1, portions=0.6)
+    assert result["planned"] == 3
+    assert result["portions_per_meal"] == 0.6
+    consumed = {}
+    for day in result["days"]:
+        meal = day["meals"][0]
+        assert meal["servings"] == 1
+        assert sum(i["servings"] for i in meal["ingredients"]) == pytest.approx(0.6)
+        for ingredient in meal["ingredients"]:
+            consumed[ingredient["name"]] = consumed.get(ingredient["name"], 0) + ingredient["servings"]
+    assert all(value <= 1 for value in consumed.values())
+    assert sum(leftover["servings_left"] for leftover in result["leftovers"]) == pytest.approx(0.2)
+    assert len(result["reused"]) == 2
+
+
+def test_same_meal_repeated_ingredient_is_not_cross_meal_reuse(monkeypatch):
+    monkeypatch.setattr(meal_planner, "load_recipes", lambda: [
+        {"id": "plate", "name": "Plate", "meal_type": "main", "minutes": 5,
+         "needs": [["carb"], ["carb"]]}])
+    result = meal_planner.plan(SimpleNamespace(items=[item(1, "carb", 2)]), 1, 1, 1)
+    assert result["reused"] == []
+    assert result["days"][0]["meals"][0]["ingredients"] == [{"name": "carb-1", "servings": 2}]
+
+
+@pytest.mark.parametrize("goal,expected", [("fastest_cook", "quick"), ("least_waste", "fresh")])
+def test_meal_goal_uses_recipe_time_and_required_perishable_quantities(monkeypatch, goal, expected):
+    monkeypatch.setattr(meal_planner, "load_recipes", lambda: [
+        {"id": "quick", "name": "Quick", "meal_type": "main", "minutes": 5, "needs": [["carb"]]},
+        {"id": "fresh", "name": "Fresh", "meal_type": "main", "minutes": 30, "needs": [["veg"]]}])
+    basket = SimpleNamespace(goal=goal, items=[item(1, "carb", 1), item(2, "veg", 1, life=1, perishable=True)])
+    result = meal_planner.plan(basket, 1, 1, 1)
+    assert result["days"][0]["meals"][0]["recipe_id"] == expected
+    assert result["total_minutes"] == (5 if expected == "quick" else 30)
+    assert result["goal"] == goal
 
 
 def test_planner_does_not_use_expired_or_withheld_stock(monkeypatch):

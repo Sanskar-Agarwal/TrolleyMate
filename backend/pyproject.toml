@@ -2,7 +2,7 @@
 name = "trolleymate-backend"
 version = "0.2.0"
 description = "Trolley Mate — multi-agent AI grocery personal shopper (ELEC5620 Group 5)"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 [tool.ruff]
 line-length = 130

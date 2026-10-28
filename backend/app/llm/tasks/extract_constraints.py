@@ -28,6 +28,10 @@ Rules:
 - goal_hint is one of lowest_cost, best_nutrition, least_waste, fastest_cook, balanced, or null.
 - interpretation_ok is false only if the message is not a grocery request at all.
 If a current draft is given, only return fields the new message changes; return null for the rest.
+For a correction that removes a restriction or preference, put its existing id/string in
+removed_restrictions or removed_preferences. Household mandatory restrictions remain enforced.
+Do not treat a negated diet ("not vegan") as a new restriction. If quantities conflict or
+are a range, leave the field null and ask which exact value to use.
 """
 
 SCHEMA = obj(
@@ -45,6 +49,8 @@ SCHEMA = obj(
             "items": obj({"nutrient": {"type": "string"}, "minimum_per_day": {"type": "number"}}),
         },
         "preferences": {"type": "array", "items": {"type": "string"}},
+        "removed_restrictions": {"type": "array", "items": {"type": "string"}},
+        "removed_preferences": {"type": "array", "items": {"type": "string"}},
         "ambiguities": {
             "type": "array",
             "items": obj({"field": {"type": "string"}, "question": {"type": "string"}}),
@@ -78,6 +84,8 @@ class Output(BaseModel):
     restrictions: list[_Restriction] = Field(default_factory=list)
     nutritional_targets: list[_Target] = Field(default_factory=list)
     preferences: list[str] = Field(default_factory=list)
+    removed_restrictions: list[str] = Field(default_factory=list)
+    removed_preferences: list[str] = Field(default_factory=list)
     ambiguities: list[_Ambiguity] = Field(default_factory=list)
     goal_hint: str | None = None
     interpretation_ok: bool = True
@@ -126,6 +134,7 @@ def mock(ctx: dict) -> dict:
     out: dict = {
         "budget": None, "household_size": None, "meals_per_day": None, "days": None,
         "restrictions": [], "nutritional_targets": [], "preferences": [], "ambiguities": [],
+        "removed_restrictions": [], "removed_preferences": [],
         "goal_hint": None, "interpretation_ok": True,
     }
 
@@ -137,6 +146,9 @@ def mock(ctx: dict) -> dict:
     )
     if m:
         out["budget"] = float(m.group(1))
+    if re.search(r"\$\s*\d+(?:\.\d+)?\s*(?:(?:or|to|[-–])\s*\$?|and\s*\$)\s*\d+", text):
+        out["budget"] = None
+        out["ambiguities"].append({"field": "budget", "question": "What exact total budget should I use for this shop?"})
 
     # Days
     if re.search(r"fortnight|two weeks|2 weeks", text):
@@ -166,7 +178,7 @@ def mock(ctx: dict) -> dict:
     elif m := re.search(r"(?:family of|for|feed) " + _NUM + r"(?: people| persons| of us| adults)?\b(?! days?| weeks?| meals?| dollars)", text):
         size = _n(m.group(1))
         if size and size < 15 and not re.search(r"\$\s?" + re.escape(m.group(1)), text):
-            out["household_size"] = int(size)
+            out["household_size"] = size
     if re.search(r"me and my (partner|wife|husband|flatmate|girlfriend|boyfriend)|the two of us|us two|both of us|my partner and i", text):
         out["household_size"] = 2
 
@@ -179,7 +191,7 @@ def mock(ctx: dict) -> dict:
     if re.search(r"dairy[- ]free", text):
         found["milk"] = "severe"
     for diet in ("vegetarian", "vegan", "halal"):
-        if diet in text:
+        if re.search(r"\b" + diet + r"\b", text) and not re.search(r"\b(?:not|no longer) (?:a )?" + diet + r"\b", text):
             found[diet] = "moderate"
     for m in re.finditer(r"allerg(?:ic|y|ies) to ([a-z ,]+?)(?:[.;]| and i| but|$)", text):
         for word in re.split(r",| and | or ", m.group(1)):
@@ -192,6 +204,14 @@ def mock(ctx: dict) -> dict:
         for r in _ALLERGEN_WORDS.get(m.group(1), []):
             found.setdefault(r, "severe")
     out["restrictions"] = [{"restriction": normalise_restriction(k), "severity": v} for k, v in found.items()]
+    if ctx.get("draft"):
+        removal = re.findall(r"\b(?:remove|drop) (?:the |my )?([a-z_ -]+?)(?: restriction| allergy|[,.!;]|$)", text)
+        removal += re.findall(r"\b(?:not|no longer) (?:a )?(vegan|vegetarian|halal)\b", text)
+        for phrase in removal:
+            key = phrase.strip()
+            ids = _ALLERGEN_WORDS.get(key, [normalise_restriction(key)])
+            out["removed_restrictions"].extend(r for r in ids if r in RESTRICTION_RULES)
+        out["restrictions"] = [r for r in out["restrictions"] if r["restriction"] not in out["removed_restrictions"]]
 
     # Nutrition
     if m := re.search(r"(\d+)\s*g(?:rams)?\s*(?:of\s*)?protein", text):
@@ -205,8 +225,15 @@ def mock(ctx: dict) -> dict:
     # Preferences (soft) — "no X" / "don't like X" where X is not an allergen
     for m in re.finditer(r"(?:don't|do not|dont) (?:like|eat|want) ([a-z]+)|\bhate ([a-z]+)|\bno ([a-z]+)", text):
         word = next(g for g in m.groups() if g)
-        if word not in _ALLERGEN_WORDS and word not in ("lactose", "more", "longer", "budget", "meat", "tree", "need"):
+        if word not in _ALLERGEN_WORDS and word not in ("lactose", "more", "longer", "budget", "meat", "tree", "need", "target", "thanks"):
             out["preferences"].append(f"dislike:{word.rstrip('s') if word.endswith('ms') else word}")
+    for m in re.finditer(r"\b(?:i like|i prefer|love) ([a-z]+)\b", text):
+        out["preferences"].append(f"like:{m.group(1)}")
+    if ctx.get("draft"):
+        for preference in ctx["draft"].get("preferences", []):
+            _, _, value = preference.partition(":")
+            if re.search(r"\b(?:remove|drop) (?:my |the )?(?:dislike (?:of |for )?|preference (?:for )?)?" + re.escape(value) + r"\b", text):
+                out["removed_preferences"].append(preference)
     if re.search(r"\bno meat\b", text) and "vegetarian" not in found:
         out["restrictions"].append({"restriction": "vegetarian", "severity": "moderate"})
 
@@ -222,15 +249,16 @@ def mock(ctx: dict) -> dict:
 
     # Answers to clarifying questions are often bare values ("80", "dinner only").
     if pending:
-        bare = re.fullmatch(r"\s*\$?\s*(\d+(?:\.\d+)?)\s*(?:g|grams?|dollars|days|people|a day|per day)?\.?\s*", text)
+        bare = re.fullmatch(r"\s*\$?\s*(\d+(?:\.\d+)?)\s*(g|grams?|dollars|days|people|a day|per day)?\.?\s*", text)
         if bare:
             value = float(bare.group(1))
+            unit = bare.group(2)
+            unit_field = {"g": "nutritional_targets", "gram": "nutritional_targets", "grams": "nutritional_targets",
+                          "dollars": "budget", "days": "days", "people": "household_size"}.get(unit)
             for field in ("budget", "days", "meals_per_day", "household_size", "nutritional_targets"):
-                if field in pending and out.get(field) in (None, []):
+                if field in pending and out.get(field) in (None, []) and (unit_field is None or field == unit_field):
                     if field == "nutritional_targets":
                         out[field] = [{"nutrient": "protein_g", "minimum_per_day": value}]
-                    elif field in ("days", "household_size"):
-                        out[field] = int(value)
                     else:
                         out[field] = value
                     break
