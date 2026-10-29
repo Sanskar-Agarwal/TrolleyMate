@@ -3,10 +3,14 @@ adequacy, and escalation of uncertain cases (UC-06, 1.2.10, 1.2.11, 1.2.15).
 
 Safety-first rules:
   - an ingredient (or any sub-ingredient, recursively) carrying a restricted tag → violation
+  - a product whose own label names a restricted allergen ("shellfish") → violation, even when no
+    ingredient record carries it; a free-from claim ("dairy-free") is never trusted either way
   - a "may contain" warning for a severe allergy → violation; otherwise → uncertain
   - missing or empty ingredient list → uncertain
   - a record that can't be read, or a composite that contains itself → uncertain (UC-06 failure scenario)
-  - vague label terms ("natural flavours") → the LLM judges the risk; low confidence → uncertain
+  - vague label terms ("natural flavours") → the LLM judges the risk; only a confident "none" clears
+    the term, and a failed, off-contract or fallback-only check never does → uncertain (9.4 dataSourceError)
+  - a restriction with no screening rule → uncertain: nothing can be confirmed free of it
   - uncertain items are never auto-accepted: they are withheld and escalated to a dietitian
   - a dietitian's past decision on the same product for the same household is reused
 
@@ -36,7 +40,7 @@ from app.optimisation.types import Requirements
 from app.services import allergen_guidance
 from app.services.catalogue import disliked_by, optimisable_products
 from app.services.compliance_verdict import VerdictEvidence, outcome
-from app.services.dietary_rules import label, normalise_restriction, violating_tags
+from app.services.dietary_rules import RESTRICTION_RULES, label, label_tag, normalise_restriction, violating_tags
 from app.services.nutrition_targets import TARGETS_VERSION
 from app.services.preference_memory import KINDS, favoured_by, matches, restriction_hint
 
@@ -75,6 +79,9 @@ class NutritionComplianceAgent(Agent):
     def __init__(self, ctx):
         super().__init__(ctx)
         self.safety_threshold = get_settings().compliance_safety_threshold
+        # Judgements made without the live model (it failed, or only the fallback answered). Kept for
+        # this request only, so the live model is asked again next time instead of a stale answer.
+        self._unconfirmed: dict[tuple[str, str, str], dict] = {}
 
     # --- Restrictions ------------------------------------------------------
 
@@ -109,28 +116,32 @@ class NutritionComplianceAgent(Agent):
         for path, problem in self._integrity_problems(product):
             f.add(ItemCompliance.uncertain, 0.4, kind="data_error", detail=problem, **({"ingredient": path} if path else {}))
 
+        labelled, warnings = _label_tags(product.tags), _label_tags(product.may_contain)
         for r in restrictions:
             rid, tags = r["restriction"], violating_tags(r["restriction"])
+            if rid not in RESTRICTION_RULES:
+                f.add(ItemCompliance.uncertain, 0.4, kind="no_rule", restriction=rid,
+                      detail=f"There's no screening rule for {label(rid)} yet, so nothing can be confirmed free of it")
+            carried: set[str] = set()
             for ingredient in product.ingredients:
                 for path, ing, cycle in self._walk(ingredient):
                     if cycle:
                         continue  # already checked above it in the path; reported by _integrity_problems
                     hit = tags.intersection(_readable(ing.tags) or ())
                     if hit:
+                        carried |= hit
                         f.add(
                             ItemCompliance.violation, 1.0, kind="contains", restriction=rid,
                             ingredient=" → ".join(path), detail=f"Contains {ing.name} ({', '.join(sorted(hit))})",
                         )
                     elif ing.ambiguous:
-                        judgement = self._judge(product, ing, rid)
-                        if judgement["risk"] == "likely":
-                            f.add(ItemCompliance.violation, 0.9, kind="ambiguous", restriction=rid, ingredient=" → ".join(path), detail=judgement["reasoning"])
-                        elif judgement["risk"] == "possible":
-                            f.add(
-                                ItemCompliance.uncertain, round(1 - judgement["confidence"] * 0.5, 2), kind="ambiguous",
-                                restriction=rid, ingredient=" → ".join(path), detail=judgement["reasoning"],
-                            )
-            for warn in tags.intersection(_readable(product.may_contain) or ()):
+                        self._assess(f, product, ing, rid, " → ".join(path))
+            # The label itself names the allergen but no ingredient record carries it: the record is
+            # incomplete, and the label is the stronger evidence.
+            for tag in sorted(tags & labelled - carried):
+                f.add(ItemCompliance.violation, 1.0, kind="contains", restriction=rid,
+                      detail=f"The product is labelled {tag.replace('_', ' ')}, though no listed ingredient carries it")
+            for warn in tags & warnings:
                 if r["severity"] == Severity.severe:
                     f.add(ItemCompliance.violation, 0.95, kind="may_contain", restriction=rid, detail=f"Label says it may contain {warn.replace('_', ' ')}")
                 else:
@@ -139,6 +150,12 @@ class NutritionComplianceAgent(Agent):
         if f.status == ItemCompliance.compliant and f.confidence < self.safety_threshold:
             f.status = ItemCompliance.uncertain
         return f
+
+    def recheck(self, product: Product, household: Household, payload: dict | None) -> Finding:
+        """Screen a product again against the household as it is now, for a step that would otherwise
+        rely on an earlier screening: an extra carried into a rebuilt basket, or a swap accepted after
+        it was proposed. The household's restrictions or the product's data may have changed since."""
+        return self.screen_product(product, self.restrictions_for(household, payload), household.id)
 
     def screen(self, products: list[Product], restrictions: list[dict], *, household_id: int | None = None,
                session_id: int | None = None) -> dict[int, Finding]:
@@ -402,21 +419,52 @@ class NutritionComplianceAgent(Agent):
                     problems.append((" → ".join(path), f"The ingredient record for {ing.name} can't be read"))
         return problems
 
+    def _assess(self, f: Finding, product: Product, ing: Ingredient, rid: str, path: str) -> None:
+        """A vague label term (UC-06 step 2): the model judges it, grounded in the FSANZ notes. Only a
+        confident "none" clears the term. A check that failed is uncertain (9.4 dataSourceError)."""
+        j = self._judge(product, ing, rid)
+        if j["risk"] == "likely":
+            f.add(ItemCompliance.violation, 0.9, kind="ambiguous", restriction=rid, ingredient=path, detail=j["reasoning"])
+        elif j["risk"] == "possible":
+            f.add(ItemCompliance.uncertain, round(1 - j["confidence"] * 0.5, 2), kind="ambiguous", restriction=rid,
+                  ingredient=path, detail=j["reasoning"])
+        elif j["risk"] == "unchecked":
+            f.add(ItemCompliance.uncertain, 0.4, kind="check_failed", restriction=rid, ingredient=path, detail=j["reasoning"])
+        elif j["confidence"] < self.safety_threshold:
+            f.add(ItemCompliance.uncertain, j["confidence"], kind="ambiguous", restriction=rid, ingredient=path,
+                  detail=f"{j['reasoning']} (only {j['confidence']:.0%} sure; {self.safety_threshold:.0%} is needed to clear it)")
+
     def _judge(self, product: Product, ingredient: Ingredient, restriction: str) -> dict:
+        """The model's {risk, confidence, reasoning} for one vague term. risk is "unchecked" when no usable
+        judgement came back: the call failed, the reply was off the contract, or only the offline fallback
+        answered and found nothing (it can't vouch for a term the live model was needed for)."""
         key = (ingredient.name, restriction, self.llm.provider_name)
-        if key not in _INGREDIENT_CACHE:
-            guidance = [{"id": n.id, "text": n.text, "risk": n.risk} for n in allergen_guidance.retrieve(ingredient.name, restriction)]
+        known = _INGREDIENT_CACHE.get(key) or self._unconfirmed.get(key)
+        if known is not None:
+            return known
+        guidance = [{"id": n.id, "text": n.text, "risk": n.risk} for n in allergen_guidance.retrieve(ingredient.name, restriction)]
+        try:
             result = self.think("assess_ingredient", {"product": product.name, "ingredient": ingredient.name, "restriction": restriction,
                                                       "guidance": guidance, "source": allergen_guidance.SOURCE})
-            # A real model may answer 85 for 85%; the verdict contract only accepts 0-1.
-            judgement = {**result.data, "confidence": min(max(float(result.data["confidence"]), 0.0), 1.0)}
+        except Exception as exc:  # no offline fallback configured: the tool itself failed
+            judgement = _unchecked(ingredient.name, restriction, f"The AI ingredient check failed ({str(exc)[:120] or type(exc).__name__})")
+            self._unconfirmed[key] = judgement
+            self.log("assess_ingredient", f"'{ingredient.name}' vs {restriction}: check failed",
+                     rationale=judgement["reasoning"], confidence=0.0)
+            return judgement
+        judgement = _read_judgement(result.data, ingredient.name, restriction)
+        if result.fell_back and judgement["risk"] == "none":
+            judgement = _unchecked(ingredient.name, restriction, "The AI ingredient check failed and the offline rules alone don't clear it")
+        if result.fell_back or judgement["risk"] == "unchecked":
+            self._unconfirmed[key] = judgement
+        else:
             _INGREDIENT_CACHE[key] = judgement
-            self.log(
-                "assess_ingredient",
-                f"'{ingredient.name}' vs {restriction}: {judgement['risk']}",
-                rationale=judgement["reasoning"], confidence=judgement["confidence"], llm=result,
-            )
-        return _INGREDIENT_CACHE[key]
+        self.log(
+            "assess_ingredient",
+            f"'{ingredient.name}' vs {restriction}: {judgement['risk']}",
+            rationale=judgement["reasoning"], confidence=judgement["confidence"], llm=result,
+        )
+        return judgement
 
     def _prior_decision(self, product_id: int, household_id: int, restrictions: list[dict]) -> EscalationCase | None:
         """Latest dietitian decision for this product and household — only if it was made
@@ -498,6 +546,34 @@ def _readable(values) -> set[str] | None:
     if isinstance(values, list) and all(isinstance(v, str) for v in values):
         return set(values)
     return None
+
+
+def _label_tags(values) -> set[str]:
+    """Allergens a label states, in its own words ("Tree Nuts", "dairy"), as tags. Free-from claims are
+    left out, and an unreadable list gives nothing here (_integrity_problems reports it)."""
+    return {t for t in map(label_tag, _readable(values) or ()) if t}
+
+
+def _unchecked(term: str, restriction: str, why: str) -> dict:
+    return {"risk": "unchecked", "confidence": 0.0,
+            "reasoning": f"{why}, so '{term}' can't be confirmed free of {label(restriction).lower()}"}
+
+
+def _read_judgement(data, term: str, restriction: str) -> dict:
+    """The model's reply as {risk, confidence, reasoning}. A real model may answer 85 for 85%, so the
+    confidence is clamped to 0-1. A reply off the contract (a risk word other than none, possible or
+    likely; a confidence that isn't a number) is "unchecked", never read as safe."""
+    try:
+        risk = str(data["risk"]).strip().lower()
+        confidence = float(data["confidence"])
+        reasoning = str(data.get("reasoning") or "")
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return _unchecked(term, restriction, "The AI ingredient check gave an unreadable answer")
+    if risk not in ("none", "possible", "likely"):
+        return _unchecked(term, restriction, f"The AI ingredient check answered off the contract (risk '{data['risk']}')")
+    if not math.isfinite(confidence):
+        return _unchecked(term, restriction, "The AI ingredient check gave no usable confidence")
+    return {"risk": risk, "confidence": min(max(confidence, 0.0), 1.0), "reasoning": reasoning}
 
 
 def _gap_suggestion(nutrient: str) -> str:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, field_validator
 
 from app.llm.tasks._base import Task, obj
 
@@ -23,9 +25,16 @@ SCHEMA = obj(
 
 
 class Output(BaseModel):
-    risk: str
+    # Enforced here as well as in SCHEMA: not every server honours the schema, and a risk word outside
+    # these three ("High", "unknown") must fail validation, never be read as "none" (KAN-23).
+    risk: Literal["none", "possible", "likely"]
     confidence: float
     reasoning: str
+
+    @field_validator("risk", mode="before")
+    @classmethod
+    def _lower(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
 
 
 def build_user(ctx: dict) -> str:
@@ -36,7 +45,9 @@ def build_user(ctx: dict) -> str:
     )
 
 
-# Conservative lookup used offline. Anything not listed is "possible" at low confidence.
+# Conservative lookup used offline. A term that is neither listed here nor flagged by a guidance note
+# is judged "none" at 0.97: enough to clear it in offline mode, but never when it stands in for a live
+# model that failed (the agent then treats the term as unchecked).
 _KNOWN = {
     ("natural flavours", "milk"): ("possible", 0.6, "Natural flavours can be dairy-derived (e.g. butter or milk solids)."),
     ("natural flavours", "lactose"): ("possible", 0.6, "Dairy-derived flavours can carry lactose."),

@@ -8,7 +8,7 @@ and the shopper gets the conflict and the closest valid alternatives.
 
 from __future__ import annotations
 
-from app.domain import Basket, ShoppingSession
+from app.domain import Basket, Product, ShoppingSession
 from app.domain.enums import ItemCompliance
 from app.services.catalogue import find_products, match_item
 from app.services.session_state import active_constraints, household_of
@@ -93,6 +93,15 @@ def edit(agent, basket: Basket, text: str) -> dict:
         if pid in extras:
             extras[pid] = min(extras[pid], hi)
     extras = {pid: q for pid, q in extras.items() if q > 0}
+    # Screen the final quantities, including "increase" pins. Screening only the
+    # carried-over extras lets those pins reinsert an unsafe or withheld product.
+    for pid in list(extras):
+        product = db.get(Product, pid)
+        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
+            del extras[pid]
+            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
+            applied = [f"removed {product.name} after dietary checks" if change in (f"more {product.name}", f"less {product.name}")
+                       else change for change in applied]
     reserve = _extras_cost(agent, extras)
     budget = payload.get("budget")
     if budget is not None and reserve > float(budget) + 1e-6:
