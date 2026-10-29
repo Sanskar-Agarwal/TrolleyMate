@@ -26,7 +26,7 @@ into an empty folder and runs the full clean build, tests and startup checks on 
 
 - [ ] Script ends with `Verified`
 - [ ] `release/TrolleyMate-Group5-v1.0.0.zip` and its `.sha256` file exist
-- [ ] Zip is well under the Canvas size limit (expected about 1 MB)
+- [ ] Zip is well under the Canvas size limit (about 0.3 MB; no dependencies or builds are included)
 
 ## 3. Record the release
 
