@@ -290,7 +290,8 @@ Recorded with the results in the evidence file. The ones that matter most:
 - **Offline knowledge.** In offline mode the rule-based judge clears any vague term it has no rule or
   note for (`none` at 0.97, T04). A live model covers the rest.
 - **Unknown restrictions** make every product uncertain (P11). That's safe, but it floods the review
-  queue. Intake should refuse restriction ids outside the vocabulary (Sanskar's area).
+  queue. Current intake rejects unsupported ids in extraction, corrections and form patches;
+  legacy or externally supplied data can still reach this screening safeguard.
 - **Re-verifying a built basket** (`POST /baskets/{id}/verify`, API only) fails it and blocks
   acceptance (S14). It still leaves the unsafe product in the total and labels the basket `verified`.
 - **Safety lock scope.** UC-06's failure scenario locks the whole basket. The code withholds only the

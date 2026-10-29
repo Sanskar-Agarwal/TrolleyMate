@@ -868,8 +868,8 @@ LIMITATIONS = [
     ("Offline knowledge", "In offline mode the rule-based judge knows only its listed term/restriction pairs and the 21 FSANZ notes. "
      "Any other vague term is judged 'none' at 0.97 and clears (T04). A live model covers the rest, and fallback answers never clear a term (T08, T09)."),
     ("Unknown restrictions", "A restriction with no rule makes every product uncertain (P11), so the whole basket is withheld with one review case "
-     "per item. It's safe, but it floods the review queue. Intake should refuse ids outside the vocabulary: extract_constraints is told to use only "
-     "known ids, but form patches aren't checked (Sanskar)."),
+     "per item. Current intake validates extracted constraints, corrections and form patches against the supported vocabulary. "
+     "Legacy or externally supplied unknown restrictions can still reach screening and flood the review queue."),
     ("Safety lock scope", "UC-06's failure scenario describes a lock on the whole basket. The code withholds only the product with the corrupt "
      "record (P10). Still to confirm with Maaz."),
     ("Re-verification of a built basket", "POST /baskets/{id}/verify, which is API only with no UI caller, flags a newly unsafe product as a violation "

@@ -32,3 +32,44 @@ def test_the_evaluation_set_is_fixed_and_covers_every_capability_and_input():
 def test_case(case):
     observation = run(case)
     assert observation.passed, observation.observed
+
+
+def test_increase_extra_after_new_allergy_cannot_reinsert_or_accept_it():
+    """Integration regression beyond the historical fixed 42-case evaluation."""
+    from tests.agent_evaluation import demo
+
+    with demo() as d:
+        basket = d.build("riley", "$100 for 3 days, dinner only for myself")
+        added = d.edit("riley", basket["id"], "add peanut butter")["basket"]
+        peanut_butter = next(i for i in added["items"] if i["product"]["name"] == "Smooth Peanut Butter 375g")
+        member = d.ok("GET", "riley", "/api/households/me")["members"][0]
+        d.ok("PUT", "riley", f"/api/households/me/members/{member['id']}", {
+            "name": member["name"], "age_group": member["age_group"],
+            "restrictions": [{"restriction": r["restriction"], "severity": r["severity"]} for r in member["restrictions"]]
+                            + [{"restriction": "peanuts", "severity": "severe"}],
+        })
+        result = d.edit("riley", added["id"], "more peanut butter")
+        assert result["status"] == "ok"
+        assert all(i["product"]["id"] != peanut_butter["product"]["id"] for i in result["basket"]["items"])
+        assert any("Peanut Butter" in message and "left out" in message for message in result["conflicts"])
+        assert f"more {peanut_butter['product']['name']}" not in result["applied"]
+        accepted = d.ok("POST", "riley", f"/api/baskets/{result['basket']['id']}/accept")["basket"]
+        assert accepted["status"] == "accepted"
+        assert all(i["product"]["id"] != peanut_butter["product"]["id"] for i in accepted["items"])
+
+
+def test_increase_withheld_extra_does_not_release_it_as_compliant():
+    from tests.agent_evaluation import demo, set_product
+
+    with demo() as d:
+        basket = d.build("alex", "$100 for 3 days, dinner only")
+        added = d.edit("alex", basket["id"], "add rice crackers")["basket"]
+        crackers = next(i for i in added["items"] if i["product"]["name"] == "Rice Crackers 100g")
+        set_product(crackers["product"]["id"], data_complete=False)
+        checked = d.ok("POST", "alex", f"/api/baskets/{added['id']}/verify")["basket"]
+        assert next(i for i in checked["items"] if i["id"] == crackers["id"])["withheld"]
+        result = d.edit("alex", checked["id"], "more rice crackers")
+        assert result["status"] == "ok"
+        assert all(i["product"]["id"] != crackers["product"]["id"] for i in result["basket"]["items"])
+        assert any("Rice Crackers" in message and "left out" in message for message in result["conflicts"])
+        assert f"more {crackers['product']['name']}" not in result["applied"]

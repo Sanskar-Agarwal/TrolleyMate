@@ -87,19 +87,21 @@ def edit(agent, basket: Basket, text: str) -> dict:
     # ones already in the basket (unless this edit removes or reduces them) and reserve their cost,
     # so the solved basket plus these extras still fits the budget.
     extras = {pid: q for pid, q in current.items() if _category(db, pid) in ("pantry", "snack") and pid not in excluded}
-    # A carried-over extra is screened again, like a new "add": the household's restrictions or the
-    # product's data may have changed since it was added, and a withheld one must stay out (KAN-23).
-    for pid in list(extras):
-        product = db.get(Product, pid)
-        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
-            del extras[pid]
-            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
     for pid in [p for p in min_qty if _category(db, p) in ("pantry", "snack")]:
         extras[pid] = max(extras.get(pid, 0), min_qty.pop(pid))
     for pid, hi in max_qty.items():
         if pid in extras:
             extras[pid] = min(extras[pid], hi)
     extras = {pid: q for pid, q in extras.items() if q > 0}
+    # Screen the final quantities, including "increase" pins. Screening only the
+    # carried-over extras lets those pins reinsert an unsafe or withheld product.
+    for pid in list(extras):
+        product = db.get(Product, pid)
+        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
+            del extras[pid]
+            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
+            applied = [f"removed {product.name} after dietary checks" if change in (f"more {product.name}", f"less {product.name}")
+                       else change for change in applied]
     reserve = _extras_cost(agent, extras)
     budget = payload.get("budget")
     if budget is not None and reserve > float(budget) + 1e-6:
