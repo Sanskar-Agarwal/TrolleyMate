@@ -8,7 +8,7 @@ and the shopper gets the conflict and the closest valid alternatives.
 
 from __future__ import annotations
 
-from app.domain import Basket, ShoppingSession
+from app.domain import Basket, Product, ShoppingSession
 from app.domain.enums import ItemCompliance
 from app.services.catalogue import find_products, match_item
 from app.services.session_state import active_constraints, household_of
@@ -87,6 +87,13 @@ def edit(agent, basket: Basket, text: str) -> dict:
     # ones already in the basket (unless this edit removes or reduces them) and reserve their cost,
     # so the solved basket plus these extras still fits the budget.
     extras = {pid: q for pid, q in current.items() if _category(db, pid) in ("pantry", "snack") and pid not in excluded}
+    # A carried-over extra is screened again, like a new "add": the household's restrictions or the
+    # product's data may have changed since it was added, and a withheld one must stay out (KAN-23).
+    for pid in list(extras):
+        product = db.get(Product, pid)
+        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
+            del extras[pid]
+            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
     for pid in [p for p in min_qty if _category(db, p) in ("pantry", "snack")]:
         extras[pid] = max(extras.get(pid, 0), min_qty.pop(pid))
     for pid, hi in max_qty.items():
