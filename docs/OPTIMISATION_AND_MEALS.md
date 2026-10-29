@@ -1,5 +1,10 @@
 # KAN-3 and KAN-4: optimisation and meal-planning evidence
 
+Implementation reference checked against main `947a59c` on 29 October 2026. For dated test
+results and the latest verified release, see [README verification](../README.md#verification)
+and [UAT_2026-10-28.md](UAT_2026-10-28.md). The fixture descriptions below define checks;
+they do not imply a new test run whenever this document is read.
+
 The five goals use deterministic integer optimisation. Dietary compliance is screened before solving and verified afterwards. Budget, required food-role quantities, explicit product limits and nutrition minimums remain constraints for every goal. Missing price data and known violations cannot enter the candidate pool. An uncertain item can produce only a pending-review basket, with the item withheld; it cannot be accepted or meal-planned.
 
 ## Goal coefficients
@@ -72,4 +77,10 @@ From `backend`, with the mock LLM configured, run:
 python -m pytest tests/test_optimisation_goals.py tests/test_meal_planning.py tests/test_basket_constraints.py tests/test_build_cancellation.py
 ```
 
-From `frontend`, run the meal-plan React test using the repository test command. Full backend, frontend, build and Docker checks are recorded separately in the task's validation evidence.
+From `frontend`, run the focused React tests with:
+
+```sh
+npm test -- src/features/mealplan/MealPlanView.test.tsx
+```
+
+Full backend, frontend, build and Docker results are linked from [README verification](../README.md#verification).

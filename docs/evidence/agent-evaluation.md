@@ -17,6 +17,9 @@ Two separate integration regressions in `test_agent_evaluation.py` cover increas
 after a new peanut allergy and increasing an already-withheld snack. Both reproduced unsafe
 reinsertion before final-extras screening was moved after quantity changes, and both pass after
 the fix. These tests are outside the fixed evaluation set and do not change its historical counts.
+The animal-rennet knowledge-base correction is also present in the integrated code; its former
+expected-failure test now passes normally. The knowledge-base limitation recorded below describes
+the earlier evaluation run, not an outstanding rennet defect.
 
 ## Coverage
 

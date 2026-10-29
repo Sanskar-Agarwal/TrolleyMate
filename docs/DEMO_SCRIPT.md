@@ -1,14 +1,26 @@
-# Week 13 demo script (≈ 8 minutes)
+# Historical Week 13 walkthrough — 27 October 2026 (≈ 8 minutes)
 
-Run from the Canvas zip on the demo machine:
+This numbered walkthrough is retained because [JOURNEY_VERIFICATION.md](JOURNEY_VERIFICATION.md)
+refers to its steps. **Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current seven-minute
+presentation, preparation and acceptance gates.** The table below describes the planned older
+walkthrough; it is not a record of a completed team rehearsal or Canvas submission.
+
+Product choices, held items and price-history examples depend on the selected version and
+database. The old expectation that a particular request selects schnitzel is not guaranteed.
+Use a labelled prepared review case when needed. Show Jira exports, review records and sprint
+tags only if those artifacts actually exist; step 15 does not establish that they were produced.
+
+For current setup, follow the [README](../README.md#quick-start). The historical local Docker
+command was:
 
 ```bash
 docker compose up --build          # → http://localhost:8000
 ```
 
-or without Docker: `scripts/setup.ps1` then `scripts/dev.ps1` (→ http://localhost:5173).
-Reset data before presenting: `cd backend && .venv/Scripts/python -m app.seed --reset`.
-If the campus VPN / LLM is unavailable, the app keeps working on the offline agent mode — say so.
+The Windows walkthrough used `scripts/setup.ps1` then `scripts/dev.ps1`
+(→ http://localhost:5173). Current setup also supports macOS/Linux. Prepare a disposable demo
+database; never reset a shared database for a presentation. State whether the selected run is
+live, degraded or offline, and respect any withheld-stock gate during a provider failure.
 
 | # | Do | Say (criterion) |
 |---|---|---|

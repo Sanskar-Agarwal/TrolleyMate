@@ -4,10 +4,16 @@ This is a run sheet and acceptance checklist, not a record of a completed team r
 **Group rehearsal, agreed contributions, feedback responses and final release sign-off are
 Pending human action.** Technical test results do not complete those activities.
 
+Status reconciliation, **29 October 2026**: KAN-6 is marked Done in Jira. No completed
+all-member rehearsal, contribution agreement or final sign-off record was found in the
+repository audit. The human checks below remain unverified until the team links the actual
+records; the Jira status alone does not fill them in.
+
 Use Stage 1 requirements **1.2.1–1.2.15** as the acceptance baseline and
-[TEAM_GUIDE.md](TEAM_GUIDE.md) for ownership. Its starting backlog includes stretch work;
+[TEAM_GUIDE.md](TEAM_GUIDE.md) for ownership. The original backlog included stretch work;
 do not treat every backlog suggestion as an original requirement. Use
-[UAT_2026-10-28.md](UAT_2026-10-28.md) for the current technical evidence and
+[README verification](../README.md#verification) for the latest tested version,
+[UAT_2026-10-28.md](UAT_2026-10-28.md) for the dated browser/live-model evidence, and
 [JOURNEY_VERIFICATION.md](JOURNEY_VERIFICATION.md#4-requirement-traceability) for the code/test
 map. Historical pass statements are not a substitute for checking the release candidate.
 
@@ -76,7 +82,7 @@ commit**. The matrix defines checks; it does not claim that each check has been 
 | 1.2.3 Meal plans | Acceptance gate, household portions and meal count, quantity-limited reuse, only stated pantry assumptions, explicit gaps and optional additions. |
 | 1.2.4 Negotiation | An infeasible request returns computed extra-budget and achievable-coverage choices; applying a choice rebuilds without dropping mandatory rules. |
 | 1.2.5 Substitution | Safe candidate and stated trade-off, explicit accept/decline, declined-swap memory and no-alternative handling. |
-| 1.2.6 Buy timing | Advice is grounded in recorded history; insufficient history and perishables produce no deferral advice; basket is unchanged. |
+| 1.2.6 Buy timing | Advice is grounded in recorded history; insufficient history produces no prediction, daily staples are skipped, and waiting beyond shelf life is refused; basket is unchanged. |
 | 1.2.7 Ingestion/units | Multiple retailer records, comparable unit prices and explicit missing/unreliable data handling; data provenance is stated. |
 | 1.2.8 Savings | Named baseline, correct totals/dollar/percentage savings, split-store comparison and no unsupported savings claim for incomplete quotes. |
 | 1.2.9 Chat editing | Requested edit or targeted clarification, visible resulting change, budget/mandatory-rule preservation and failed-edit rollback. |
@@ -93,9 +99,11 @@ KAN-6 requires the full agent journey to be rehearsed with every member explaini
 evidence for all 15 requirements, recorded limitations and responses to feedback, and agreement
 on final contributions and the release by all members.
 
-- [x] Local backend tests/Ruff, frontend tests/build and Docker smoke evidence recorded in
-  [UAT_2026-10-28.md](UAT_2026-10-28.md). Remote CI remains a separate post-push check;
-  platform and behavioural limits are recorded rather than treated as completed group sign-off.
+- [x] Technical verification is recorded for main `947a59c`: 416 backend tests and 57 frontend
+  tests in the integration checks; [main CI run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408)
+  passed and published the Docker image. [README verification](../README.md#verification)
+  links the current record; the [28 October UAT](UAT_2026-10-28.md) remains a separate dated run.
+  These checks establish neither group rehearsal nor human approval.
 - [ ] Complete the 15-row acceptance matrix with current evidence; link the browser UAT record.
 - [ ] **Pending human action — group rehearsal:** all five members attend, explain their work,
   time the run and record actual attendees, duration, failed steps and substitutions of prepared evidence.
@@ -106,7 +114,8 @@ on final contributions and the release by all members.
 - [ ] **Pending human action — release sign-off:** every member agrees the exact commit/artifact,
   known limitations and remaining actions. Record names and dates only after that agreement.
 - [ ] Confirm the final submission package starts using its supplied instructions and excludes
-  credentials. Record the approved tag/archive and submission location after human release approval.
+  credentials. Record its exact commit, archive checksum, extraction/run result, contribution form
+  and submission location after human release approval (KAN-30).
 
 | Human record | Status / fields to complete |
 |---|---|
