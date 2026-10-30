@@ -9,6 +9,7 @@ from app.domain.enums import CaseStatus
 from app.llm import get_llm
 from app.llm.tasks.classify_intent import mock as classify
 from app.llm.tasks.parse_edit import mock as parse_edit
+from app.services.review_evidence import product_fingerprint
 from tests.test_basket_flow import confirmed_session
 
 
@@ -38,6 +39,7 @@ def test_stale_dietitian_approval_is_not_reused_after_new_allergy(client, alex):
         db.add(EscalationCase(
             verdict_id=0, basket_id=0, household_id=household.id, product_id=schnitzel.id, reason="test",
             status=CaseStatus.resolved, resolution="passed", requirements=restrictions,
+            evidence={"product_fingerprint": product_fingerprint(schnitzel)},
         ))
         db.flush()
         assert ctx.compliance.screen_product(schnitzel, restrictions, household.id).status == "compliant"

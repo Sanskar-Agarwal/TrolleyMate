@@ -126,7 +126,7 @@ def test_a_perishable_that_would_not_keep_is_left_out(monkeypatch, basket_item):
     assert "wait_days" not in a and "expected_saving" not in a
 
 
-def test_a_perishable_that_keeps_through_the_wait_still_gets_advice(monkeypatch, basket_item):
+def test_a_perishable_that_keeps_through_the_wait_also_abstains(monkeypatch, basket_item):
     observed(monkeypatch)
     basket_id, item_id = basket_item
     with SessionLocal() as db:
@@ -134,7 +134,7 @@ def test_a_perishable_that_keeps_through_the_wait_still_gets_advice(monkeypatch,
         set_history(db, item, 8)
         item.product.perishable, item.product.shelf_life_days = True, 5
         a = advice_for(db, basket_id, item_id)
-    assert a["action"] == "wait" and a["wait_days"] == 2
+    assert a["action"] == "skip" and "wait_days" not in a
 
 
 def test_a_daily_staple_is_left_out_even_with_a_pattern(monkeypatch, basket_item):

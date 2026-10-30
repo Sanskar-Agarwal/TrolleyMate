@@ -79,7 +79,8 @@ def test_known_answer_uses_the_shoppers_goal():
     info, _ = analyse({**TWO_DAYS, "days": 1, "budget": 8.0}, "best_nutrition")
     option = next(o for o in info["options"] if o["id"] == "increase_budget")
     assert option["budget"] == 9.00  # the P01 fixture answer
-    assert not any(o["id"] == "reduce_days" for o in info["options"])  # one day can't shrink
+    smaller = next(o for o in info["options"] if o["id"] == "reduce_days")
+    assert smaller["meal_count"] == 1 and smaller["days"] == 1  # a partial day can fit
 
 
 def test_explanation_states_both_options_and_keeps_restrictions():
@@ -158,13 +159,13 @@ def test_confirming_an_option_re_solves_with_only_that_change(client, riley, opt
     sid, neg = _infeasible(client, riley)
     before = _active(sid).payload
     option = next(o for o in neg["options"] if o["id"] == option_id)
-    choice = {"option_id": option_id, "budget": option.get("budget"), "days": option.get("days")}
+    choice = {"option_id": option_id, "budget": option.get("budget"), "days": option.get("days"), "meal_count": option.get("meal_count")}
     r = client.post(f"/api/sessions/{sid}/negotiate", json={k: v for k, v in choice.items() if v is not None}, headers=riley).json()
     assert r["status"] == "ok"
     after = _active(sid)
     assert after.version == 2 and after.origin == "negotiation"
     changed = {k for k in before.keys() | after.payload.keys() if before.get(k) != after.payload.get(k)}
-    assert changed == ({"budget"} if option_id == "increase_budget" else {"days"})
+    assert changed == ({"budget"} if option_id == "increase_budget" else {"days", "meal_count"})
     assert r["basket"]["total"] <= after.payload["budget"] + 0.01
 
 

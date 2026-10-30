@@ -39,6 +39,7 @@ def generate(agent, basket: Basket) -> MealPlan:
         portions=float(req.get("portions") or 0) or None,
         days=int(req.get("days", 7)),
         meals_per_day=float(req.get("meals_per_day", 2)),
+        meal_count=req.get("meal_count"),
     )
     # Recommended additional items for the meals that couldn't be planned (never auto-added).
     suggestions: dict[str, str] = {}

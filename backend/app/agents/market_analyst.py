@@ -148,10 +148,11 @@ class MarketAnalystAgent(Agent):
         base_total = round(totals[baseline.id], 2)
 
         def option(name: str, total: float, rid: int | None, missing: list[str], is_split: bool = False) -> dict:
-            saving = round(base_total - total, 2)
+            comparable = not missing and not unpriced[baseline.id]
+            saving = round(base_total - total, 2) if comparable else None
             return {
                 "name": name, "retailer_id": rid, "total": round(total, 2), "saving": saving,
-                "saving_pct": round(saving / base_total * 100, 1) if base_total else 0.0,
+                "saving_pct": (round(saving / base_total * 100, 1) if base_total else 0.0) if comparable else None,
                 "complete": not missing, "unpriced": missing, "is_split": is_split,
             }
 
@@ -161,7 +162,7 @@ class MarketAnalystAgent(Agent):
         cheapest = min(complete, key=lambda o: o["total"]) if complete else None
 
         insight = None
-        if cheapest:
+        if cheapest and cheapest["saving"] is not None:
             result = self.think(
                 "market_insight",
                 {
@@ -177,7 +178,8 @@ class MarketAnalystAgent(Agent):
                 rationale=insight, basket_id=b.id, session_id=b.session_id, llm=result, confidence=1.0,
             )
         else:
-            self.log("compare_prices", "Comparison incomplete: key items unpriced at every retailer", basket_id=b.id, session_id=b.session_id)
+            insight = "Savings unavailable: some items have no price at the baseline retailer or no complete option exists. Partial totals are not comparable."
+            self.log("compare_prices", insight, basket_id=b.id, session_id=b.session_id)
 
         return {
             "basket_id": b.id,

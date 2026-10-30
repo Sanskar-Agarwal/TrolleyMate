@@ -24,12 +24,12 @@ export default function PriceComparison() {
     a.name === data.baseline.name ? -1 : b.name === data.baseline.name ? 1 : 0
   );
   const maxTotal = Math.max(...data.options.map((o) => o.total));
-return (
+  return (
     <div className="stack pricing" style={{ "--gap": "18px" } as React.CSSProperties}>
       <div className="spread">
         <div className="stack" style={{ "--gap": "4px" } as React.CSSProperties}>
           <span className="eyebrow">AI Market Analyst · compare stores</span>
-          <h2>{data.cheapest ? `${data.cheapest.name} saves ${money(data.cheapest.saving)}` : "Comparison incomplete"}</h2>
+          <h2>{data.cheapest ? (data.cheapest.saving == null ? `${data.cheapest.name} has the lowest complete total` : `${data.cheapest.name} saves ${money(data.cheapest.saving)}`) : "Comparison incomplete"}</h2>
         </div>
         <p className="small muted" style={{ marginTop: 2 }}>Click a store row to compare against it</p>
       </div>
@@ -51,14 +51,14 @@ return (
               {!o.complete && <span className="chip chip-amber">{o.unpriced.length} unpriced</span>}
             </span>
             <span className="compare-bar">
-              <span style={{ width: `${(o.total / maxTotal) * 100}%` }} />
+              <span style={{ width: `${(maxTotal ? o.total / maxTotal : 0) * 100}%` }} />
             </span>
-            <span className="mono compare-total">{money(o.total)}</span>
+            <span className="mono compare-total">{money(o.total)}{!o.complete && " (partial)"}</span>
             {o.name === data.baseline.name
               ? <span className="compare-saving-wrap"><span className="chip">baseline</span></span>
               : <span className="compare-saving-wrap">
-                  <span className={`mono small saving-amount ${o.saving > 0 ? "saving" : "muted"}`}>
-                    {o.saving > 0 ? `save ${money(o.saving)} (${o.saving_pct}%)` : `extra ${money(-o.saving)}`}
+                  <span className={`mono small saving-amount ${o.saving != null && o.saving > 0 ? "saving" : "muted"}`}>
+                    {o.saving == null ? "Savings unavailable" : o.saving > 0 ? `save ${money(o.saving)} (${o.saving_pct}%)` : `extra ${money(-o.saving)}`}
                   </span>
                   {!o.is_split && <span className="chip chip-use-baseline">Use as baseline</span>}
                 </span>

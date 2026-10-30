@@ -10,11 +10,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
 
 from app.agents.context import AgentContext
 from app.api.common import done, household_out, not_found, own_household
 from app.core.deps import agent_context
-from app.domain import Household, Preference
+from app.domain import AuditRecord, Household, Preference
+from app.services.audit_privacy import audit_payload
 from app.services.preference_memory import PreferenceConflict, find_conflict, kind_label, normalise_value
 
 router = APIRouter(prefix="/households/me/preferences", tags=["preferences"])
@@ -85,6 +87,10 @@ def remove_preference(preference_id: int, ctx: AgentContext = Depends(agent_cont
     h = own_household(ctx)
     pref = _own_preference(h, preference_id)
     h.preferences.remove(pref)  # delete-orphan: the row itself is deleted, not just unlinked
+    # Remove private preference copies from this owner's legacy oversight payloads too.
+    # Confirmed shopping instructions remain a separate, historical agreement.
+    for record in ctx.db.scalars(select(AuditRecord).where(AuditRecord.actor_user_id == ctx.user.id)):
+        record.payload = audit_payload(record.payload, record.action)
     ctx.db.flush()
     ctx.manager.log("update_preferences", f"Forgot a {kind_label(pref.kind)} preference (#{preference_id})")
     return _reply(ctx, h)

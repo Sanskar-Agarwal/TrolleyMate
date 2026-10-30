@@ -28,7 +28,7 @@ export default function BuyTimingPanel() {
         <span className="eyebrow">AI Market Analyst · buy timing</span>
         <h2>{waits.length ? `Wait on ${waits.length} item${waits.length === 1 ? "" : "s"} to save about ${money(total)}` : "Now is a good time to buy"}</h2>
         <p className="muted small">
-          Based on recurring discounts at the store each item comes from. Daily staples and perishables that wouldn't keep are left out.
+          Based on recurring discounts at the store each item comes from. Daily staples and all perishables are left out.
           Advice only: your basket doesn't change.
         </p>
       </div>

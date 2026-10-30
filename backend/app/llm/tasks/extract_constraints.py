@@ -225,7 +225,7 @@ def mock(ctx: dict) -> dict:
     # Preferences (soft) — "no X" / "don't like X" where X is not an allergen
     for m in re.finditer(r"(?:don't|do not|dont) (?:like|eat|want) ([a-z]+)|\bhate ([a-z]+)|\bno ([a-z]+)", text):
         word = next(g for g in m.groups() if g)
-        if word not in _ALLERGEN_WORDS and word not in ("lactose", "more", "longer", "budget", "meat", "tree", "need", "target", "thanks"):
+        if word not in _ALLERGEN_WORDS and word not in ("lactose", "more", "longer", "budget", "meat", "tree", "need", "target", "thanks", "allergies", "allergy", "restrictions", "dietary", "preferences", "preference", "time"):
             out["preferences"].append(f"dislike:{word.rstrip('s') if word.endswith('ms') else word}")
     for m in re.finditer(r"\b(?:i like|i prefer|love) ([a-z]+)\b", text):
         out["preferences"].append(f"like:{m.group(1)}")

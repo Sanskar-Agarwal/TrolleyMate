@@ -1,12 +1,12 @@
 """UC-03 — Infeasibility negotiation ("Stretch my budget", 1.2.4). Owner: Negotiation & Substitution.
 
 When no basket fits, work out (a) the minimum budget that satisfies everything
-else, and (b) the most days the current budget can cover. The shopper picks one
+else, and (b) the most scheduled meals the current budget can cover. The shopper picks one
 (or types their own numbers) and the basket is rebuilt only then; a choice that
 still doesn't fit leaves the constraints as they were and offers new options.
 Cancelling keeps the confirmed constraints unchanged. Dietary rules are never
 offered as a trade-off: candidates are screened before the solver, and a choice
-can only change the budget, the days or the goal.
+can only change the budget, the meal schedule or the goal.
 """
 
 from __future__ import annotations
@@ -58,18 +58,25 @@ def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirement
                 "detail": f"+${min_budget - budget:.2f}, everything else unchanged",
                 "budget": min_budget,
             })
-        # Most whole days the current budget covers, everything else (restrictions, pins, goal) unchanged.
-        for days in range(req.days - 1, 0, -1):
-            smaller = Requirements.from_constraints(cs, days=days, budget=req.budget)
+        # Check every shorter schedule, including a partial final day. The first proven
+        # feasible result is the maximum; any unanswered larger solve prevents that claim.
+        schedule = meal_schedule(req.days, req.meals_per_day, req.meal_count)
+        total_meals = sum(map(len, schedule))
+        for count in range(total_meals - 1, 0, -1):
+            days = len(meal_schedule(req.days, req.meals_per_day, count))
+            smaller_cs = ConstraintSet.from_payload({**cs.payload, "days": days, "meal_count": count})
+            smaller = Requirements.from_constraints(smaller_cs, budget=req.budget)
             result = optimiser.solve(smaller, strategy, candidates, **pins)
-            timed_out = timed_out or result.failure_reason is not None
+            if result.failure_reason:
+                timed_out = True
+                break
             if result.feasible:
-                meals = len([m for slots in meal_schedule(days, req.meals_per_day) for m in slots])
                 options.append({
                     "id": "reduce_days",
-                    "label": f"Cover {days} day{'s' if days != 1 else ''} instead of {req.days}",
-                    "detail": f"{meals} meals per person within ${budget:.2f}" if budget is not None else f"{meals} meals per person",
-                    "days": days,
+                    "label": f"Cover {count} meals per person over {days} day{'s' if days != 1 else ''}",
+                    "detail": (f"Maximum feasible coverage within ${budget:.2f}; final day may be partial"
+                               if budget is not None else "Final day may be partial"),
+                    "days": days, "meal_count": count,
                     "person_meals": smaller.person_meals,
                 })
                 break
@@ -105,7 +112,7 @@ def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirement
 
 
 def apply(agent, session: ShoppingSession, *, option_id: str | None = None, budget: float | None = None,
-          days: int | None = None, goal: str | None = None):
+          days: int | None = None, meal_count: int | None = None, goal: str | None = None):
     """Accept an offered option, or custom numbers, then rebuild (UC-03 step 4)."""
     from app.workflows import basket_builder
 
@@ -115,7 +122,7 @@ def apply(agent, session: ShoppingSession, *, option_id: str | None = None, budg
     payload = dict(record.payload)  # restrictions, preferences and targets carry over untouched
     if option_id is not None and option_id not in OPTION_IDS:
         raise NegotiationError("Unknown trade-off option.")
-    if budget is None and days is None and goal is None:
+    if budget is None and days is None and meal_count is None and goal is None:
         raise NegotiationError("Choose a budget, a number of days or a different goal.")
     if budget is not None:
         if budget <= 0:
@@ -125,6 +132,10 @@ def apply(agent, session: ShoppingSession, *, option_id: str | None = None, budg
         if days < 1:
             raise NegotiationError("Days must be at least 1.")
         payload["days"] = int(days)
+        payload.pop("meal_count", None)
+    if meal_count is not None:
+        meal_schedule(int(payload["days"]), float(payload["meals_per_day"]), meal_count)
+        payload["meal_count"] = meal_count
     agent.log("accept_tradeoff", f"Shopper chose: budget ${payload.get('budget')}, {payload.get('days')} days", session_id=session.id)
     return basket_builder.build(agent, session, goal, payload_override=payload, origin="negotiation")
 

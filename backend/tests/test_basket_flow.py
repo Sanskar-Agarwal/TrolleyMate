@@ -10,10 +10,13 @@ def _force_escalation_scenario(basket_id: int) -> None:
     exercised regardless of what the optimiser chose."""
     from sqlalchemy import select
 
+    from app.agents.context import AgentContext
     from app.core.db import SessionLocal
-    from app.domain import Basket, BasketItem, Product, Retailer
+    from app.domain import Basket, BasketItem, ConstraintSetRecord, Product, Retailer
     from app.domain.enums import BasketStatus, ItemCompliance, VerdictStatus
     from app.domain.safety_audit import ComplianceVerdict, EscalationCase
+    from app.llm import get_llm
+    from app.services.review_evidence import product_fingerprint
     from app.services.session_state import household_of
 
     with SessionLocal() as db:
@@ -41,11 +44,15 @@ def _force_escalation_scenario(basket_id: int) -> None:
 
         basket.status = BasketStatus.pending_review
 
+        cs = db.get(ConstraintSetRecord, session.active_constraint_set_id)
+        restrictions = AgentContext(db=db, llm=get_llm()).compliance.restrictions_for(household, cs.payload)
         db.add(EscalationCase(
+            requirements=restrictions,
             verdict_id=verdict.id, basket_id=basket.id, household_id=household.id,
             basket_item_id=item.id, product_id=product.id,
             reason="Ingredient list missing from the retailer feed",
-            evidence={"kind": "missing_data", "detail": "Ingredient list missing from the retailer feed"},
+            evidence={"kind": "missing_data", "detail": "Ingredient list missing from the retailer feed",
+                      "product_fingerprint": product_fingerprint(product)},
         ))
         db.commit()
 

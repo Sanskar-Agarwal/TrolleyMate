@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.domain import Basket, Product, ShoppingSession
 from app.domain.enums import ItemCompliance
-from app.services.catalogue import find_products, match_item
+from app.services.catalogue import find_products, match_item, matching_items
 from app.services.session_state import active_constraints, household_of
 
 
@@ -24,6 +24,13 @@ def edit(agent, basket: Basket, text: str) -> dict:
     if not plan["operations"] and not plan.get("budget_change"):
         return {"status": "clarify", "question": plan.get("clarification_question") or "What would you like to change?"}
 
+    # Validate every target before any mutation; a compound edit is atomic.
+    for op in plan["operations"]:
+        if op["op"] in ("remove", "replace", "increase", "decrease") and op.get("target"):
+            matches = matching_items(basket, op["target"])
+            if len(matches) > 1:
+                return {"status": "clarify", "question": "Which product do you mean: "
+                        + ", ".join(i.product.name for i in matches) + "? Please use the full name."}
     record = active_constraints(db, session)
     payload = dict(record.payload)
     household = household_of(db, session)
@@ -80,7 +87,7 @@ def edit(agent, basket: Basket, text: str) -> dict:
         payload["budget"] = round(max(new, 1.0), 2)
         applied.append(f"budget ${payload['budget']:.2f}")
 
-    if conflicts and not applied:
+    if conflicts:
         return {"status": "conflict", "message": " ".join(conflicts), "suggestions": []}
 
     # Pantry/snack items aren't solver candidates: they're added directly after the solve. Keep the

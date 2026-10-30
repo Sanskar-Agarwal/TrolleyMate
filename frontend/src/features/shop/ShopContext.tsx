@@ -47,7 +47,7 @@ interface ShopValue {
   cancellingBuild: boolean;
   cancelBuild: () => Promise<void>;
   build: (goal: Goal) => Promise<void>;
-  negotiate: (choice: { option_id?: string; budget?: number; days?: number }) => Promise<void>;
+  negotiate: (choice: { option_id?: string; budget?: number; days?: number; meal_count?: number }) => Promise<void>;
   cancelNegotiation: () => Promise<void>;
   newSession: () => Promise<void>;
 }

@@ -3,8 +3,7 @@
 Looks for a recurring weekday discount in a product's timestamped price history at
 the basket's retailer and states the expected saving and how long to wait. Advice
 never changes the basket. It abstains when there isn't enough history, for daily
-staples (milk, bread...), and for a perishable that wouldn't keep until the
-discount. Advice built on demo history is labelled as such and is never worded as
+staples (milk, bread...), and for all perishables. Advice built on demo history is labelled as such and is never worded as
 an observed retailer forecast.
 """
 
@@ -53,6 +52,9 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
             continue
         product = item.product
         base = {"item_id": item.id, "product": product.name}
+        if product.perishable:
+            advice.append({**base, "action": "skip", "reason": "Perishable product: timing advice does not apply."})
+            continue
         if "daily" in product.tags:
             advice.append({**base, "action": "skip", "reason": "Needed day-to-day, so timing advice doesn't apply."})
             continue
@@ -95,12 +97,6 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
         evidence = f"{source}, it was discounted on {len(quotes)} of the last {len(weeks)} {WEEKDAYS[day]}s"
         if wait_days == 0 or saving < MIN_SAVING:
             advice.append({**base, "action": "buy_now", "reason": f"{evidence}; today's price is already the best.", "pattern_day": WEEKDAYS[day]})
-            continue
-        if product.perishable and wait_days > product.shelf_life_days:
-            # Can't reasonably be deferred: left out of timing advice, not told to wait.
-            advice.append({**base, "action": "skip",
-                           "reason": f"Perishable: it keeps {product.shelf_life_days} day(s), less than the {wait_days}-day wait, "
-                                     "so timing advice doesn't apply."})
             continue
         outcome = (f"waiting {wait_days} day{'s' if wait_days != 1 else ''} would save about ${saving:.2f} if that pattern held"
                    if summary["demo"] else

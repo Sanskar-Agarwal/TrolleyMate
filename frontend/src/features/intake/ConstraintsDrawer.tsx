@@ -30,6 +30,9 @@ export default function ConstraintsDrawer({ onClose }: { onClose: () => void }) 
             <dt className="eyebrow">Days</dt>
             <dd>{p.days}</dd>
           </div>
+          {p.meal_count != null && (
+            <div><dt className="eyebrow">Total meals per person</dt><dd>{p.meal_count} (final day may be partial)</dd></div>
+          )}
           {protein && (
             <div>
               <dt className="eyebrow">Protein</dt>

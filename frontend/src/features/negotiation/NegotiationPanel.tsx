@@ -24,9 +24,9 @@ export default function NegotiationPanel() {
               key={o.id}
               className="option"
               disabled={!!busy}
-              onClick={() => negotiate({ option_id: o.id, budget: o.budget, days: o.days })}
+              onClick={() => negotiate({ option_id: o.id, budget: o.budget, days: o.days, meal_count: o.meal_count })}
             >
-              <span className="eyebrow">{o.id === "increase_budget" ? "Spend a little more" : "Cover fewer days"}</span>
+              <span className="eyebrow">{o.id === "increase_budget" ? "Spend a little more" : "Cover fewer meals"}</span>
               <strong>{o.label}</strong>
               <span className="small muted">{o.detail}</span>
             </button>

@@ -335,3 +335,25 @@ def test_a_like_is_never_overridden_by_learning(client, riley):
     _decline_first_swap(client, riley)
     prefs = client.get("/api/households/me", headers=riley).json()["preferences"]
     assert not [p for p in prefs if p["source"] == "learned"]
+
+
+def test_intake_audit_does_not_copy_private_preference_values(client, riley, maya):
+    pref_id = remember(client, riley, "dislike", "anchovies").json()["preferences"][0]["id"]
+    sid, _ = confirmed(client, riley)
+    forget(client, riley, pref_id)
+    with SessionLocal() as db:
+        logs = list(db.scalars(select(AuditRecord).where(AuditRecord.session_id == sid)))
+        assert logs
+        assert "anchovies" not in str([a.payload for a in logs])
+    response = client.get(f"/api/audit?session_id={sid}", headers=maya)
+    assert "anchovies" not in response.text
+
+
+def test_chat_routing_does_not_copy_private_intake_text(client, riley, maya):
+    sid = client.post("/api/sessions", headers=riley).json()["session"]["id"]
+    response = client.post(f"/api/sessions/{sid}/chat", headers=riley, json={
+        "text": "$80 for 3 days, two meals a day for myself. I dislike anchovies."})
+    assert response.status_code == 200
+    logs = client.get(f"/api/audit?session_id={sid}", headers=maya).json()
+    routing = next(a for a in logs if a["action"] == "route_message")
+    assert "anchovies" not in str(routing["payload"])

@@ -11,7 +11,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -25,9 +24,6 @@ from app.domain.enums import (
     SessionStatus,
     Severity,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 class ShoppingSession(Base):
@@ -156,17 +152,22 @@ class MealCountConstraint(Constraint):
     meals_per_day: float
     days: int
     household_size: int
+    meal_count: int | None = None
     priority: int = 1
     relaxable: bool = True
 
     @property
     def person_meals(self) -> int:
-        return int(round(self.meals_per_day * self.days * self.household_size))
+        from app.services.meal_schedule import meal_schedule
+
+        return sum(map(len, meal_schedule(self.days, self.meals_per_day, self.meal_count))) * self.household_size
 
     def violated_by(self, b: BasketView) -> bool:  # coverage is enforced by the solver
         return False
 
     def describe(self) -> str:
+        if self.meal_count is not None:
+            return f"{self.meal_count} meals per person over {self.days} days (partial final day allowed)"
         return (
             f"{self.meals_per_day:g} meals/day for {self.days} days, "
             f"{self.household_size} {'person' if self.household_size == 1 else 'people'}"
@@ -208,6 +209,7 @@ class ConstraintSet:
                 meals_per_day=float(payload["meals_per_day"]),
                 days=int(payload["days"]),
                 household_size=size,
+                meal_count=payload.get("meal_count"),
             )
             items.append(meal)
         person_days = (meal.days * size) if meal else size

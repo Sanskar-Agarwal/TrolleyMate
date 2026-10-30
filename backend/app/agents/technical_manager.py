@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.domain import AuditRecord, Basket, BasketItem, ComplianceVerdict, ConstraintSetRecord, PriceQuote, User
 from app.domain.enums import UserRole
 from app.llm import LLMResult
+from app.services.audit_privacy import audit_payload
 
 UNAVAILABLE = "Reasoning unavailable for this recommendation."
 # What an explanation may cite. Anything missing is named, never filled in (1.2.14).
@@ -63,7 +64,7 @@ class TechnicalManagerAgent(Agent):
             session_id=session_id,
             basket_id=basket_id,
             actor_user_id=self.ctx.user.id if self.ctx.user else None,
-            payload=data,
+            payload=audit_payload(data, action),
         )
         self.db.add(record)
         self.db.flush()

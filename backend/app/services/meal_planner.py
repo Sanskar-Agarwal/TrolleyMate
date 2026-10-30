@@ -35,7 +35,7 @@ class Allocation:
     servings: float
 
 
-def plan(basket: Basket, household_size: int, days: int, meals_per_day: float, portions: float | None = None) -> dict:
+def plan(basket: Basket, household_size: int, days: int, meals_per_day: float, portions: float | None = None, meal_count: int | None = None) -> dict:
     """One meal uses `portions` adult-equivalent serves; head count is the legacy default."""
     serve = float(household_size if portions is None else portions)
     if not math.isfinite(serve) or serve <= 0:
@@ -47,7 +47,7 @@ def plan(basket: Basket, household_size: int, days: int, meals_per_day: float, p
               i.product.shelf_life_days, i.product.perishable)
         for i in basket.items if not i.withheld
     ]
-    schedule = meal_schedule(days, meals_per_day)
+    schedule = meal_schedule(days, meals_per_day, meal_count)
     main_tags = frozenset(t for r in recipes if r["meal_type"] == "main" for need in r["needs"] for t in need)
     requested = sum(len(slots) for slots in schedule)
     used_count: dict[str, int] = {}

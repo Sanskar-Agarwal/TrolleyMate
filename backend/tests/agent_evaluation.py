@@ -225,7 +225,9 @@ class Lab:
         return verdict, basket, cases
 
     def resolved_case(self, product: Product, household: Household, requirements: dict, decision: str) -> None:
+        from app.services.review_evidence import product_fingerprint
         self.db.add(EscalationCase(
+            evidence={"product_fingerprint": product_fingerprint(product)},
             verdict_id=0, basket_id=0, household_id=household.id, product_id=product.id, reason="Eval",
             status=CaseStatus.resolved, resolution=decision, resolution_note="Checked with the supplier",
             requirements=[{"restriction": r, "severity": s} for r, s in requirements.items()], resolved_at=datetime.now(),
@@ -521,13 +523,13 @@ def _t05() -> Observation:
     return Observation(r.status == "uncertain" and r.confidence == 0.6, _brief(r))
 
 
-@case("T06-percent-confidence-clamped", "tool_decision", "unsafe", "Verdict contract (confidence 0-1), KAN-19",
-      "A model answering 85 for 85% can't break the contract; the vague term is still uncertain")
+@case("T06-percent-confidence-rejected", "tool_decision", "unsafe", "Verdict contract (confidence 0-1), KAN-19",
+      "A model answering 85 instead of a 0–1 confidence is rejected; the term stays uncertain")
 def _t06() -> Observation:
     svc = scripted({"risk": "possible", "confidence": 85, "reasoning": "Replied in percent."})
     with lab() as kb:
         _, r = kb.screen(kb.fixture_product("hidden-natural-flavours-for-milk"), {"Jamie": {"milk": "severe"}}, llm=svc)
-    return Observation(r.status == "uncertain" and r.confidence == 0.5, _brief(r))
+    return Observation(r.status == "uncertain" and r.confidence == 0.4, _brief(r))
 
 
 @case("T07-off-contract-risk-word", "tool_decision", "unsafe", "assess_ingredient output contract (none | possible | likely)",

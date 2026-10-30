@@ -198,7 +198,9 @@ def test_zero_baseline_does_not_divide():
 
     assert result["baseline"]["total"] == 0.00
     for opt in result["options"]:
-        assert opt["saving_pct"] == 0.0
+        assert opt["saving_pct"] is None
+        assert opt["saving"] is None
+    analyst.think.assert_not_called()
 
 
 def test_split_plan_lists_cheapest_store_for_every_item_across_four_retailers(client, riley):
@@ -219,3 +221,12 @@ def test_split_plan_lists_cheapest_store_for_every_item_across_four_retailers(cl
         assert planned[row["item_id"]] == row["cheapest_retailer_id"]
         cheapest_line = row["prices"][str(row["cheapest_retailer_id"])]["line"]
         assert all(p["line"] >= cheapest_line for p in row["prices"].values())
+
+
+def test_incomplete_option_never_claims_a_saving():
+    quotes = dict(QUOTE_MAP)
+    del quotes[(102, 2)]
+    result = _make_analyst(RETAILERS, quotes).compare(_basket(ITEMS), baseline_id=1)
+    incomplete = next(o for o in result["options"] if o["retailer_id"] == 2)
+    assert not incomplete["complete"]
+    assert incomplete["saving"] is None and incomplete["saving_pct"] is None
