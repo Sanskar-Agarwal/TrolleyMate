@@ -83,6 +83,7 @@ export interface BasketItem {
   compliance: "compliant" | "violation" | "uncertain" | "unchecked";
   withheld: boolean;
   rationale: string;
+  flags: ("out_of_stock" | "over_budget" | "failed_review")[];
 }
 
 export interface Nutrition {
@@ -176,6 +177,7 @@ export interface NegotiationOption {
   detail: string;
   budget?: number;
   days?: number;
+  person_meals?: number;
 }
 
 export interface Negotiation {
@@ -186,6 +188,7 @@ export interface Negotiation {
   days: number;
   person_meals: number;
   shortfall: number | null;
+  timed_out?: boolean;
 }
 
 export interface MealSlot {
@@ -238,7 +241,7 @@ export interface Substitution {
   status: "pending" | "accepted" | "rejected" | "discarded";
   reason: string;
   trade_off: string;
-  facts: { saving?: number; notes?: string[]; retailer?: string; unit_price?: number; unit_basis?: string };
+  facts: { saving?: number; notes?: string[]; retailer?: string; unit_price?: number; unit_basis?: string; no_alternative?: boolean };
   basket_item_id: number;
   original: { id: number; name: string };
   replacement: { id: number; name: string } | null;
@@ -286,9 +289,12 @@ export interface TimingAdvice {
   action: "wait" | "buy_now" | "none" | "skip";
   reason: string;
   wait_days?: number;
+  wait_until?: string;
   pattern_day?: string;
   expected_saving?: number;
   confidence?: number;
+  /** The timestamped history behind the advice; demo means generated, not observed at the retailer. */
+  history?: { weeks: number; quotes: number; from: string | null; to: string | null; demo: boolean };
 }
 
 /** The recorded inputs an explanation cites (KAN-27). Missing kinds are listed, never filled in. */

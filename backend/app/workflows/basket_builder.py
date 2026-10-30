@@ -103,7 +103,8 @@ def build(
                                 message=f"{result.message} Your previous basket is unchanged. Retry the search.")
         from app.workflows import negotiation
 
-        info = negotiation.analyse(agent, session, cs, solve_req, strategy, candidates, result.message)
+        info = negotiation.analyse(agent, session, cs, solve_req, strategy, candidates, result.message,
+                                   min_qty=min_qty, max_qty=max_qty, reserve=reserve)
         checkpoint()
         if payload_override is None:
             # The confirmed request itself can't be met. (A failed edit or trade-off

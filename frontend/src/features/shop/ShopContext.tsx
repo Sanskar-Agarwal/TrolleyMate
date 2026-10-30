@@ -48,6 +48,7 @@ interface ShopValue {
   cancelBuild: () => Promise<void>;
   build: (goal: Goal) => Promise<void>;
   negotiate: (choice: { option_id?: string; budget?: number; days?: number }) => Promise<void>;
+  cancelNegotiation: () => Promise<void>;
   newSession: () => Promise<void>;
 }
 
@@ -188,7 +189,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
           if (kind === "compare") setView("prices");
           const edit = r.response.edit as { status?: string; suggestions?: Negotiation["options"]; message?: string } | undefined;
           if (edit?.status === "conflict" && edit.suggestions?.length) {
-            setNegotiation({ message: edit.message ?? "", options: edit.suggestions, blocked_roles: [], budget: null, days: 0, person_meals: 0, shortfall: null });
+            setNegotiation({ message: edit.message ?? "", options: edit.suggestions, blocked_roles: [], budget: null, days: 0, person_meals: 0, shortfall: null, timed_out: false });
           }
         }
         return r !== undefined;
@@ -257,6 +258,13 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         if (r) setNegotiation(r.status === "infeasible" ? r.negotiation : null);
+      },
+      cancelNegotiation: async () => {
+        if (!sid) return;
+        const r = await run("Keeping your original request", () => baskets.cancelNegotiation(sid), {
+          toast: () => ["Kept your request as it was. Nothing was changed.", "info"],
+        });
+        if (r) setNegotiation(null);
       },
       newSession: async () => {
         const r = await run("Starting a new shop", () => sessions.create(), { refresh: false, toast: () => ["New shop started", "info"] });

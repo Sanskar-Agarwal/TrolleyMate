@@ -29,7 +29,7 @@ function show(plan: MealPlan | null = null, status: Basket["status"] = "accepted
     correct: vi.fn().mockResolvedValue(undefined), clarify: vi.fn().mockResolvedValue(undefined),
     submitForm: vi.fn().mockResolvedValue(undefined), confirm: vi.fn().mockResolvedValue(undefined),
     cancel: vi.fn().mockResolvedValue(undefined), build: vi.fn().mockResolvedValue(undefined),
-    negotiate: vi.fn().mockResolvedValue(undefined), newSession: vi.fn().mockResolvedValue(undefined),
+    negotiate: vi.fn().mockResolvedValue(undefined), cancelNegotiation: vi.fn().mockResolvedValue(undefined), newSession: vi.fn().mockResolvedValue(undefined),
   });
   render(<MealPlanView />);
 }

@@ -3,13 +3,14 @@ State machine 9.2). Owner: Negotiation & Substitution.
 
 Candidates are compliance-checked before the shopper ever sees them. A declined
 swap is remembered for the session so it isn't offered again. If nothing viable
-exists the item is removed and the shopper is told.
+exists the shopper is told, and an item that can't stay (out of stock, failed
+review) is removed. A swap is applied only on acceptance, after a fresh safety check.
 """
 
 from __future__ import annotations
 
-from app.domain import Basket, BasketItem, Product, Substitution
-from app.domain.enums import BasketStatus, ItemCompliance, SubReason, SubStatus
+from app.domain import Basket, BasketItem, PriceQuote, Product, Substitution
+from app.domain.enums import BasketStatus, ItemCompliance, QuoteStatus, SubReason, SubStatus
 from app.services.catalogue import optimisable_products, product_tokens
 from app.services.dietary_rules import RESTRICTION_RULES
 from app.services.session_state import active_constraints, household_of
@@ -19,11 +20,48 @@ class SubstitutionError(ValueError):
     pass
 
 
+# The item can't stay in the basket as it is, so if no swap is found or the swap is declined it is removed.
+# An over-budget or cheaper-equivalent item is still safe and in stock, so it stays.
+REMOVE_IF_UNRESOLVED = (SubReason.out_of_stock, SubReason.failed_review)
+
+
+def item_flags(basket: Basket, quotes: dict[int, PriceQuote]) -> dict[int, list[str]]:
+    """System flags per basket item (Activity 7.2 "item flagged"): the reasons a substitute is due.
+    `quotes` maps quote id → the item's recorded quote; no feed refresh happens here."""
+    over = basket.budget is not None and basket.total > basket.budget + 1e-6
+    flags: dict[int, list[str]] = {}
+    for i in basket.items:
+        found = []
+        quote = quotes.get(i.quote_id)
+        if quote is not None and quote.status == QuoteStatus.unavailable:
+            found.append(SubReason.out_of_stock)
+        if over and not i.withheld:
+            found.append(SubReason.over_budget)
+        if i.withheld or i.compliance == ItemCompliance.violation:
+            found.append(SubReason.failed_review)
+        flags[i.id] = found
+    return flags
+
+
+def _check_reason(agent, basket: Basket, item: BasketItem, reason: str) -> None:
+    """A system reason must actually hold: it decides whether the item may be removed."""
+    if reason == SubReason.out_of_stock:
+        if agent.ctx.analyst.current_quote(item.product, item.retailer) is not None:
+            raise SubstitutionError(f"{item.product.name} is still in stock at {item.retailer.name}.")
+    elif reason == SubReason.over_budget:
+        if basket.budget is None or basket.total <= basket.budget + 1e-6:
+            raise SubstitutionError("The basket is within budget.")
+    elif reason == SubReason.failed_review:
+        if not (item.withheld or item.compliance == ItemCompliance.violation):
+            raise SubstitutionError(f"{item.product.name} has not failed a dietary review.")
+
+
 def propose(agent, item: BasketItem, reason: str = SubReason.user_requested) -> Substitution:
     db, ctx = agent.db, agent.ctx
     from app.domain import ShoppingSession
 
     basket: Basket = item.basket
+    _check_reason(agent, basket, item, reason)
     session = db.get(ShoppingSession, basket.session_id)
     household = household_of(db, session)
     payload = (active_constraints(db, session).payload if session.active_constraint_set_id else {})
@@ -53,9 +91,16 @@ def propose(agent, item: BasketItem, reason: str = SubReason.user_requested) -> 
 
     if not viable:
         sub.status = SubStatus.discarded
-        sub.trade_off = f"No suitable substitute for {original.name} fits your dietary rules and budget."
         name = original.name
-        if reason != SubReason.user_requested:
+        if reason == SubReason.cheaper:
+            sub.trade_off = f"No cheaper substitute for {name} fits your dietary rules. Keeping {name}."
+        elif reason in REMOVE_IF_UNRESOLVED:
+            sub.trade_off = f"No suitable substitute for {name} fits your dietary rules and budget, so it was removed."
+        else:
+            sub.trade_off = f"No suitable substitute for {name} fits your dietary rules and budget. Keeping {name}."
+        sub.facts = {"no_alternative": True, "considered": len(pool), "compliant": len(compliant),
+                     "declined_before": sum(1 for a, _ in rejected if a == original.id)}
+        if reason in REMOVE_IF_UNRESOLVED:
             _remove_item(basket, item, f"{name} was removed — no suitable substitute was available.")
         agent.log("propose_substitution", f"No viable substitute for {name}", session_id=session.id, basket_id=basket.id)
         db.flush()
@@ -85,15 +130,20 @@ def propose(agent, item: BasketItem, reason: str = SubReason.user_requested) -> 
 
 
 def accept(agent, sub: Substitution) -> Basket:
+    """Apply the swap. Restrictions can change while a swap waits, so the replacement is screened
+    again; if it is no longer safe the swap is refused and the original stays."""
     if sub.status != SubStatus.pending or sub.replacement_product_id is None:
         raise SubstitutionError("This substitution is no longer pending.")
     db = agent.db
     item = db.get(BasketItem, sub.basket_item_id)
     if item is None:
         raise SubstitutionError("The basket item no longer exists.")
+    if item.product_id != sub.original_product_id:
+        raise SubstitutionError("This item has changed since the swap was offered. Ask for a new substitute.")
     replacement = db.get(Product, sub.replacement_product_id)
     # Screened when it was proposed; checked again now, as the household's restrictions or the
-    # product's data may have changed since (KAN-23).
+    # product's data may have changed since (KAN-23). Refused, so the original stays; every retry is
+    # checked again, so a pending swap that is no longer safe can never be applied.
     from app.domain import ShoppingSession
 
     session = db.get(ShoppingSession, sub.session_id)
@@ -133,7 +183,7 @@ def reject(agent, sub: Substitution) -> Basket:
     sub.reject()
     item = db.get(BasketItem, sub.basket_item_id)
     basket = item.basket
-    if sub.reason in (SubReason.out_of_stock, SubReason.failed_review):
+    if sub.reason in REMOVE_IF_UNRESOLVED:
         _remove_item(basket, item, f"{item.product.name} was removed from your basket.")
     agent.log("reject_substitution", f"Declined: {sub.original.name} → {sub.replacement.name if sub.replacement else '—'}",
               basket_id=basket.id, session_id=session.id)

@@ -52,7 +52,7 @@ beforeEach(() => {
     chat: vi.fn().mockResolvedValue(true), correct: vi.fn().mockResolvedValue(undefined),
     clarify: vi.fn().mockResolvedValue(undefined), submitForm: vi.fn().mockResolvedValue(undefined),
     confirm: vi.fn().mockResolvedValue(undefined), cancel: vi.fn().mockResolvedValue(undefined),
-    build: vi.fn().mockResolvedValue(undefined), negotiate: vi.fn().mockResolvedValue(undefined),
+    build: vi.fn().mockResolvedValue(undefined), negotiate: vi.fn().mockResolvedValue(undefined), cancelNegotiation: vi.fn().mockResolvedValue(undefined),
     newSession: vi.fn().mockResolvedValue(undefined),
   };
   vi.mocked(useShop).mockImplementation(() => shop);

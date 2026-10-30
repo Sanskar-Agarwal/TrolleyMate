@@ -48,6 +48,9 @@ class PersonalShopperAgent(Agent):
     def negotiate(self, s: ShoppingSession, **choice) -> basket_builder.BuildOutcome:
         return negotiation.apply(self, s, **choice)
 
+    def cancel_negotiation(self, s: ShoppingSession) -> dict:
+        return negotiation.cancel(self, s)
+
     # UC-04
     def find_substitute(self, item: BasketItem, reason: str = "user_requested") -> Substitution:
         return substitution.propose(self, item, reason)

@@ -5,7 +5,7 @@ import "./negotiation.css";
 
 /** UC-03: "Stretch my budget": the request can't be met; offer trade-offs, never on safety. */
 export default function NegotiationPanel() {
-  const { negotiation, negotiate, busy, state } = useShop();
+  const { negotiation, negotiate, cancelNegotiation, busy, state } = useShop();
   const n = negotiation!;
   const c = state?.constraints?.payload;
   const [budget, setBudget] = useState(String(c?.budget ?? n.budget ?? ""));
@@ -53,6 +53,12 @@ export default function NegotiationPanel() {
         </button>
       </form>
       {n.shortfall != null && <p className="small muted mono">Shortfall at current settings: {money(n.shortfall)}</p>}
+      {n.timed_out && <p className="small muted">The search hit its time limit, so an option may be missing.</p>}
+      <div className="row">
+        <button className="btn btn-ghost btn-sm" onClick={() => void cancelNegotiation()} disabled={!!busy}>
+          Keep my request as it is
+        </button>
+      </div>
       <p className="small muted">Allergies and dietary restrictions are never part of the trade-off.</p>
     </div>
   );

@@ -222,11 +222,14 @@ class MarketAnalystAgent(Agent):
     # --- Buy timing (1.2.6) -----------------------------------------------
 
     def buy_timing(self, b: Basket) -> list[dict]:
+        """Advice only: reads price history and never touches the basket."""
         advice = buy_timing.advise(self.db, b)
         waits = [a for a in advice if a["action"] == "wait"]
+        demo = any(a.get("history", {}).get("demo") for a in advice)
         self.log(
             "buy_timing",
-            f"{len(waits)} item(s) worth waiting for" if waits else "No timing advice worth acting on",
+            (f"{len(waits)} item(s) worth waiting for" if waits else "No timing advice worth acting on")
+            + (" (demo price history)" if demo else ""),
             rationale="; ".join(a["reason"] for a in waits)[:500],
             basket_id=b.id, session_id=b.session_id, payload={"advice": advice},
         )

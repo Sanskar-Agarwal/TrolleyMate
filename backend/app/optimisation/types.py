@@ -158,3 +158,8 @@ class OptimisationResult:
     solver_ms: int = 0
     requirements: Requirements | None = None
     failure_reason: str | None = None  # timeout | solver_error; None means proven/structural infeasibility
+
+    @property
+    def timed_out(self) -> bool:
+        """The solver hit its time limit: no answer, which is not proof of infeasibility (UC-02 ext 2b/3b)."""
+        return self.failure_reason == "timeout"

@@ -79,6 +79,8 @@ export const baskets = {
     api<WithTrace<{ status: "cancellation_requested" | "already_finished" | "not_running"; outcome?: "committed" | "cancelled" | "failed" }>>(
       `/sessions/${sessionId}/basket-builds/${operationId}/cancel`, { body: {} },
     ),
+  cancelNegotiation: (sessionId: number) =>
+    api<WithTrace<{ status: "cancelled"; basket: Basket | null }>>(`/sessions/${sessionId}/negotiate/cancel`, { body: {} }),
   get: (id: number) => api<Basket>(`/baskets/${id}`),
   accept: (id: number) => api<WithTrace<{ basket: Basket }>>(`/baskets/${id}/accept`, { body: {} }),
 };
@@ -91,7 +93,8 @@ export const substitutions = {
   reject: (id: number) => api<WithTrace<{ substitution: Substitution; basket: Basket }>>(`/substitutions/${id}/reject`, { body: {} }),
 };
 export const timing = {
-  advice: (basketId: number) => api<WithTrace<{ advice: TimingAdvice[] }>>(`/baskets/${basketId}/buy-timing`),
+  advice: (basketId: number) =>
+    api<WithTrace<{ advice: TimingAdvice[]; demo_history: boolean; history_note: string | null }>>(`/baskets/${basketId}/buy-timing`),
 };
 
 // --- UC-05 Pricing & UC-09 editing (Chester) ------------------------------------

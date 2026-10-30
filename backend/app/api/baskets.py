@@ -4,7 +4,7 @@
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.agents.context import AgentContext
@@ -24,6 +24,9 @@ class BuildIn(BaseModel):
 
 
 class NegotiateIn(BaseModel):
+    # Only the budget, the days and the goal are negotiable; anything else (e.g. restrictions) is refused.
+    model_config = ConfigDict(extra="forbid")
+
     option_id: str | None = None
     budget: float | None = Field(default=None, gt=0)
     days: int | None = Field(default=None, ge=1, le=31)
@@ -85,6 +88,14 @@ def cancel_build(session_id: int, operation_id: UUID, ctx: AgentContext = Depend
         return {**builds.cancel(session_id, str(operation_id)), "trace": []}
     except BuildConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/sessions/{session_id}/negotiate/cancel")
+def cancel_negotiation(session_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
+    out = ctx.shopper.cancel_negotiation(own_session(ctx, session_id))
+    basket = out["basket"]
+    return done(ctx, {"status": "cancelled", "constraint_set_id": out["constraint_set_id"], "version": out["version"],
+                      "basket": basket_out(ctx, basket) if basket else None})
 
 
 @router.get("/baskets/{basket_id}")

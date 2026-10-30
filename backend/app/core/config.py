@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     price_max_age_hours: int = 24
     review_sla_minutes: int = 60
     solver_timeout_ms: int = 5000
+    # The seeded 8-week price history is generated for the demo, not observed at a retailer, so buy-timing
+    # advice built on it is labelled as demo data (1.2.6). Set false once real recorded history is imported.
+    demo_price_history: bool = True
 
     @property
     def cors_origin_list(self) -> list[str]:
