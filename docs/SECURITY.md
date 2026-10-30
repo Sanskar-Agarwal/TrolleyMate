@@ -1,6 +1,6 @@
 # Authentication and request security
 
-Implemented on Sanskar during the 30 October 2026 UAT follow-up.
+
 
 ## Password storage
 
