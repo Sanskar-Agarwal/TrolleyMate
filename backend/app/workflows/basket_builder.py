@@ -6,8 +6,7 @@
   (4) Nutrition & Compliance verifies basket    → passed / escalated (items withheld)
   (5) Personal Shopper presents it with an explanation
 
-If (3) is infeasible, UC-03 negotiation is invoked instead (extension 3a). If the solver
-times out, that is reported with a retry and is not treated as infeasibility (extension 3b).
+If (3) is infeasible, UC-03 negotiation is invoked instead (extension 3a).
 Owner: Intake & Optimisation.
 """
 
@@ -22,6 +21,7 @@ from app.domain import Basket, BasketItem, ConstraintSetRecord, ShoppingSession
 from app.domain.enums import BasketStatus, ItemCompliance, SessionStatus, VerdictStatus
 from app.domain.requests_constraints import ConstraintSet
 from app.optimisation import BasketOptimiser, Requirements, strategy_for
+from app.services.build_control import checkpoint
 from app.services.catalogue import disliked_by, optimisable_products
 from app.services.session_state import active_constraints, household_of, latest_basket
 
@@ -32,11 +32,12 @@ class BuildError(ValueError):
 
 @dataclass
 class BuildOutcome:
-    status: str  # ok | infeasible | timed_out
+    status: str  # ok | infeasible | retryable
     basket: Basket | None = None
     negotiation: dict | None = None
-    message: str = ""
     excluded: list[dict] = field(default_factory=list)
+    reason: str | None = None
+    message: str | None = None
 
 
 def build(
@@ -55,6 +56,7 @@ def build(
     """`reserve` is budget already committed to items added outside the solver (pantry/snack
     additions from a chat edit); the solver must fit the rest of the basket into what's left."""
     db, ctx = agent.db, agent.ctx
+    checkpoint()
     record = active_constraints(db, session)
     if record is None:
         raise BuildError("Confirm your shopping constraints before building a basket.")
@@ -63,6 +65,7 @@ def build(
     goal = goal or session.goal
     strategy = strategy_for(goal)
     household = household_of(db, session)
+    previous_status = session.status
     session.status = SessionStatus.optimising
 
     # (2) Screen first, so we only price products that could ever be bought.
@@ -72,6 +75,7 @@ def build(
     skipped_prefs = {p.id: disliked_by(p, preferences) for p in products}
     products = [p for p in products if not skipped_prefs[p.id] or p.id in (min_qty or {})]
     screening = ctx.compliance.screen(products, restrictions, household_id=household.id, session_id=session.id)
+    checkpoint()
     allowed = [p for p in products if screening[p.id].status != ItemCompliance.violation]
     excluded = [screening[p.id].as_dict() for p in products if screening[p.id].status == ItemCompliance.violation]
     favoured = ctx.compliance.favoured_products(allowed, screening, preferences)  # 1.2.12 likes and brands
@@ -86,23 +90,22 @@ def build(
     )
 
     # (3) Solve.
+    checkpoint()
     req = Requirements.from_constraints(cs)
     optimiser = BasketOptimiser()
     solve_req = replace(req, budget=round(req.budget - reserve, 2)) if reserve and req.budget is not None else req
     result = optimiser.solve(solve_req, strategy, candidates, min_qty=min_qty, max_qty=max_qty, prefer=(prefer or set()) | set(favoured))
-    if result.timed_out:
-        # Not proof that nothing fits (UC-02 ext 3b): leave the request and any basket as they were.
-        has_basket = latest_basket(db, session.id) is not None
-        session.status = SessionStatus.basket_ready if has_basket else SessionStatus.open
-        agent.log("solver_timeout", "The optimiser hit its time limit; offered a retry",
-                  rationale=f"{result.solver_ms} ms", session_id=session.id)
-        return BuildOutcome(status="timed_out", excluded=excluded,
-                            message="Building the basket took too long, so nothing was changed. Please try again.")
+    checkpoint()
     if not result.feasible:
+        if result.failure_reason:
+            session.status = previous_status
+            return BuildOutcome(status="retryable", reason=result.failure_reason, excluded=excluded,
+                                message=f"{result.message} Your previous basket is unchanged. Retry the search.")
         from app.workflows import negotiation
 
         info = negotiation.analyse(agent, session, cs, solve_req, strategy, candidates, result.message,
                                    min_qty=min_qty, max_qty=max_qty, reserve=reserve)
+        checkpoint()
         if payload_override is None:
             # The confirmed request itself can't be met. (A failed edit or trade-off
             # leaves the request — and the current basket — as they were.)
@@ -116,9 +119,6 @@ def build(
     # Persist a new constraint version only now that the edit/negotiation is known to be feasible.
     if payload_override is not None:
         record = _new_version(db, session, payload_override, origin)
-
-    for old in db.scalars(select(Basket).where(Basket.session_id == session.id, Basket.status != BasketStatus.superseded)):
-        old.status = BasketStatus.superseded
 
     basket = Basket(session_id=session.id, constraint_set_id=record.id, goal=goal, budget=req.budget, status=BasketStatus.optimised)
     db.add(basket)
@@ -144,7 +144,14 @@ def build(
 
     # (4) Verify.
     verdict = ctx.compliance.verify(basket, household, payload, req)
+    checkpoint()
+    if verdict.status not in (VerdictStatus.passed, VerdictStatus.escalated):
+        raise BuildError("The candidate failed dietary verification. Your previous basket is unchanged. Retry the search.")
     basket.status = BasketStatus.pending_review if verdict.status == VerdictStatus.escalated else BasketStatus.verified
+    if basket.status == BasketStatus.verified:
+        for old in db.scalars(select(Basket).where(Basket.session_id == session.id, Basket.id != basket.id,
+                                                  Basket.status != BasketStatus.superseded)):
+            old.status = BasketStatus.superseded
     basket.recalc_total()
     nutrition = ctx.compliance.assess_nutrition(basket, req)
 
@@ -178,6 +185,7 @@ def build(
         "notifications": [f"{name} is held until a dietitian confirms it's safe for your household." for name in withheld],
     }
     explanation = ctx.manager.explain_for(basket)  # grounded in the facts + audit trail written above
+    checkpoint()
     agent.log(
         "optimise_basket",
         f"{strategy.label} basket: {len(basket.items)} items, ${basket.total:.2f} of ${req.budget or 0:.2f}",
@@ -197,7 +205,9 @@ def refresh_explanation(agent, basket: Basket) -> None:
     from app.agents.nutrition_compliance import saved_requirements
 
     notes = dict(basket.notes or {})
+    notes.pop("summary", None)
     if "facts" not in notes:
+        basket.notes = notes
         return
     req = saved_requirements(basket)
     if req is not None:

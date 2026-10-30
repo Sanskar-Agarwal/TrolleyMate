@@ -147,12 +147,14 @@ def test_a_swap_that_became_unsafe_is_not_applied(client, riley):
         db.commit()
 
     r = client.post(f"/api/substitutions/{sub['id']}/accept", headers=riley)
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["substitution"]["status"] == "discarded"
-    assert "no longer fits" in body["substitution"]["trade_off"]
-    assert item_in(body["basket"], item["id"])["product"]["id"] == item["product"]["id"]
-    assert body["basket"]["total"] == basket["total"]
+    assert r.status_code == 400 and "no longer passes" in r.json()["detail"]  # KAN-23 safety gate S10
+    after = client.get(f"/api/baskets/{basket['id']}", headers=riley).json()
+    assert item_in(after, item["id"])["product"]["id"] == item["product"]["id"]
+    assert after["total"] == basket["total"]
+    with SessionLocal() as db:
+        assert db.get(Substitution, sub["id"]).status != "accepted"
+    # Retrying is checked again, so it can never go through.
+    assert client.post(f"/api/substitutions/{sub['id']}/accept", headers=riley).status_code == 400
 
 
 def test_out_of_stock_item_is_flagged_and_removed_when_nothing_fits(client, riley):

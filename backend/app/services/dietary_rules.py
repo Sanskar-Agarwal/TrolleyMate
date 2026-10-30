@@ -16,11 +16,11 @@ RESTRICTION_RULES: dict[str, dict] = {
     "fish": {"label": "Fish", "kind": "allergy", "violating_tags": {"fish"}},
     "shellfish": {"label": "Shellfish", "kind": "allergy", "violating_tags": {"shellfish"}},
     "sesame": {"label": "Sesame", "kind": "allergy", "violating_tags": {"sesame"}},
-    "vegetarian": {"label": "Vegetarian", "kind": "diet", "violating_tags": {"meat", "fish", "shellfish", "gelatine"}},
+    "vegetarian": {"label": "Vegetarian", "kind": "diet", "violating_tags": {"meat", "fish", "shellfish", "gelatine", "animal_rennet"}},
     "vegan": {
         "label": "Vegan",
         "kind": "diet",
-        "violating_tags": {"meat", "fish", "shellfish", "gelatine", "milk", "egg", "honey"},
+        "violating_tags": {"meat", "fish", "shellfish", "gelatine", "animal_rennet", "milk", "egg", "honey"},
     },
     "halal": {"label": "Halal", "kind": "diet", "violating_tags": {"pork", "alcohol"}},
     "pork_free": {"label": "No pork", "kind": "diet", "violating_tags": {"pork"}},
@@ -44,6 +44,22 @@ _ALIASES = {
 def normalise_restriction(value: str) -> str:
     key = value.strip().lower().replace(" ", "_").replace("-", "_")
     return _ALIASES.get(key, key)
+
+
+# Allergen words as labels write them ("May contain: Tree Nuts", a product tagged "nuts").
+_LABEL_WORDS = {
+    "dairy": "milk", "nuts": "tree_nuts", "nut": "tree_nuts", "tree_nut": "tree_nuts", "peanut": "peanuts",
+    "eggs": "egg", "prawns": "shellfish", "crustacea": "shellfish", "sesame_seeds": "sesame", "soya": "soy",
+}
+
+
+def label_tag(value: str) -> str | None:
+    """The ingredient tag a label word names ('Tree Nuts' → tree_nuts), or None for a free-from
+    claim ('gluten-free', 'dairy_free'): that says something is absent, and isn't trusted either way."""
+    key = value.strip().lower().replace(" ", "_").replace("-", "_")
+    if key.endswith("_free"):
+        return None
+    return _LABEL_WORDS.get(key, key)
 
 
 def violating_tags(restriction: str) -> set[str]:

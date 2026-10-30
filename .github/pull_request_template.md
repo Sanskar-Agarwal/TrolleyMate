@@ -1,6 +1,6 @@
 ## Jira
 
-TM-<!-- issue number -->
+KAN-<!-- issue number -->
 
 ## What changed
 
@@ -8,9 +8,14 @@ TM-<!-- issue number -->
 
 ## How I tested it
 
-- [ ] `pytest` passes (backend)
-- [ ] `npm run build` passes (frontend)
-- [ ] Clicked through the flow in the browser with `LLM_PROVIDER=mock`
+<!-- Record only checks actually run. Mark unrelated checks N/A; for docs-only changes,
+     record link, command and consistency checks instead of claiming application tests. -->
+
+- [ ] `python -m ruff check app tests` passes (from backend/)
+- [ ] `python -m pytest` passes (from backend/)
+- [ ] `npm test` passes (from frontend/)
+- [ ] `npm run build` passes (from frontend/)
+- [ ] (If behaviour/UI changed) clicked through the flow with `LLM_PROVIDER=mock`
 - [ ] (If prompts changed) tried it with a real LLM
 
 ## Screenshots

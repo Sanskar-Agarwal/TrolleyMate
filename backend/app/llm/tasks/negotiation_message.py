@@ -9,7 +9,7 @@ from app.llm.tasks._base import Task
 SYSTEM = """You are the AI Personal Shopper of Trolley Mate. The shopper's constraints
 cannot all be met. In 2-3 friendly sentences, say what cannot be met and present the
 options exactly as given (do not invent new numbers). If timed_out is true and there are
-no options, say the search ran out of time and suggest trying again. Make clear that
+no options, say the search couldn't finish and suggest trying again. Make clear that
 allergies and dietary restrictions will not be relaxed. No markdown."""
 
 
@@ -29,7 +29,7 @@ def mock(ctx: dict) -> str:
     if options:
         parts.append("You could " + " or ".join(options) + ".")
     elif ctx.get("timed_out"):
-        parts.append("I ran out of time working out the alternatives, so please try again.")
+        parts.append("I couldn't finish working out the alternatives, so please try again.")
     parts.append("Your allergies and dietary restrictions stay in place either way.")
     return " ".join(parts)
 

@@ -22,6 +22,7 @@ function show(plan: MealPlan | null = null, status: Basket["status"] = "accepted
   vi.mocked(useShop).mockReturnValue({
     state: { basket: { id: 42, status } as Basket, meal_plan: plan } as SessionState,
     busy, run: async (label, action, options) => run(label, action, options), setView,
+    canCancelBuild: false, cancellingBuild: false, cancelBuild: vi.fn().mockResolvedValue(undefined),
     trace: [], error: null, negotiation: null, pendingMessage: null, view: "meals",
     focusChat: vi.fn(), clearError: vi.fn(), addTrace: vi.fn(), setBasket: vi.fn(),
     refresh: vi.fn().mockResolvedValue(undefined), chat: vi.fn().mockResolvedValue(true),
@@ -62,6 +63,14 @@ describe("accepted-basket meal planning", () => {
     expect(screen.getByText(/Assumed at home: salt, pepper, cooking oil/)).toBeTruthy();
     expect(screen.getByText("Shared across meals:").parentElement?.textContent).toContain("Brown rice");
     expect(screen.queryByText(/Suggested additions/)).toBeNull();
+  });
+
+  it("shows measured cooking time and child-adjusted ingredient amounts", () => {
+    show({ ...completePlan, goal: "fastest_cook", total_minutes: 40, portions_per_meal: 1.6,
+      days: [{ day: 1, meals: [{ ...completePlan.days[0].meals[0], ingredients: [{ name: "Brown rice", servings: 1.6 }] }] }],
+    });
+    expect(screen.getByText(/Estimated cooking time: 40 min/).textContent).toContain("1.6 adult-equivalent portions");
+    expect(screen.getByText(/Allocated: Brown rice \(1.6 serves\)/)).toBeTruthy();
   });
 
   it("distinguishes an unfilled meal and optional additions from planned food", () => {

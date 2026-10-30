@@ -61,5 +61,5 @@ def test_timeout_is_not_infeasibility(monkeypatch):
     monkeypatch.setattr("app.optimisation.basket_optimiser.milp", lambda **_: SimpleNamespace(x=None, status=1, fun=None))
     case = CASES["feasible_lowest_cost"]
     result = BasketOptimiser().solve(case.req, strategy_for(case.goal), case.candidates)
-    assert not result.feasible and result.timed_out
-    assert result.message == "Timed out before finding a basket."
+    assert not result.feasible and result.timed_out and result.failure_reason == "timeout"
+    assert result.message == "The search timed out before finding a valid basket."

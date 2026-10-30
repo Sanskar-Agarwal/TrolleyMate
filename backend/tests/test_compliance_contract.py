@@ -119,6 +119,31 @@ def test_fixture_case(screen, case):
         assert {r["restriction"]: r["severity"] for r in restrictions} == expect["applied"]
 
 
+@pytest.mark.parametrize("restriction", ["vegetarian", "vegan"])
+def test_animal_rennet_is_excluded_for_both_diets(screen, restriction):
+    _, finding = screen({
+        "product": {"name": "Animal-rennet ingredient", "ingredients": ["animal rennet"]},
+        "members": {"Shopper": {restriction: "moderate"}},
+    })
+    assert finding.status == "violation"
+    assert any(f.get("restriction") == restriction for f in finding.findings)
+
+
+def test_seed_parmesan_cascade_includes_animal_rennet(client):
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        parmesan = db.scalar(select(Ingredient).where(Ingredient.name == "parmesan"))
+        product = Product(sku="TEST-PARMESAN", name="Seed parmesan", category="dairy", pack_size=1, unit="each",
+                          tags=[], may_contain=[], data_complete=True, ingredients=[parmesan])
+        db.add(product)
+        db.flush()
+        finding = AgentContext(db=db, llm=get_llm()).compliance.screen_product(
+            product, [{"restriction": "vegetarian", "severity": "moderate"}])
+        assert finding.status == "violation"
+        assert any(f.get("ingredient") == "parmesan → animal rennet" for f in finding.findings)
+
+
 # --- Verdict contract -----------------------------------------------------------
 
 

@@ -8,6 +8,12 @@ export type ShopView = "basket" | "prices" | "meals" | "timing";
 export const FOCUS_CHAT_EVENT = "trolleymate:focus-chat";
 
 type Tone = "ok" | "warn" | "info";
+interface BuildOperation {
+  sessionId: number;
+  id: string;
+  finished: boolean;
+  cancellationRequested: boolean;
+}
 interface RunOptions<T> {
   refresh?: boolean;
   /** Toast to show on success; return undefined for none. */
@@ -37,6 +43,9 @@ interface ShopValue {
   submitForm: (form: Partial<ConstraintDraft>) => Promise<void>;
   confirm: () => Promise<void>;
   cancel: () => Promise<void>;
+  canCancelBuild: boolean;
+  cancellingBuild: boolean;
+  cancelBuild: () => Promise<void>;
   build: (goal: Goal) => Promise<void>;
   negotiate: (choice: { option_id?: string; budget?: number; days?: number }) => Promise<void>;
   cancelNegotiation: () => Promise<void>;
@@ -48,9 +57,11 @@ const ShopContext = createContext<ShopValue | null>(null);
 const BUILD_TOAST = (r: { status: string; basket?: Basket; message?: string }): [string, Tone] =>
   r.status === "ok" && r.basket
     ? [`Basket ready: ${r.basket.items.length} items for ${money(r.basket.total)}`, "ok"]
-    : r.status === "timed_out"
-      ? [r.message ?? "That took too long. Please try again.", "warn"]
-      : ["That doesn't fit. Pick a trade-off below.", "warn"];
+    : r.status === "retryable"
+      ? [r.message ?? "The search could not finish. Please retry.", "warn"]
+    : r.status === "cancelled"
+      ? [r.message ?? "Build cancelled. Your previous basket is unchanged.", "info"]
+    : ["That doesn't fit. Pick a trade-off below.", "warn"];
 
 export function ShopProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
@@ -61,6 +72,9 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [negotiation, setNegotiation] = useState<Negotiation | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [view, setView] = useState<ShopView>("basket");
+  const [buildOperation, setBuildOperation] = useState<BuildOperation | null>(null);
+  const buildOperationRef = useRef<BuildOperation | null>(null);
+  const [cancellingBuild, setCancellingBuild] = useState(false);
   const sid = state?.session.id;
   const sidRef = useRef<number | undefined>(undefined);
   sidRef.current = sid;
@@ -77,6 +91,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         addTrace(t);
       })
       .catch((e) => setError(e.message));
+    return () => { buildOperationRef.current = null; };
   }, [addTrace]);
 
   const refresh = useCallback(async () => {
@@ -103,6 +118,32 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     },
     [addTrace, refresh, toast],
   );
+
+  const runBuild = useCallback(async (fn: (id: string) => ReturnType<typeof baskets.build>) => {
+    if (!sidRef.current || buildOperationRef.current) return;
+    const operation: BuildOperation = {
+      sessionId: sidRef.current, id: crypto.randomUUID(), finished: false, cancellationRequested: false,
+    };
+    buildOperationRef.current = operation;
+    setBuildOperation(operation);
+    setCancellingBuild(false);
+    try {
+      return await run("Building your basket", async () => {
+        try {
+          return await fn(operation.id);
+        } finally {
+          // A terminal build response ends cancellation, even if refreshing the basket takes longer.
+          operation.finished = true;
+          if (buildOperationRef.current === operation) {
+            setBuildOperation(null);
+            setCancellingBuild(false);
+          }
+        }
+      }, { toast: BUILD_TOAST });
+    } finally {
+      if (buildOperationRef.current === operation) buildOperationRef.current = null;
+    }
+  }, [run]);
 
   const focusChat = useCallback((prefill?: string) => {
     window.dispatchEvent(new CustomEvent(FOCUS_CHAT_EVENT, { detail: prefill }));
@@ -168,19 +209,55 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       cancel: async () => {
         if (requestId) await run("Cancelling", () => intake.cancel(requestId), { toast: () => ["Request cancelled", "info"] });
       },
+      canCancelBuild: buildOperation !== null,
+      cancellingBuild,
+      cancelBuild: async () => {
+        const operation = buildOperationRef.current;
+        if (!operation || operation.finished || operation.cancellationRequested) return;
+        operation.cancellationRequested = true;
+        setCancellingBuild(true);
+        setError(null);
+        try {
+          const r = await baskets.cancelBuild(operation.sessionId, operation.id);
+          if (buildOperationRef.current !== operation || operation.finished) return;
+          if (r.status === "cancellation_requested") {
+            toast("Cancellation requested. Waiting for the current step to finish.", "info");
+          } else {
+            operation.cancellationRequested = false;
+            setCancellingBuild(false);
+            toast(r.status === "already_finished"
+              ? "The build has already finished. Check the result below."
+              : "The build is not running. Check the result or retry.", "info");
+          }
+        } catch (e) {
+          if (buildOperationRef.current !== operation || operation.finished) return;
+          operation.cancellationRequested = false;
+          setCancellingBuild(false);
+          setError(`Could not request cancellation: ${(e as Error).message}`);
+        }
+      },
       build: async (goal) => {
         if (!sid) return;
-        const r = await run("Building your basket", () => baskets.build(sid, goal), { toast: BUILD_TOAST });
+        const r = await runBuild((operationId) => baskets.build(sid, goal, operationId));
         if (r) {
+          if (r.status === "cancelled") return;
+          if (r.status === "retryable") {
+            setError(r.message);
+            return;
+          }
           setNegotiation(r.status === "infeasible" ? r.negotiation : null);
           setView("basket");
         }
       },
       negotiate: async (choice) => {
         if (!sid) return;
-        const r = await run("Building your basket", () => baskets.negotiate(sid, choice), { toast: BUILD_TOAST });
-        // A timeout is not an answer: keep the current options so the shopper can retry.
-        if (r && r.status !== "timed_out") setNegotiation(r.status === "infeasible" ? r.negotiation : null);
+        const r = await runBuild((operationId) => baskets.negotiate(sid, choice, operationId));
+        if (r?.status === "cancelled") return;
+        if (r?.status === "retryable") {
+          setError(r.message);
+          return;
+        }
+        if (r) setNegotiation(r.status === "infeasible" ? r.negotiation : null);
       },
       cancelNegotiation: async () => {
         if (!sid) return;
@@ -200,7 +277,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         }
       },
     }),
-    [state, trace, busy, error, negotiation, pendingMessage, view, focusChat, addTrace, run, refresh, sid, requestId],
+    [state, trace, busy, error, negotiation, pendingMessage, view, focusChat, addTrace, run, runBuild, refresh, sid, requestId, buildOperation, cancellingBuild, toast],
   );
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;

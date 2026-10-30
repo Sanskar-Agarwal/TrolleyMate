@@ -8,7 +8,7 @@ and the shopper gets the conflict and the closest valid alternatives.
 
 from __future__ import annotations
 
-from app.domain import Basket, ShoppingSession
+from app.domain import Basket, Product, ShoppingSession
 from app.domain.enums import ItemCompliance
 from app.services.catalogue import find_products, match_item
 from app.services.session_state import active_constraints, household_of
@@ -93,6 +93,15 @@ def edit(agent, basket: Basket, text: str) -> dict:
         if pid in extras:
             extras[pid] = min(extras[pid], hi)
     extras = {pid: q for pid, q in extras.items() if q > 0}
+    # Screen the final quantities, including "increase" pins. Screening only the
+    # carried-over extras lets those pins reinsert an unsafe or withheld product.
+    for pid in list(extras):
+        product = db.get(Product, pid)
+        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
+            del extras[pid]
+            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
+            applied = [f"removed {product.name} after dietary checks" if change in (f"more {product.name}", f"less {product.name}")
+                       else change for change in applied]
     reserve = _extras_cost(agent, extras)
     budget = payload.get("budget")
     if budget is not None and reserve > float(budget) + 1e-6:
@@ -109,7 +118,7 @@ def edit(agent, basket: Basket, text: str) -> dict:
         agent, session, basket.goal, payload_override=payload, origin="edit",
         min_qty=min_qty, max_qty=max_qty, exclude_products=excluded, prefer=set(current) - excluded, reserve=reserve,
     )
-    if outcome.status == "timed_out":
+    if outcome.status == "retryable":
         return {"status": "conflict", "message": outcome.message, "suggestions": []}
     if outcome.status != "ok":
         neg = outcome.negotiation or {}
@@ -122,6 +131,7 @@ def edit(agent, basket: Basket, text: str) -> dict:
     new_basket = outcome.basket
     if extras:
         _add_extras(agent, new_basket, extras)
+        basket_builder.refresh_explanation(agent, new_basket)
     return {"status": "ok", "basket": new_basket, "applied": applied, "conflicts": conflicts,
             "diff": basket_diff(basket, new_basket)}
 

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.agents.context import AgentContext
 from app.api.common import done, not_found, own_session
@@ -17,15 +18,15 @@ class TextIn(BaseModel):
 
 
 class CorrectionIn(BaseModel):
-    text: str | None = None
+    text: str | None = Field(default=None, max_length=2000)
     patch: dict | None = None
 
 
 class FormIn(BaseModel):
-    budget: float | None = Field(default=None, gt=0)
-    household_size: int | None = Field(default=None, ge=1, le=20)
-    meals_per_day: float | None = Field(default=None, gt=0, le=5)
-    days: int | None = Field(default=None, ge=1, le=31)
+    budget: float | None = Field(default=None, gt=0, strict=True, allow_inf_nan=False)
+    household_size: int | None = Field(default=None, ge=1, le=20, strict=True)
+    meals_per_day: float | None = Field(default=None, gt=0, le=5, strict=True, allow_inf_nan=False)
+    days: int | None = Field(default=None, ge=1, le=31, strict=True)
     restrictions: list[dict] | None = None
     nutritional_targets: list[dict] | None = None
     preferences: list[str] | None = None
@@ -67,8 +68,12 @@ def submit_form(request_id: int, body: FormIn, ctx: AgentContext = Depends(agent
 @router.post("/requests/{request_id}/confirm")
 def confirm(request_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
     req = _request(ctx, request_id)
-    cs = ctx.shopper.confirm(req)
-    return done(ctx, {"intake": intake.state(req), "constraints": {"version": cs.version, "payload": cs.payload, "origin": cs.origin}})
+    try:
+        cs = ctx.shopper.confirm(req)
+        return done(ctx, {"intake": intake.state(req), "constraints": {"version": cs.version, "payload": cs.payload, "origin": cs.origin}})
+    except SQLAlchemyError as exc:
+        ctx.db.rollback()
+        raise intake.IntakeError("Saving failed. Your previous constraints are unchanged. Try again.") from exc
 
 
 @router.post("/requests/{request_id}/cancel")

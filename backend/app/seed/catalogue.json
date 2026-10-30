@@ -186,6 +186,17 @@
       "name": "parmesan",
       "tags": [
         "milk"
+      ],
+      "components": [
+        "milk",
+        "animal rennet",
+        "salt"
+      ]
+    },
+    {
+      "name": "animal rennet",
+      "tags": [
+        "animal_rennet"
       ]
     },
     {
@@ -411,7 +422,7 @@
     {
       "name": "mixed nuts",
       "tags": [
-        "tree nuts",
+        "tree_nuts",
         "peanuts"
       ],
       "may_contain": []
@@ -482,15 +493,22 @@
     },
     {
       "name": "cream",
-      "tags": []
+      "tags": [
+        "milk",
+        "lactose"
+      ]
     },
     {
       "name": "prawns",
-      "tags": []
+      "tags": [
+        "shellfish"
+      ]
     },
     {
       "name": "brazil nuts",
-      "tags": []
+      "tags": [
+        "tree_nuts"
+      ]
     },
     {
       "name": "black beans",
@@ -518,7 +536,9 @@
     },
     {
       "name": "barley",
-      "tags": []
+      "tags": [
+        "gluten"
+      ]
     },
     {
       "name": "buckwheat",

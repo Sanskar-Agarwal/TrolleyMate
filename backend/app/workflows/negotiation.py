@@ -39,7 +39,7 @@ def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirement
     cheapest = optimiser.solve(strategy.adjust(req), LowestCost(), candidates, enforce_budget=False, **pins)
     options: list[dict] = []
     blocked: list[str] = []
-    timed_out = cheapest.timed_out
+    timed_out = cheapest.failure_reason is not None  # timeout or solver error: the search didn't finish
 
     if timed_out:
         pass  # no answer is not proof that nothing fits: offer nothing rather than a wrong number
@@ -62,7 +62,7 @@ def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirement
         for days in range(req.days - 1, 0, -1):
             smaller = Requirements.from_constraints(cs, days=days, budget=req.budget)
             result = optimiser.solve(smaller, strategy, candidates, **pins)
-            timed_out = timed_out or result.timed_out
+            timed_out = timed_out or result.failure_reason is not None
             if result.feasible:
                 meals = len([m for slots in meal_schedule(days, req.meals_per_day) for m in slots])
                 options.append({

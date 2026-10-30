@@ -95,16 +95,18 @@ Requirements are evaluated **after** `strategy.adjust`.
 | `message` | reason when not feasible (see below) |
 | `solver_ms` | wall time |
 | `requirements` | the requirements after `adjust` |
-| `timed_out` | the solver hit its time limit |
+| `failure_reason` | `timeout` \| `solver_error` when the search didn't finish; `None` when infeasibility is proven or structural |
+| `timed_out` | read-only, `failure_reason == "timeout"` |
 
 `feasible=False` messages:
 
-| `message` | `timed_out` | Meaning — caller must |
+| `message` | `failure_reason` | Meaning — caller must |
 |---|---|---|
-| `No basket satisfies every constraint.` | false | genuinely infeasible → UC-03 negotiation |
-| `Timed out before finding a basket.` | **true** | **not** proof of infeasibility (UC-02 ext 2b/3b) → report the timeout and offer a retry; never start negotiation |
-| `No priced, compliant products to choose from.` | false | data failure → report missing data |
-| `A required product is unavailable or excluded.` / `Product quantities must be non-negative whole numbers.` / `Minimum quantity exceeds the maximum for a product.` | false | invalid pins from an edit → reject the edit, keep the basket |
+| `No basket satisfies every constraint.` | `None` | genuinely infeasible → UC-03 negotiation |
+| `The search timed out before finding a valid basket.` | **`timeout`** | **not** proof of infeasibility (UC-02 ext 2b/3b) → build returns `retryable`; never start negotiation |
+| `The solver could not complete the search.` / `The solver returned an unverified candidate.` | **`solver_error`** | as for a timeout |
+| `No priced, compliant products to choose from.` | `None` | data failure → report missing data |
+| `A required product is unavailable or excluded.` / `Product quantities must be non-negative whole numbers.` / `Minimum quantity exceeds the maximum for a product.` | `None` | invalid pins from an edit → reject the edit, keep the basket |
 
 ## 5. Infeasible-result schema (handed to UC-03)
 
@@ -134,8 +136,9 @@ When the confirmed request is infeasible, `workflows/negotiation.analyse` return
   current budget.
 - Other hard constraints stay in force in both searches: the same screened candidates, edit pins
   (`min_qty`/`max_qty`), and money already spent outside the solver (`reserve`, added to offered budgets).
-- **`timed_out`**: a search solve hit the time limit. If the minimum-budget solve timed out, no option and no
-  `blocked_roles` are offered (no answer is not proof); if a days solve did, the days option may not be the maximum.
+- **`timed_out`**: a search solve didn't finish (any `failure_reason`). If the minimum-budget solve didn't, no
+  option and no `blocked_roles` are offered (no answer is not proof); if a days solve didn't, the days option may
+  not be the maximum.
 - **`blocked_roles`**: when even the uncapped solve fails, the roles (`protein`, `carb`, `veg`) with no
   compliant candidate; no budget option is offered.
 - `shortfall` = minimum budget − budget, or `null`.
@@ -144,8 +147,8 @@ When the confirmed request is infeasible, `workflows/negotiation.analyse` return
   other field). A choice that still doesn't fit returns fresh options and leaves the constraints unchanged.
 - `POST /sessions/{id}/negotiate/cancel` declines every option: the confirmed constraints, the request's
   `infeasible` status and any earlier basket stay as they were.
-- A build whose solver times out returns `{"status": "timed_out", "message": …}` and offers a retry; it never
-  starts negotiation or marks the request infeasible.
+- A build whose solver times out or errors returns `{"status": "retryable", "reason": "timeout" | "solver_error",
+  "message": …}` and offers a retry; it never starts negotiation or marks the request infeasible.
 
 ## 6. Fixtures and known answers
 
@@ -168,11 +171,11 @@ One retailer, six products (each tagged with its recipe ingredient, so it fills 
 | `infeasible_budget_best_nutrition` | Best nutrition | $8 | infeasible; the goal's bar (6.4 veg, 48.4 g protein) needs both vegetables: min budget **$9.00** |
 | `infeasible_no_protein` | Lowest cost | $50 | infeasible with no protein products; no budget fixes it |
 | `every_goal_feasible` | all five | $20 | feasible, within budget, meets `adjust`ed targets, identical on repeat |
-| (monkeypatched timeout) | — | — | `feasible=false`, `timed_out=true`, timeout message |
+| (monkeypatched timeout) | — | — | `feasible=false`, `failure_reason="timeout"`, timeout message |
 
 ## 7. Hand-over
 
 The production optimiser stays with S03. Changes to coefficients, constraint rows or the result schema
 must keep `tests/test_optimiser_contract.py` green or update this page and the fixtures in the same PR.
-Consumers of `timed_out` (UC-02 build, UC-09 edits and UC-03 negotiation) were wired up in P03
+Consumers of `failure_reason` (UC-02 build, UC-09 edits and UC-03 negotiation) were wired up in P03 and the release merge
 (`tests/test_negotiation.py`).

@@ -116,7 +116,7 @@ def test_a_timeout_while_negotiating_is_not_reported_as_blocked(monkeypatch):
     monkeypatch.setattr("app.optimisation.basket_optimiser.milp", lambda **_: SimpleNamespace(x=None, status=1, fun=None))
     info, _ = analyse(TWO_DAYS)
     assert info["timed_out"] and info["options"] == [] and info["blocked_roles"] == []
-    assert "ran out of time" in info["message"]
+    assert "couldn't finish" in info["message"]
 
 
 # --- End to end through the API -------------------------------------------------------------------
@@ -228,7 +228,7 @@ def test_a_solver_timeout_offers_a_retry_not_a_negotiation(client, riley, monkey
     sid = confirmed_session(client, riley, "$80 for the week, two meals a day for myself")
     monkeypatch.setattr("app.optimisation.basket_optimiser.milp", lambda **_: SimpleNamespace(x=None, status=1, fun=None))
     r = client.post(f"/api/sessions/{sid}/basket", json={"goal": "balanced"}, headers=riley).json()
-    assert r["status"] == "timed_out" and "try again" in r["message"]
+    assert r["status"] == "retryable" and r["reason"] == "timeout" and "Retry" in r["message"]
     assert "negotiation" not in r
     with SessionLocal() as db:
         assert db.scalar(select(ShoppingRequest).where(ShoppingRequest.session_id == sid)).status == "confirmed"

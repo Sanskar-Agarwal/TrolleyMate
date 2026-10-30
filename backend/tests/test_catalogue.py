@@ -15,7 +15,6 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pytest
 from sqlalchemy import select
 
 from app.domain.basket_products import Product
@@ -175,10 +174,7 @@ def test_discontinued_product_has_no_quotes(client):
 
 def test_product_schema_validates_all_products():
     """Every product in catalogue.json must satisfy product_schema.json."""
-    try:
-        import jsonschema
-    except ImportError:
-        pytest.skip("jsonschema not installed")
+    import jsonschema
 
     schema = json.loads((SEED_DIR / "product_schema.json").read_text())
     cat = load_catalogue()

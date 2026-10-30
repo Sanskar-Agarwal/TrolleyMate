@@ -26,17 +26,23 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.enums import ItemCompliance, VerdictStatus
 
-SCHEMA_VERSION = 2  # 2: staples target, accepted nutrition exceptions (KAN-21)
+SCHEMA_VERSION = 3  # 2: staples target, accepted nutrition exceptions (KAN-21); 3: check_failed, no_rule (KAN-23)
 
 ProductStatus = Literal["compliant", "violation", "uncertain"]
 
-# contains     — an ingredient or sub-ingredient carries a restricted tag
-# ambiguous    — a vague label term the LLM judged likely/possible to hide the restriction
+# contains     — an ingredient or sub-ingredient carries a restricted tag, or the product's own label names it
+# ambiguous    — a vague label term the LLM judged likely/possible to hide the restriction, or "none" without
+#                enough confidence to clear it
 # may_contain  — a precautionary "may contain" statement on the label
 # missing_data — the ingredient evidence is absent (no list, or an empty one)
 # data_error   — the evidence exists but can't be trusted (corrupt or cyclic) — UC-06 failure scenario
+# check_failed — a vague term the LLM couldn't judge: the call failed, the reply was off the contract, or only
+#                the offline fallback answered (9.4 dataSourceError)
+# no_rule      — the restriction has no screening rule, so no product can be confirmed free of it
 # human_review — a dietitian's earlier decision on this product for this household
-FindingKind = Literal["contains", "ambiguous", "may_contain", "missing_data", "data_error", "human_review"]
+FindingKind = Literal[
+    "contains", "ambiguous", "may_contain", "missing_data", "data_error", "check_failed", "no_rule", "human_review",
+]
 
 
 class _Contract(BaseModel):

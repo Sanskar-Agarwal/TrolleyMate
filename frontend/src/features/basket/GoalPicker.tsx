@@ -6,9 +6,9 @@ import "./basket.css";
 
 export const GOALS: { id: Goal; label: string; blurb: string }[] = [
   { id: "balanced", label: "Balanced", blurb: "A sensible mix of price, nutrition, waste and prep time." },
-  { id: "lowest_cost", label: "Lowest cost", blurb: "Cheapest basket that still covers every meal and rule." },
+  { id: "lowest_cost", label: "Lowest cost", blurb: "Lowest basket cost within your confirmed food and dietary requirements." },
   { id: "best_nutrition", label: "Best nutrition", blurb: "More vegetables and protein, chosen for nutrient density." },
-  { id: "least_waste", label: "Least waste", blurb: "Pack sizes that match your meals, fewer perishables left over." },
+  { id: "least_waste", label: "Least waste", blurb: "Fewer excess servings, with perishables prioritised in your meal plan." },
   { id: "fastest_cook", label: "Quickest to cook", blurb: "Ingredients that are fast to prepare on busy nights." },
 ];
 
