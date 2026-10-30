@@ -230,3 +230,14 @@ def test_incomplete_option_never_claims_a_saving():
     incomplete = next(o for o in result["options"] if o["retailer_id"] == 2)
     assert not incomplete["complete"]
     assert incomplete["saving"] is None and incomplete["saving_pct"] is None
+
+
+def test_market_insight_rejects_invented_saving_and_percentage():
+    from app.llm.tasks.market_insight import grounded_insight
+    ctx = {"baseline": "Store A", "cheapest": {"name": "Split", "total": 15.05, "saving": 6.62, "saving_pct": 30.5},
+           "options": [{"total": 17.26, "saving": 4.41, "saving_pct": 20.4},
+                       {"total": 15.05, "saving": 6.62, "saving_pct": 30.5}],
+           "split_saving_vs_cheapest_store": 2.21}
+    assert grounded_insight("The extra trip saves $2.21.", ctx) == "The extra trip saves $2.21."
+    assert "$2.22" not in grounded_insight("The extra trip saves $2.22.", ctx)
+    assert "50%" not in grounded_insight("You save 50%.", ctx)

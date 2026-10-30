@@ -299,11 +299,13 @@ class Demo:
 
 @contextmanager
 def demo():
+    from app.core.request_security import reset_limits
+    reset_limits()
     reset_db()
     with SessionLocal() as db:
         seed_all(db)
         db.commit()
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-TrolleyMate-Request": "1"}) as client:
         yield Demo(client)
 
 

@@ -90,7 +90,7 @@ def test_explanation_states_both_options_and_keeps_restrictions():
                                strategy_for("lowest_cost"), CATALOGUE)
     facts = agent.contexts[0]
     assert facts["min_budget"] == 14.50 and facts["extra_needed"] == 4.50 and facts["max_meals"] == 2
-    assert "$4.50 to $14.50" in info["message"] and "2 person-meals" in info["message"]
+    assert "$4.50 to $14.50" in info["message"] and "2 household meals" in info["message"]
     assert "restrictions stay in place" in info["message"]
 
 

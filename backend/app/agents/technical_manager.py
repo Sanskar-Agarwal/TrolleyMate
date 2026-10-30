@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.domain import AuditRecord, Basket, BasketItem, ComplianceVerdict, ConstraintSetRecord, PriceQuote, User
 from app.domain.enums import UserRole
 from app.llm import LLMResult
+from app.llm.tasks.explain import mock as grounded_explanation
 from app.services.audit_privacy import audit_payload
 
 UNAVAILABLE = "Reasoning unavailable for this recommendation."
@@ -129,14 +130,19 @@ class TechnicalManagerAgent(Agent):
             return {"available": False, "text": UNAVAILABLE, "facts": None, "evidence": evidence}
         grounded = {
             **facts,
+            "scheduled_meals": ((b.notes or {}).get("requirements") or {}).get("scheduled_meals", facts.get("scheduled_meals")),
             "constraint_version": (evidence["constraints"] or {}).get("version"),
             "verdict": evidence["verdict"],
             "evidence_missing": evidence["missing"],
         }
         result = self.think("explain", {"scope": "basket", "facts": grounded})
-        self.log("explain_basket", result.data[:300], basket_id=b.id, session_id=b.session_id, llm=result,
+        # A fluent model reply must not imply clearance while a deterministic gate is open.
+        text = grounded_explanation({"scope": "basket", "facts": grounded}) if (
+            grounded.get("nutrition_adequate") is False or grounded.get("withheld")
+        ) else result.data
+        self.log("explain_basket", text[:300], basket_id=b.id, session_id=b.session_id, llm=result,
                  payload={"evidence_missing": evidence["missing"]})
-        return {"available": True, "text": result.data, "facts": grounded, "evidence": evidence}
+        return {"available": True, "text": text, "facts": grounded, "evidence": evidence}
 
     def explain_item(self, item: BasketItem) -> dict:
         if not item.rationale:

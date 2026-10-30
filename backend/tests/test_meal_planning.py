@@ -188,3 +188,12 @@ def test_partial_day_schedule_keeps_exact_negotiated_meal_count():
     assert meal_schedule(2, 3, meal_count=4) == [["Breakfast", "Lunch", "Dinner"], ["Breakfast"]]
     with pytest.raises(ValueError):
         meal_schedule(2, 3, meal_count=7)
+
+
+def test_household_schedule_is_distinct_from_age_weighted_portions():
+    from app.domain.requests_constraints import ConstraintSet
+    from app.optimisation.types import Requirements
+    cs = ConstraintSet.from_payload({"household_size": 2, "portions": 1.6, "days": 7, "meals_per_day": 3, "budget": 100})
+    req = Requirements.from_constraints(cs)
+    assert req.scheduled_meals == 21
+    assert req.as_dict()["scheduled_meals"] == 21

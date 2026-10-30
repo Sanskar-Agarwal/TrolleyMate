@@ -32,6 +32,8 @@ export default function BasketView() {
   const [goal, setGoal] = useState<Goal>(basket.goal);
 
   const groups = ORDER.map((cat) => ({ cat, items: basket.items.filter((i) => i.product.category === cat) })).filter((g) => g.items.length);
+  const req = basket.requirements;
+  const scheduledMeals = req?.scheduled_meals ?? req?.meal_count ?? (req ? Math.ceil(req.days * req.meals_per_day - 1e-9) : "?");
   const withheld = basket.items.filter((i) => i.withheld);
 
   return (
@@ -41,7 +43,7 @@ export default function BasketView() {
           <div className="stack" style={{ "--gap": "4px" } as React.CSSProperties}>
             <span className="eyebrow">Your basket · {GOAL_LABEL[basket.goal]}</span>
             <h2>
-              {basket.items.length} items for <span className="hl">{basket.requirements?.person_meals ?? "?"} meals</span>
+              {basket.items.length} items for <span className="hl">{scheduledMeals} household meals</span>
             </h2>
           </div>
           <div className="row">

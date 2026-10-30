@@ -13,7 +13,7 @@ def audit_payload(value, action=""):
     for key, item in value.items():
         if "preference" in key.lower():
             out[key] = "[private preference data omitted]"
-        elif key in {"prompt", "raw"} and action in PRIVATE_ACTIONS:
+        elif key in {"prompt", "raw", "raw_text"} and action in PRIVATE_ACTIONS:
             out[key] = "[private shopper input omitted]"
         elif isinstance(item, str):
             try:

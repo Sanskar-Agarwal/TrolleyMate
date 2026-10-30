@@ -146,8 +146,12 @@ class Requirements:
             portions=portions,
         )
 
+    @property
+    def scheduled_meals(self) -> int:
+        return sum(map(len, meal_schedule(self.days, self.meals_per_day, self.meal_count)))
+
     def as_dict(self) -> dict:
-        return {k: getattr(self, k) for k in self.__dataclass_fields__}
+        return {**{k: getattr(self, k) for k in self.__dataclass_fields__}, "scheduled_meals": self.scheduled_meals}
 
 
 @dataclass

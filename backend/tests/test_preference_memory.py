@@ -355,5 +355,14 @@ def test_chat_routing_does_not_copy_private_intake_text(client, riley, maya):
         "text": "$80 for 3 days, two meals a day for myself. I dislike anchovies."})
     assert response.status_code == 200
     logs = client.get(f"/api/audit?session_id={sid}", headers=maya).json()
-    routing = next(a for a in logs if a["action"] == "route_message")
-    assert "anchovies" not in str(routing["payload"])
+    private_logs = [a for a in logs if a["action"] in {"route_message", "extract_constraints"}]
+    assert {a["action"] for a in private_logs} == {"route_message", "extract_constraints"}
+    assert "anchovies" not in str([a["payload"] for a in private_logs])
+    with SessionLocal() as db:
+        records = list(db.scalars(select(AuditRecord).where(AuditRecord.session_id == sid)))
+        assert "anchovies" not in str([a.payload for a in records])
+        intake = next(a for a in records if a.action == "extract_constraints")
+        intake.payload = {**intake.payload, "raw_text": "legacy private anchovies request"}
+        db.commit()
+    # Older records must receive the same protection when read.
+    assert "anchovies" not in client.get(f"/api/audit?session_id={sid}", headers=maya).text

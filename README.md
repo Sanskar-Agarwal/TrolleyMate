@@ -162,22 +162,27 @@ See the deployment guide for prerequisites and archive verification.
 
 ## Verification
 
-The **30 October 2026** audit was performed on `Sanskar`, based on main commit
-[`54182b0`](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/commit/54182b0).
-See [the current acceptance report](docs/UAT_2026-10-30.md) for scope, corrections and evidence.
+The **30 October 2026** follow-up on `Sanskar` includes live Groq browser testing,
+security controls and corrections to existing behaviour. See the
+[current acceptance report](docs/UAT_LIVE_2026-10-30.md) and [security design](docs/SECURITY.md).
 
 | Check | Recorded result |
 |---|---|
-| Backend | 504 tests passed; Ruff passed |
-| Frontend | 58 tests passed; TypeScript and production Vite build passed |
-| Local browser | Shopper, negotiation, substitution, meals, household, human review and audit scenarios passed using labelled offline fallback |
-| Live Groq | Blocked: HTTP 403, “Access denied. Please check your network settings.” Live model behaviour was not validated |
+| Backend | 530 tests passed; Ruff passed |
+| Frontend | 62 tests passed; TypeScript and production Vite build passed |
+| Local browser | Shopper intake, all five goals, cancellation, negotiation, substitutions, meals, household, human review and audit exercised |
+| Live Groq | VPN-related 403 resolved; real model calls succeeded. Free-tier 429 responses still occurred and exercised labelled fallback |
+| Security | Browser session eviction, sign-out everywhere, throttling and protected shopping flow passed; automated CSRF, password migration and expiry checks passed |
 | Docker and hosted CI | Not rerun for these corrections; prior results below are historical |
 
-The existing Groq configuration was used without changing its key or model. Provider
-failure was visible in the interface and audit; fallback success is not a live AI pass.
-The test database was isolated from existing application data. Automated checks supplement
-the manual scenarios; the browser run did not exhaust every branch of every requirement.
+The existing Groq key and model were used unchanged, with bounded output tokens and
+Groq Qwen instruct mode. Passwords use salted PBKDF2-HMAC-SHA256 (600,000 iterations).
+Login sessions expire after 30 minutes idle or eight hours absolute, with three concurrent
+logins per account. Existing logins must sign in again after this upgrade. Configurable
+rate limits and CSRF checks are described in the security guide.
+
+Test data was isolated from existing application data. The browser scenarios are representative
+acceptance coverage, not proof of every possible branch or production-security certification.
 
 Historical evidence: the 29 October baseline passed 416 backend and 57 frontend tests,
 local ARM64 Docker checks and [main CI/GHCR run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408).
@@ -193,7 +198,7 @@ those human gates remain explicit in the release checklist.
 | Team and decisions | [Team guide](docs/TEAM_GUIDE.md), [decision log](docs/DECISIONS.md) |
 | Feature behaviour | [Optimisation and meals](docs/OPTIMISATION_AND_MEALS.md), [compliance](docs/COMPLIANCE_VERDICT.md) |
 | Running and releasing | [Deployment](docs/DEPLOYMENT.md), [CI/CD](docs/CI_CD.md), [release checklist](docs/RELEASE_CHECKLIST.md), [submission checklist](docs/SUBMISSION_CHECKLIST.md) |
-| Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [current browser UAT](docs/UAT_2026-10-30.md), [earlier UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
+| Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [current browser UAT](docs/UAT_LIVE_2026-10-30.md), [earlier UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
 | Demo data | [Seed provenance](backend/app/seed/PROVENANCE.md) |
 
 ```text

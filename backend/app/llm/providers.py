@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -33,6 +34,10 @@ class OpenAICompatibleProvider(LLMProvider):
         self.api_key = settings.llm_api_key
         self.timeout = settings.llm_timeout_s
         self.temperature = settings.llm_temperature
+        self.max_output_tokens = settings.llm_max_output_tokens
+        self.reasoning_effort = settings.llm_reasoning_effort
+        if not self.reasoning_effort and urlsplit(self.base_url).hostname == "api.groq.com" and self.model == "qwen/qwen3.8-27b":
+            self.reasoning_effort = "none"
         self.json_mode = settings.llm_json_mode
         self.max_retries = settings.llm_max_retries
         self.retry_max_wait = settings.llm_retry_max_wait_s
@@ -43,8 +48,11 @@ class OpenAICompatibleProvider(LLMProvider):
         body: dict = {
             "model": self.model,
             "temperature": self.temperature,
+            "max_tokens": self.max_output_tokens,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         if schema is not None and self.json_mode:
             body["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
@@ -57,7 +65,13 @@ class OpenAICompatibleProvider(LLMProvider):
         if response.status_code >= 400:
             raise LLMError(f"{response.status_code} from {self.base_url}: {response.text[:300]}")
         try:
-            return response.json()["choices"][0]["message"]["content"] or ""
+            choice = response.json()["choices"][0]
+            if choice.get("finish_reason") == "length":
+                raise LLMError("Model response exceeded the configured output limit; incomplete answer rejected")
+            content = choice["message"]["content"] or ""
+            if not content.strip():
+                raise LLMError("Model returned an empty answer")
+            return content
         except (KeyError, IndexError, ValueError) as exc:
             raise LLMError(f"Unexpected response shape: {response.text[:300]}") from exc
 

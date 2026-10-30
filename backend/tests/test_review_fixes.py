@@ -70,3 +70,22 @@ def test_best_nutrition_negotiation_offers_a_budget_that_works(client, riley):
 def test_offline_router_understands_absolute_budget_edits():
     assert classify({"text": "Actually, make it $80", "state": {"has_basket": True}})["intent"] == "edit_basket"
     assert parse_edit({"text": "Actually, make it $80", "items": []})["budget_change"] == {"mode": "absolute", "amount": 80.0}
+
+
+def test_gap_explanation_does_not_claim_the_basket_is_ready(client, riley, monkeypatch):
+    from app.agents.context import AgentContext
+    from app.agents.technical_manager import TechnicalManagerAgent
+    from app.core.db import SessionLocal
+    from app.domain import Basket
+    from app.llm import get_llm
+    from app.llm.base import LLMResult
+    from tests.test_basket_flow import confirmed_session
+    sid = confirmed_session(client, riley, "$60 for 3 days, two meals per day for myself")
+    bid = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]["id"]
+    monkeypatch.setattr(TechnicalManagerAgent, "think", lambda *a, **k: LLMResult(data="You are good to go!", provider="test", model="test"))
+    with SessionLocal() as db:
+        basket = db.get(Basket, bid)
+        basket.notes = {**basket.notes, "facts": {**basket.notes["facts"], "nutrition_adequate": False}}
+        text = AgentContext(db=db, llm=get_llm()).manager.explain_for(basket)["text"]
+        assert "good to go" not in text
+        assert "Nutrition targets are not yet met" in text

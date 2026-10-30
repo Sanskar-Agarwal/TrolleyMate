@@ -148,3 +148,24 @@ Negotiation's optional `meal_count` is the exact number of scheduled meals per p
 The `reduce_days` option ID remains compatible, but may include a partial final day. Clients
 must submit the offered `days` and `meal_count` together. The confirmed constraints and
 meal planner preserve this count. Omitting it retains the ordinary full-day schedule.
+
+
+## Authentication and request protection
+
+All API writes (`POST`, `PUT`, `PATCH`, `DELETE`), including login and registration,
+require `X-TrolleyMate-Request: 1`. Send request bodies as `application/json`.
+Untrusted browser origins/referrers and cross-site writes are rejected with **403**;
+simple form content types receive **415**. Cookie authentication is not supported.
+Non-browser clients send the same header and explicit bearer token but need no Origin.
+
+Login/registration return an opaque `token`; send it as `Authorization: Bearer <token>`.
+Sessions expire after 30 minutes without authenticated requests, or eight hours regardless
+of activity. Activity timestamps are coalesced to one write per minute (idle expiry may be
+up to one minute earlier). A fourth login revokes the oldest active login by default.
+`POST /auth/logout` revokes the current token; `POST /auth/logout-all` revokes all tokens
+for the authenticated account. Both return `{ "signed_out": true }`.
+Expired/revoked tokens receive **401**. API responses are not cacheable.
+
+Throttled requests receive **429**, a `Retry-After` header in seconds and a user-facing
+message. Limits are persisted and shared across workers using the same SQLite files.
+See [Security controls](SECURITY.md) for configurable defaults and deployment boundaries.

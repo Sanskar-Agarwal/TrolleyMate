@@ -163,6 +163,7 @@ def build(
         "budget": req.budget,
         "total": basket.total,
         "person_meals": req.person_meals,
+        "scheduled_meals": req.scheduled_meals,
         "restrictions": [r["label"] for r in restrictions],
         "nutrition": nutrition["provided"],
         "nutrition_adequate": nutrition["adequate"],

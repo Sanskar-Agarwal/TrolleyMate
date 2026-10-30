@@ -86,10 +86,10 @@ def analyse(agent, session: ShoppingSession, cs: ConstraintSet, req: Requirement
     message = agent.think(
         "negotiation_message",
         {
-            "budget": round((req.budget or 0) + reserve, 2), "requested_meals": req.person_meals, "blocked_roles": blocked,
+            "budget": round((req.budget or 0) + reserve, 2), "requested_meals": req.scheduled_meals, "blocked_roles": blocked,
             "min_budget": next((o["budget"] for o in options if o["id"] == "increase_budget"), None),
             "extra_needed": extra,
-            "max_meals": reduced["person_meals"] if reduced else None,
+            "max_meals": reduced["meal_count"] if reduced else None,
             "timed_out": timed_out,
         },
     )

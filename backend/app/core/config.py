@@ -8,6 +8,7 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -21,9 +22,16 @@ class Settings(BaseSettings):
     app_name: str = "Trolley Mate"
     environment: str = "development"
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'trolleymate.db').as_posix()}"
-    # Signs login tokens. Leave unset to auto-generate one (see get_settings).
+    # Keys rate-limit identifiers. Leave unset to auto-generate one (see get_settings).
     secret_key: str = ""
-    token_ttl_hours: int = 12
+    token_ttl_hours: int = Field(default=8, ge=1, le=168)
+    session_idle_minutes: int = Field(default=30, ge=1, le=1440)
+    max_active_sessions: int = Field(default=3, ge=1, le=20)
+    api_requests_per_minute: int = Field(default=300, ge=1)
+    account_writes_per_minute: int = Field(default=30, ge=1)
+    auth_attempts_per_minute: int = Field(default=10, ge=1)
+    account_login_attempts_per_quarter_hour: int = Field(default=10, ge=1)
+    registrations_per_hour: int = Field(default=5, ge=1)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     seed_on_startup: bool = True
     # Folder holding the built React app (`npm run build`). Served at / when present.
@@ -43,6 +51,9 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_retry_max_wait_s: float = 8.0
     llm_temperature: float = 0.2
+    llm_max_output_tokens: int = Field(default=768, ge=1, le=16384)
+    # Empty uses the provider default, except Groq Qwen uses instruct mode.
+    llm_reasoning_effort: str = ""
     # Ask OpenAI-compatible servers for JSON mode. Turn off if the server rejects it.
     llm_json_mode: bool = True
     # Live retailer/partner price feed for `partner_api` retailers (GET {url}/prices?retailer=&sku=).

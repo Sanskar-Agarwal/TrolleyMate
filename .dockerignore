@@ -7,3 +7,5 @@
 **/.secret_key
 frontend/dist
 .claude
+
+**/*.db.limits*

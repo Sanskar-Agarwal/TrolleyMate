@@ -13,6 +13,7 @@ from app.agents.base import Agent
 from app.core.config import get_settings
 from app.domain import Basket, PriceQuote, Product, Retailer
 from app.domain.enums import QuoteStatus
+from app.llm.tasks.market_insight import grounded_insight
 from app.optimisation.types import Candidate
 from app.services import buy_timing
 from app.services.pricing.normalisation import normalise
@@ -163,15 +164,19 @@ class MarketAnalystAgent(Agent):
 
         insight = None
         if cheapest and cheapest["saving"] is not None:
-            result = self.think(
-                "market_insight",
-                {
-                    "baseline": baseline.name, "cheapest": cheapest, "item_winners": winners,
-                    "options": [{k: o[k] for k in ("name", "total", "saving", "saving_pct", "complete")} for o in options],
-                    "unpriced": sorted({p for o in options for p in o["unpriced"]}),
-                },
-            )
-            insight = result.data
+            single_stores = [o for o in complete if not o["is_split"]]
+            insight_context = {
+                "baseline": baseline.name, "cheapest": cheapest, "item_winners": winners,
+                "options": [{k: o[k] for k in ("name", "total", "saving", "saving_pct", "complete")} for o in options],
+                "unpriced": sorted({p for o in options for p in o["unpriced"]}),
+                "split_saving_vs_cheapest_store": round(min(o["total"] for o in single_stores) - round(split_total, 2), 2)
+                    if single_stores and not split_unpriced else None,
+            }
+            result = self.think("market_insight", insight_context)
+            insight = grounded_insight(result.data, insight_context)
+            if insight != result.data:
+                self.log("validate_price_insight", "Unsupported AI financial figure replaced with computed comparison",
+                         basket_id=b.id, session_id=b.session_id)
             self.log(
                 "compare_prices",
                 f"{cheapest['name']} cheapest at ${cheapest['total']:.2f} vs {baseline.name} ${base_total:.2f}",
