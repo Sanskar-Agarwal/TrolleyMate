@@ -5,7 +5,7 @@ Depends on P02 (KAN-8), P03 (KAN-9) and P04 (KAN-10).
 
 ## Scope and method
 
-The release under test is `peter` with `origin/main` (KAN-5, KAN-6, KAN-23 and KAN-30 release work, up to
+The original release under test was `peter` with `origin/main` (KAN-5, KAN-6, KAN-23 and KAN-30 release work, up to
 `7ee6e99`) merged in. Every scenario runs through the HTTP API against a freshly seeded database, using the
 offline mock LLM, so results repeat exactly. The two exceptions are FP-13, which calls `negotiation.analyse`
 on the P01 fixture catalogue, and FP-14 to FP-16, which call `buy_timing.advise` with a fixed clock.
@@ -29,8 +29,8 @@ on the P01 fixture catalogue, and FP-14 to FP-16, which call `buy_timing.advise`
 ## Defects found during integration
 
 Merging `origin/main` into `peter` conflicted in 8 files. Each defect below was found while resolving those
-conflicts or when re-running the tests afterwards. File each one as a Jira defect linked to KAN-11 and to
-the owner's ticket.
+conflicts or when re-running the tests afterwards. The table records repository defects and
+resolutions; it does not claim separate Jira defect tickets were created.
 
 | ID | Defect | Owner | Resolution | Retest |
 |---|---|---|---|---|
@@ -51,9 +51,11 @@ gave the expected result on the first run (see the evidence file).
 | Full backend suite on the integrated release | see commit message / CI |
 | Frontend type-check and tests | see commit message / CI |
 
-## Still open for Done
+## Integration status — 30 October 2026
 
-- File P05-D1 to P05-D5 in Jira and confirm the resolutions with the owners named above (Sanskar for D1,
-  D3 and D5).
-- Peer review of the `peter` → `main` PR, then link this page and the evidence file on KAN-11.
-- Demonstrate FP-03 (out of stock), FP-09 (cancel negotiation) and FP-17 (demo-history label) in the app.
+The Peter integration is present on main at merge `54182b0` (PR #15). KAN-11 is marked Done,
+and its Jira evidence links the owner-authored regression commit `f89c5f8`. The matrix is
+included in the current full backend run; see [UAT](UAT_2026-10-30.md).
+
+Separate owner confirmations, a recorded group recovery demonstration and a retrospective
+are human evidence. Their completion is not inferred from a merged PR or passing tests.

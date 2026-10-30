@@ -1,8 +1,8 @@
 # KAN-3 and KAN-4: optimisation and meal-planning evidence
 
-Implementation reference checked against main `947a59c` on 29 October 2026. For dated test
+Implementation reference updated on Sanskar, based on main `54182b0`, on 30 October 2026. For dated test
 results and the latest verified release, see [README verification](../README.md#verification)
-and [UAT_2026-10-28.md](UAT_2026-10-28.md). The fixture descriptions below define checks;
+and [UAT_2026-10-30.md](UAT_2026-10-30.md). The fixture descriptions below define checks;
 they do not imply a new test run whenever this document is read.
 
 The five goals use deterministic integer optimisation. Dietary compliance is screened before solving and verified afterwards. Budget, required food-role quantities, explicit product limits and nutrition minimums remain constraints for every goal. Missing price data and known violations cannot enter the candidate pool. An uncertain item can produce only a pending-review basket, with the item withheld; it cannot be accepted or meal-planned.
@@ -84,3 +84,19 @@ npm test -- src/features/mealplan/MealPlanView.test.tsx
 ```
 
 Full backend, frontend, build and Docker results are linked from [README verification](../README.md#verification).
+
+## Exact coverage and buying-time safeguards — 30 October 2026
+
+An infeasible budget is checked against each shorter meal schedule, including a partial
+final day. The first feasible schedule is offered as maximum coverage only after larger
+schedules have been proved infeasible; a timeout prevents that claim. Confirmation stores
+`meal_count`, which the solver, constraint summary and accepted-basket planner all share.
+Daily nutrient targets continue to apply to each covered day, including a partial final day.
+
+Post-build nutrition verification now checks explicit fibre, carbohydrate and fat targets
+as well as the default energy, protein, vegetable and staple requirements. Substitutions
+exclude confirmed dislikes and avoided brands. Ambiguous edit targets require clarification;
+a compound edit with an invalid operation does not silently apply the remaining operations.
+
+Buying-time suggestions exclude all perishables and daily staples. Recorded demo price
+history stays labelled as illustrative; advice never mutates the basket.

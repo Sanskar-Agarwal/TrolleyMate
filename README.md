@@ -162,21 +162,27 @@ See the deployment guide for prerequisites and archive verification.
 
 ## Verification
 
-The application baseline on **29 October 2026** is
-[`947a59c`](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/commit/947a59cc6d94a9aec08c8ba5c55458b8b39eabf7),
-integrated through [PR #14](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/pull/14).
+The **30 October 2026** audit was performed on `Sanskar`, based on main commit
+[`54182b0`](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/commit/54182b0).
+See [the current acceptance report](docs/UAT_2026-10-30.md) for scope, corrections and evidence.
 
 | Check | Recorded result |
 |---|---|
-| Backend | 416 tests passed; Ruff passed |
-| Frontend | 57 tests passed; TypeScript and production build passed |
-| Local Docker (`linux/arm64`) | Fresh-database startup and basket checks passed, including allergy-change handling, quantity increases, cancellation and ownership |
-| Main CI and GHCR (`linux/amd64`) | All jobs passed and the image was published in [run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408) |
+| Backend | 504 tests passed; Ruff passed |
+| Frontend | 58 tests passed; TypeScript and production Vite build passed |
+| Local browser | Shopper, negotiation, substitution, meals, household, human review and audit scenarios passed using labelled offline fallback |
+| Live Groq | Blocked: HTTP 403, “Access denied. Please check your network settings.” Live model behaviour was not validated |
+| Docker and hosted CI | Not rerun for these corrections; prior results below are historical |
 
-The backend total includes the fixed 42-case agent evaluation and two additional
-integration regressions for basket extras. The [full browser UAT](docs/UAT_2026-10-28.md)
-is a dated 28 October record and was not repeated in full for PR #14. Technical checks do
-not establish that a group rehearsal, contribution agreement or release approval happened;
+The existing Groq configuration was used without changing its key or model. Provider
+failure was visible in the interface and audit; fallback success is not a live AI pass.
+The test database was isolated from existing application data. Automated checks supplement
+the manual scenarios; the browser run did not exhaust every branch of every requirement.
+
+Historical evidence: the 29 October baseline passed 416 backend and 57 frontend tests,
+local ARM64 Docker checks and [main CI/GHCR run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408).
+Those results do not certify the latest branch or container image. Technical checks do not
+establish a group rehearsal, contribution agreement, retrospective or submission upload;
 those human gates remain explicit in the release checklist.
 
 ## Documentation and source map
@@ -187,7 +193,7 @@ those human gates remain explicit in the release checklist.
 | Team and decisions | [Team guide](docs/TEAM_GUIDE.md), [decision log](docs/DECISIONS.md) |
 | Feature behaviour | [Optimisation and meals](docs/OPTIMISATION_AND_MEALS.md), [compliance](docs/COMPLIANCE_VERDICT.md) |
 | Running and releasing | [Deployment](docs/DEPLOYMENT.md), [CI/CD](docs/CI_CD.md), [release checklist](docs/RELEASE_CHECKLIST.md), [submission checklist](docs/SUBMISSION_CHECKLIST.md) |
-| Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [browser UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
+| Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [current browser UAT](docs/UAT_2026-10-30.md), [earlier UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
 | Demo data | [Seed provenance](backend/app/seed/PROVENANCE.md) |
 
 ```text

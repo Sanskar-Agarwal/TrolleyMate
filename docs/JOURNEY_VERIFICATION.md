@@ -170,3 +170,10 @@ for the versioned evidence. These results do not complete human release approval
   artifacts. A clean-build script is available; the final archive, checksum and extract/run result
   must identify the actual selected release. The [release checklist](RELEASE_CHECKLIST.md) keeps
   rehearsal, feedback, agreed contributions and sign-off unverified until supporting records exist.
+
+## 7. Acceptance audit — 30 October 2026
+
+The new [UAT and correction record](UAT_2026-10-30.md) supersedes earlier current-status
+claims. In particular, incomplete price comparisons now suppress savings against incomplete
+baselines; all perishables are excluded from timing advice; and human approvals require
+matching product evidence. Historical runs above retain their original dates and limitations.

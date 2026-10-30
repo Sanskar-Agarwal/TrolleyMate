@@ -13,7 +13,7 @@ Use Stage 1 requirements **1.2.1–1.2.15** as the acceptance baseline and
 [TEAM_GUIDE.md](TEAM_GUIDE.md) for ownership. The original backlog included stretch work;
 do not treat every backlog suggestion as an original requirement. Use
 [README verification](../README.md#verification) for the latest tested version,
-[UAT_2026-10-28.md](UAT_2026-10-28.md) for the dated browser/live-model evidence, and
+[UAT_2026-10-30.md](UAT_2026-10-30.md) for current browser evidence and the Groq access limitation, and
 [JOURNEY_VERIFICATION.md](JOURNEY_VERIFICATION.md#4-requirement-traceability) for the code/test
 map. Historical pass statements are not a substitute for checking the release candidate.
 
