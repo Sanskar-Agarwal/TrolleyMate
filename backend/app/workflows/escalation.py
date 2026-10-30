@@ -14,8 +14,18 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 
 from app.core.config import get_settings
-from app.domain import Basket, BasketItem, ComplianceVerdict, EscalationCase, Household, User
+from app.domain import (
+    Basket,
+    BasketItem,
+    ComplianceVerdict,
+    ConstraintSetRecord,
+    EscalationCase,
+    Household,
+    ShoppingSession,
+    User,
+)
 from app.domain.enums import BasketStatus, CaseStatus, ItemCompliance, UserRole, VerdictStatus
+from app.services.review_evidence import product_fingerprint
 
 
 class EscalationError(ValueError):
@@ -37,8 +47,20 @@ def raise_case(agent, verdict: ComplianceVerdict, item: BasketItem, household: H
             EscalationCase.status != CaseStatus.resolved,
         )
     )
+    evidence = {"confidence": finding.confidence, "findings": finding.findings, "household": household.name,
+                "product_fingerprint": product_fingerprint(item.product)}
     if existing:
+        changed = (existing.requirements != restrictions
+                   or (existing.evidence or {}).get("product_fingerprint") != evidence["product_fingerprint"])
         existing.basket_id, existing.basket_item_id, existing.verdict_id = item.basket_id, item.id, verdict.id
+        existing.requirements, existing.evidence = restrictions, evidence
+        existing.reason = "; ".join(f["detail"] for f in finding.findings) or "Compliance could not be confirmed"
+        if changed:
+            existing.status = CaseStatus.assigned if existing.assigned_to_id else CaseStatus.open
+            existing.review_started_at = None
+            existing.thread = list(existing.thread or []) + [{"from": "agent", "author": "AI Nutrition & Compliance",
+                "text": "Evidence changed; review must restart against the updated restrictions and product data.", "at": _now()}]
+            agent.log("refresh_escalation", f"Case #{existing.id}: evidence changed; review restarted", basket_id=item.basket_id)
         return existing
 
     case = EscalationCase(
@@ -46,7 +68,7 @@ def raise_case(agent, verdict: ComplianceVerdict, item: BasketItem, household: H
         product_id=item.product_id,
         reason="; ".join(f["detail"] for f in finding.findings) or "Compliance could not be confirmed",
         requirements=restrictions,
-        evidence={"confidence": finding.confidence, "findings": finding.findings, "household": household.name},
+        evidence=evidence,
         thread=[],
     )
     db.add(case)
@@ -145,6 +167,16 @@ def resolve(agent, case: EscalationCase, user: User, decision: str, note: str = 
     if decision not in (VerdictStatus.passed, VerdictStatus.failed):
         raise EscalationError("Decision must be 'passed' or 'failed'.")
     db = agent.db
+    basket = db.get(Basket, case.basket_id)
+    session = db.get(ShoppingSession, basket.session_id) if basket else None
+    cs = db.get(ConstraintSetRecord, session.active_constraint_set_id) if session and session.active_constraint_set_id else None
+    household = db.get(Household, case.household_id)
+    current = agent.ctx.compliance.restrictions_for(household, cs.payload if cs else {})
+    def restrictions(rs):
+        return sorted((r["restriction"], r.get("severity")) for r in rs)
+    if ((case.evidence or {}).get("product_fingerprint") != product_fingerprint(case.product)
+            or restrictions(current) != restrictions(case.requirements)):
+        raise EscalationError("Review evidence has changed. Verify the basket again and restart the review before deciding.")
     human = ComplianceVerdict(
         basket_id=case.basket_id, status=decision, confidence=1.0, source="human", reviewer_id=user.id,
         evidence={"case_id": case.id, "note": note},

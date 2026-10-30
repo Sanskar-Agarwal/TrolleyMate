@@ -176,7 +176,7 @@ def test_exception_does_not_cover_a_bigger_gap(client):
         product = SimpleNamespace(nutrition={"veg_serves": veg_serves}, category="veg", servings=1)
         return [SimpleNamespace(product=product, quantity=1, withheld=False)]
 
-    req = SimpleNamespace(kcal=0, protein_g=0, veg_serves=16, carb_servings=0)
+    req = SimpleNamespace(kcal=0, protein_g=0, veg_serves=16, carb_servings=0, extra_minimums={})
     b = SimpleNamespace(id=None, session_id=None, notes={}, items=basket(10))
     with SessionLocal() as db:
         user = db.query(User).filter_by(email="riley@trolleymate.demo").one()
@@ -279,3 +279,16 @@ def test_contract_rejects_an_acceptance_without_a_recorded_exception():
             coverage=[{"nutrient": "veg_serves", "required": 16, "provided": 4, "coverage_pct": 25, "met": False, "accepted": True}],
             gaps=[{"nutrient": "veg_serves", "required": 16, "provided": 4, "short_by": 12}],
         )
+
+
+@pytest.mark.parametrize("nutrient", ["fibre_g", "carbs_g", "fat_g"])
+def test_custom_target_is_checked_against_current_basket(client, riley, nutrient):
+    b = built_basket(client, riley)
+    with SessionLocal() as db:
+        basket = db.get(Basket, b["id"])
+        req = _req()
+        req.extra_minimums = {nutrient: 100000}
+        agent = AgentContext(db=db, llm=get_llm()).compliance
+        report = agent.assess_nutrition(basket, req)
+        assert not report["adequate"]
+        assert any(g["nutrient"] == nutrient for g in report["gaps"])

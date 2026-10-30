@@ -52,3 +52,28 @@ def test_retries_are_bounded(monkeypatch):
 ])
 def test_retry_after_parsing(text, headers, expected):
     assert retry_after(_limited(text, headers)) == expected
+
+
+def test_request_bounds_output_and_uses_groq_qwen_instruct_mode(monkeypatch):
+    sent = []
+    def post(*args, **kwargs):
+        sent.append(kwargs["json"])
+        return httpx.Response(200, json=OK)
+    monkeypatch.setattr(httpx, "post", post)
+    provider = OpenAICompatibleProvider(Settings(_env_file=None, llm_base_url="https://api.groq.com/openai/v1",
+        llm_model="qwen/qwen3.8-27b", llm_max_output_tokens=600))
+    assert provider.generate(system="s", user="u", schema=None) == "hello"
+    assert sent[0]["max_tokens"] == 600
+    assert sent[0]["reasoning_effort"] == "none"
+    _provider(llm_reasoning_effort="").generate(system="s", user="u", schema=None)
+    assert "reasoning_effort" not in sent[1]
+
+
+@pytest.mark.parametrize("choice", [
+    {"finish_reason": "length", "message": {"content": '{"safe": true}'}},
+    {"finish_reason": "stop", "message": {"content": ""}},
+])
+def test_incomplete_or_empty_model_answer_is_not_accepted(monkeypatch, choice):
+    _script(monkeypatch, [httpx.Response(200, json={"choices": [choice]})])
+    with pytest.raises(LLMError):
+        _provider().generate(system="s", user="u", schema=None)

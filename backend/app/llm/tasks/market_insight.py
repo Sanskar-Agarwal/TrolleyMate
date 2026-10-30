@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from decimal import Decimal
 
 from app.llm.tasks._base import Task
 
@@ -58,6 +60,20 @@ def mock(ctx: dict) -> str:
     if ctx.get("unpriced"):
         lines.append(f"{len(ctx['unpriced'])} item(s) had no current price at some stores, so those totals are incomplete.")
     return " ".join(lines)
+
+
+def grounded_insight(text: str, ctx: dict) -> str:
+    """Do not display model-invented money/percentage figures as computed savings."""
+    money = {Decimal(str(o[k])) for o in ctx["options"] for k in ("total", "saving") if o.get(k) is not None}
+    percentages = {Decimal(str(o["saving_pct"])) for o in ctx["options"] if o.get("saving_pct") is not None}
+    extra = ctx.get("split_saving_vs_cheapest_store")
+    if extra is not None:
+        money.add(Decimal(str(extra)))
+    quoted_money = [Decimal(n.replace(",", "")) for n in re.findall(r"\$\s*(-?[\d,]+(?:\.\d+)?)", text)]
+    quoted_percent = [Decimal(n) for n in re.findall(r"(-?\d+(?:\.\d+)?)\s*%", text)]
+    if any(n not in money for n in quoted_money) or any(n not in percentages for n in quoted_percent):
+        return mock(ctx)
+    return text
 
 
 TASK = Task(name="market_insight", system=SYSTEM, build_user=build_user, mock=mock)

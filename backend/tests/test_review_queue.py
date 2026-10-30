@@ -148,3 +148,35 @@ def test_review_actions_require_an_open_review(client, sam, escalated):
     assert client.post(f"/api/escalations/{cid}/request-info", json={"question": "?"}, headers=sam).status_code == 400
     client.post(f"/api/escalations/{cid}/begin", headers=sam)
     assert client.post(f"/api/escalations/{cid}/resolve", json={"decision": "escalated", "note": ""}, headers=sam).status_code == 400
+
+
+def test_changed_product_cannot_use_previous_human_approval(client, alex, sam, escalated):
+    cid, bid = escalated["case_id"], escalated["basket"]["id"]
+    client.post(f"/api/escalations/{cid}/begin", headers=sam)
+    assert client.post(f"/api/escalations/{cid}/resolve", json={"decision": "passed"}, headers=sam).status_code == 200
+    with SessionLocal() as db:
+        p = db.get(Product, escalated["item"]["product"]["id"])
+        p.tags = list(p.tags) + ["tree_nuts"]
+        db.commit()
+    response = client.post(f"/api/baskets/{bid}/verify", headers=alex)
+    assert response.status_code == 200, response.text
+    item = next(i for i in response.json()["basket"]["items"] if i["id"] == escalated["item"]["id"])
+    assert item["compliance"] == "violation"
+    assert client.post(f"/api/baskets/{bid}/accept", headers=alex).status_code == 400
+
+
+def test_changed_evidence_requires_review_restart(client, alex, sam, escalated):
+    cid, bid = escalated["case_id"], escalated["basket"]["id"]
+    client.post(f"/api/escalations/{cid}/begin", headers=sam)
+    with SessionLocal() as db:
+        p = db.get(Product, escalated["item"]["product"]["id"])
+        p.name += " revised label"
+        db.commit()
+    result = client.post(f"/api/escalations/{cid}/resolve", json={"decision": "passed"}, headers=sam)
+    assert result.status_code == 400 and "evidence has changed" in result.text
+    client.post(f"/api/baskets/{bid}/verify", headers=alex)
+    refreshed = case(client, sam, cid)
+    assert refreshed["status"] == "assigned"
+    assert "Evidence changed" in refreshed["thread"][-1]["text"]
+    client.post(f"/api/escalations/{cid}/begin", headers=sam)
+    assert client.post(f"/api/escalations/{cid}/resolve", json={"decision": "passed"}, headers=sam).status_code == 200

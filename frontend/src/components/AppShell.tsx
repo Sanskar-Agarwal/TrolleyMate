@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import ModelBadge from "./ModelBadge";
@@ -32,6 +33,15 @@ export function Logo() {
 
 export default function AppShell() {
   const { user, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+  async function logout(all = false) {
+    setSigningOut(true);
+    setSignOutError("");
+    try { await signOut(all); }
+    catch { setSignOutError("Could not revoke your session. Check your connection and try again."); }
+    finally { setSigningOut(false); }
+  }
   if (!user) return null;
   return (
     <div className="shell">
@@ -61,11 +71,15 @@ export default function AppShell() {
               <span className="muted"> · {user.role}</span>
             </span>
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={signOut}>
+          <button className="btn btn-ghost btn-sm" disabled={signingOut} onClick={() => void logout()}>
             Sign out
+          </button>
+          <button className="btn btn-ghost btn-sm" disabled={signingOut} onClick={() => void logout(true)}>
+            Sign out everywhere
           </button>
         </div>
       </header>
+      {signOutError && <p role="alert">{signOutError}</p>}
       <main className="shell-main">
         <Outlet />
       </main>

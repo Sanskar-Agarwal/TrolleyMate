@@ -8,6 +8,7 @@ Domain
 └── safety_audit           ComplianceVerdict, EscalationCase, AuditRecord
 """
 
+from app.domain.authentication import LoginSession, RateLimitWindow
 from app.domain.basket_products import Basket, BasketItem, Ingredient, MealPlan, Product, Substitution
 from app.domain.household_profiles import DietaryProfile, Household, HouseholdMember, Preference, User
 from app.domain.pricing import PriceQuote, Retailer
@@ -16,6 +17,8 @@ from app.domain.safety_audit import AuditRecord, ComplianceVerdict, EscalationCa
 
 __all__ = [
     "AuditRecord",
+    "LoginSession",
+    "RateLimitWindow",
     "Basket",
     "BasketItem",
     "ComplianceVerdict",

@@ -50,7 +50,7 @@ REQUIRED = [
 FORBIDDEN_PATHS = [
     re.compile(p)
     for p in (
-        r"(^|/)\.env$", r"(^|/)\.env\.(?!example$)", r"\.secret_key$", r"\.(db|sqlite3?|db-journal)$",
+        r"(^|/)\.env$", r"(^|/)\.env\.(?!example$)", r"\.secret_key$", r"\.(db|sqlite3?|db-journal)$", r"\.db\.limits",
         r"(^|/)node_modules/", r"(^|/)\.venv/", r"(^|/)frontend/dist/", r"(^|/)__pycache__/", r"\.pem$", r"(^|/)id_rsa",
     )
 ]

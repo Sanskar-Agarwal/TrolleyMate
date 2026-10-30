@@ -222,8 +222,9 @@ accounts, which have no household, get 404 as well. Forgetting a preference dele
 records for preference changes name the kind and id only (`Forgot a dislike preference (#12)`), never
 the value, so the preference log keeps no copy of a forgotten value. This follows the Stage 1
 cross-tree constraint "Taste & Preference Memory implies Enhanced Data Protection". Records of
-sessions that already applied a preference keep it: their confirmed constraint set, the intake audit
-payload and the basket facts.
+sessions that already applied a preference retain their confirmed instructions and basket facts.
+Intake/routing prompts and raw replies are now omitted from oversight payloads; preference-keyed
+payload data is redacted on write and read. Forgetting also scrubs those fields in the owner's legacy audit payloads. This does not erase confirmed shopping history.
 
 | Acceptance criterion | Tests |
 |---|---|
@@ -327,9 +328,9 @@ Recorded with the results in the evidence file. The ones that matter most:
 - **Safety lock scope.** UC-06's failure scenario locks the whole basket. The code withholds only the
   affected product, while acceptance and meal-plan gates block a basket containing withheld items.
   This difference from the design remains an explicit prototype limitation.
-- **Reused human decisions.** Reuse checks product id, household id and restriction severity coverage.
-  It does not version ingredient data; a changed product record is not itself a reason to invalidate
-  an otherwise matching prior review.
+- **Reused human decisions.** Reuse checks product id, household id, restriction severity coverage and a fingerprint of
+  the reviewed product/ingredient evidence. Changed evidence invalidates approval reuse. Legacy
+  cases without a fingerprint must be re-verified; an active review must restart if its evidence changes.
 - **Prompt injection.** Label text reaches the model verbatim. The output contract, the 0.95 threshold
   and the FSANZ notes limit what a confident wrong answer can do. They don't remove the risk.
 - **Evaluation model coverage.** This 42-case safety evaluation uses scripted model replies and
@@ -341,3 +342,12 @@ Recorded with the results in the evidence file. The ones that matter most:
 | Run a fixed evaluation set covering perception, tool-based decisions and system actions, including unsafe/uncertain inputs and failed tools | `test_agent_evaluation.py`: the set's make-up is pinned (42 cases, every capability × input kind), and every case runs in CI |
 | Record observed results and limitations | [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md): expected, observed and the main baseline per case, plus limitations |
 | Uncertain items stay withheld pending authorised review | S02–S07, S10, S15 and T10, listed in `WITHHELD_UNTIL_REVIEW` |
+
+### Acceptance audit — 30 October 2026
+
+Out-of-range model confidence (including 85 rather than 0.85) is rejected as an incomplete
+check instead of clamped to a confident answer. The T06 evaluation scenario now expects
+`uncertain` with a `check_failed` finding. The historical evaluation report retains the
+original run; current suite results are recorded in [the new UAT report](UAT_2026-10-30.md).
+Additional tests cover changed product data before and during human review, all supported
+custom nutrition minimums, and private intake/routing audit payloads.

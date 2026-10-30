@@ -233,8 +233,12 @@ def test_confirmation_commit_failure_preserves_previous_set_and_can_retry(client
     next_draft = client.post(f"/api/sessions/{sid}/requests", json={"text": "$40 for 3 days, lunch only"}, headers=alex).json()["intake"]
     assert client.get(f"/api/sessions/{sid}", headers=alex).json()["constraints"] == active
 
+    from app.core.db import engine
+    original_commit = Session.commit
     def fail_commit(self):
-        raise SQLAlchemyError("simulated commit failure")
+        if self.get_bind() is engine:
+            raise SQLAlchemyError("simulated commit failure")
+        return original_commit(self)
 
     with monkeypatch.context() as patcher:
         patcher.setattr(Session, "commit", fail_commit)

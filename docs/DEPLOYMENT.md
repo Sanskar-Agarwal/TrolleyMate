@@ -102,7 +102,7 @@ for Compose, rerun `docker compose up -d` so changed container environment value
 | `ANTHROPIC_API_KEY` | empty | Used for `anthropic`; `LLM_API_KEY` is also accepted. Set `LLM_MODEL` explicitly to select your model |
 | `LLM_FALLBACK_TO_MOCK` | `true` | Failed provider calls use an offline answer, marked as a fallback; this does not certify uncertain ingredients |
 | `LLM_TIMEOUT_S` | `45` | Timeout for provider calls |
-| `SECRET_KEY` | generated | Signs logins; generated into `backend/.secret_key` if unset |
+| `SECRET_KEY` | generated | Keys hashed throttle identifiers; generated into `backend/.secret_key` if unset |
 | `DATABASE_URL` | local SQLite file in `backend/`; `/data/trolleymate.db` in Docker | SQLite is the tested configuration. Other database URLs require their drivers and separate validation |
 | `SEED_ON_STARTUP` | `true` | Loads the demo dataset when the database has no users; it does not refresh an existing dataset |
 
@@ -165,9 +165,30 @@ volume created by the `docker run` examples in `CI_CD.md`.
 | Badge says `offline_unconfigured` | Hover the badge for the missing setting, fix `.env`, restart the backend |
 | Old or inconsistent demo catalogue | Back up needed data, then follow [Resetting demo data](#resetting-demo-data) for a disposable demo |
 | Errors after pulling database schema changes | There are no migration scripts. Preserve needed data before replacing or resetting the demo database |
-| Everyone is signed out | `backend/.secret_key` was deleted or `SECRET_KEY` changed; sign in again |
+| Everyone is signed out | The login expired, was revoked, exceeded the active-session cap, or predates the session-store upgrade; sign in again |
 | `Can't reach the Trolley Mate server` in the UI | The backend isn't running on port 8000; start it with `scripts/dev.*` |
 | Port 8000 or 5173 already in use | Stop your conflicting dev server, or launch the backend from its venv on another port and set `VITE_API_PROXY` in the frontend process environment; Vite reads that variable from the process, not automatically from the root `.env` |
 | Frontend build errors about missing modules | `cd frontend && npm ci` (stale `node_modules`) |
 | Python install or resolver errors | Check Python 3.12+ and use the project's venv. From `backend/`, reinstall `requirements-dev.txt`; use `python -m pip check` to check the result |
 | Docker image won't start | Read `docker compose logs app` first. Check configuration, ports and database compatibility before considering a data reset |
+
+
+## Request security and login sessions
+
+See [Security controls](SECURITY.md) for limits, CSRF rules and password migration.
+The SQLite application database stores hashed login tokens. Request counters live in
+an adjacent `<database>.limits` SQLite file, in the same Docker data volume. Keeping
+this small shared store separate lets status/cancellation requests pass while a basket
+transaction is in flight. Both stores survive restarts and are shared by workers that
+use the same database path. They must not be committed or included in submission archives.
+
+Keep the existing SQLite database and start the updated backend normally: new tables
+are created automatically. Existing passwords remain valid and are rehashed on the next
+successful login. Existing signed bearer tokens are deliberately not accepted; users
+sign in once again. No stored shopping data is removed.
+
+For remote deployment, terminate TLS at a trusted proxy and configure `CORS_ORIGINS`
+with exact frontend origins. Configure Uvicorn's proxy trust only for that proxy; do not
+accept arbitrary forwarded client IPs. Local HTTP on localhost remains supported.
+The current prototype still exposes labelled demo accounts; do not expose those seeded
+credentials as a production deployment. This change is not a penetration-test certification.

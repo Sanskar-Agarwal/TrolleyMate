@@ -17,11 +17,18 @@ from app.seed import seed_all  # noqa: E402
 
 
 @pytest.fixture()
-def client():
+def client(monkeypatch):
+    # Functional suites exercise bursts; security tests override individual limits.
+    from app.core.config import get_settings
+    for key in ("api_requests_per_minute", "account_writes_per_minute", "auth_attempts_per_minute",
+                "account_login_attempts_per_quarter_hour", "registrations_per_hour"):
+        monkeypatch.setattr(get_settings(), key, 10000)
+    from app.core.request_security import reset_limits
+    reset_limits()
     reset_db()
     with SessionLocal() as db:
         seed_all(db)
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-TrolleyMate-Request": "1"}) as c:
         yield c
 
 

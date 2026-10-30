@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.agents.context import AgentContext
+from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.security import decode_token
+from app.core.request_security import UNSAFE, enforce_limit
+from app.core.security import resolve_session
 from app.domain import User
 from app.llm import get_llm
 
@@ -18,12 +20,15 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def current_user(
-    creds: HTTPAuthorizationCredentials | None = Depends(_bearer), db: Session = Depends(get_db)
+    request: Request, creds: HTTPAuthorizationCredentials | None = Depends(_bearer), db: Session = Depends(get_db)
 ) -> User:
-    payload = decode_token(creds.credentials) if creds else None
-    user = db.get(User, payload["sub"]) if payload else None
+    session = resolve_session(db, creds.credentials) if creds else None
+    user = db.get(User, session.user_id) if session else None
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sign in to continue.")
+    if request.method in UNSAFE and request.url.path not in {"/api/auth/logout", "/api/auth/logout-all"}:
+        enforce_limit("account-writes", str(user.id), get_settings().account_writes_per_minute, 60)
+    request.state.login_session_hash = session.token_hash
     return user
 
 

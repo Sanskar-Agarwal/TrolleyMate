@@ -1,0 +1,12 @@
+
+> trolleymate-frontend@0.2.0 test
+> vitest run --run
+
+
+ RUN  v4.1.12 /Users/sanskar/Desktop/ELEC5620-Group5-TrolleyMate/frontend
+
+
+ Test Files  7 passed (7)
+      Tests  58 passed (58)
+   Start at  19:50:16
+   Duration  1.37s (transform 638ms, setup 0ms, import 1.38s, tests 1.73s, environment 2.47s)

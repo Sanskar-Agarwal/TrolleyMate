@@ -162,21 +162,32 @@ See the deployment guide for prerequisites and archive verification.
 
 ## Verification
 
-The application baseline on **29 October 2026** is
-[`947a59c`](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/commit/947a59cc6d94a9aec08c8ba5c55458b8b39eabf7),
-integrated through [PR #14](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/pull/14).
+The **30 October 2026** follow-up on `Sanskar` includes live Groq browser testing,
+security controls and corrections to existing behaviour. See the
+[current acceptance report](docs/UAT_LIVE_2026-10-30.md) and [security design](docs/SECURITY.md).
 
 | Check | Recorded result |
 |---|---|
-| Backend | 416 tests passed; Ruff passed |
-| Frontend | 57 tests passed; TypeScript and production build passed |
-| Local Docker (`linux/arm64`) | Fresh-database startup and basket checks passed, including allergy-change handling, quantity increases, cancellation and ownership |
-| Main CI and GHCR (`linux/amd64`) | All jobs passed and the image was published in [run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408) |
+| Backend | 530 tests passed; Ruff passed |
+| Frontend | 62 tests passed; TypeScript and production Vite build passed |
+| Local browser | Shopper intake, all five goals, cancellation, negotiation, substitutions, meals, household, human review and audit exercised |
+| Live Groq | VPN-related 403 resolved; real model calls succeeded. Free-tier 429 responses still occurred and exercised labelled fallback |
+| Security | Browser session eviction, sign-out everywhere, throttling and protected shopping flow passed; automated CSRF, password migration and expiry checks passed |
+| Docker and hosted CI | Not rerun for these corrections; prior results below are historical |
 
-The backend total includes the fixed 42-case agent evaluation and two additional
-integration regressions for basket extras. The [full browser UAT](docs/UAT_2026-10-28.md)
-is a dated 28 October record and was not repeated in full for PR #14. Technical checks do
-not establish that a group rehearsal, contribution agreement or release approval happened;
+The existing Groq key and model were used unchanged, with bounded output tokens and
+Groq Qwen instruct mode. Passwords use salted PBKDF2-HMAC-SHA256 (600,000 iterations).
+Login sessions expire after 30 minutes idle or eight hours absolute, with three concurrent
+logins per account. Existing logins must sign in again after this upgrade. Configurable
+rate limits and CSRF checks are described in the security guide.
+
+Test data was isolated from existing application data. The browser scenarios are representative
+acceptance coverage, not proof of every possible branch or production-security certification.
+
+Historical evidence: the 29 October baseline passed 416 backend and 57 frontend tests,
+local ARM64 Docker checks and [main CI/GHCR run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408).
+Those results do not certify the latest branch or container image. Technical checks do not
+establish a group rehearsal, contribution agreement, retrospective or submission upload;
 those human gates remain explicit in the release checklist.
 
 ## Documentation and source map
@@ -187,7 +198,7 @@ those human gates remain explicit in the release checklist.
 | Team and decisions | [Team guide](docs/TEAM_GUIDE.md), [decision log](docs/DECISIONS.md) |
 | Feature behaviour | [Optimisation and meals](docs/OPTIMISATION_AND_MEALS.md), [compliance](docs/COMPLIANCE_VERDICT.md) |
 | Running and releasing | [Deployment](docs/DEPLOYMENT.md), [CI/CD](docs/CI_CD.md), [release checklist](docs/RELEASE_CHECKLIST.md), [submission checklist](docs/SUBMISSION_CHECKLIST.md) |
-| Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [browser UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
+| Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [current browser UAT](docs/UAT_LIVE_2026-10-30.md), [earlier UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
 | Demo data | [Seed provenance](backend/app/seed/PROVENANCE.md) |
 
 ```text

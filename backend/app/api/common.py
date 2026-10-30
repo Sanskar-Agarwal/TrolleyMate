@@ -23,6 +23,7 @@ from app.domain import (
     User,
 )
 from app.domain.enums import CaseStatus, UserRole
+from app.services.audit_privacy import audit_payload
 from app.services.pricing.normalisation import UnitPrice
 from app.workflows.substitution import item_flags
 
@@ -193,5 +194,5 @@ def audit_out(r: AuditRecord, *, full: bool) -> dict:
         "provider": r.provider, "session_id": r.session_id, "basket_id": r.basket_id,
     }
     if full:
-        out["payload"] = r.payload
+        out["payload"] = audit_payload(r.payload, r.action)
     return out

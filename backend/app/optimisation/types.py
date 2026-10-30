@@ -99,6 +99,7 @@ class Requirements:
     breakfast_servings: float
     # Shopper targets for nutrients without a default requirement (e.g. fibre_g), as basket totals.
     extra_minimums: dict[str, float] = field(default_factory=dict)
+    meal_count: int | None = None  # exact scheduled meals per person after a confirmed trade-off
     portions: float = 0.0  # adult-equivalent eaters; 0 means "same as household_size" (older saved baskets)
 
     KCAL_PER_MEAL = 550
@@ -113,7 +114,8 @@ class Requirements:
         portions = float(p.get("portions") or size)
         d = int(days if days is not None else p.get("days") or 7)
         mpd = float(p.get("meals_per_day") or 2)
-        schedule = meal_schedule(d, mpd)
+        count = p.get("meal_count")
+        schedule = meal_schedule(d, mpd, count)
         breakfast = math.ceil(portions * sum("Breakfast" in slots for slots in schedule) - 1e-9)
         # Round each role up independently: rounding breakfast must never take a
         # fractional child's lunch/dinner portion away from the main requirement.
@@ -140,11 +142,16 @@ class Requirements:
             protein_servings=main, carb_servings=main,
             breakfast_servings=math.ceil(1.6 * breakfast),
             extra_minimums=extra,
+            meal_count=count,
             portions=portions,
         )
 
+    @property
+    def scheduled_meals(self) -> int:
+        return sum(map(len, meal_schedule(self.days, self.meals_per_day, self.meal_count)))
+
     def as_dict(self) -> dict:
-        return {k: getattr(self, k) for k in self.__dataclass_fields__}
+        return {**{k: getattr(self, k) for k in self.__dataclass_fields__}, "scheduled_meals": self.scheduled_meals}
 
 
 @dataclass

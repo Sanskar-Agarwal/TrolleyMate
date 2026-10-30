@@ -9,6 +9,7 @@ from app.domain.enums import CaseStatus
 from app.llm import get_llm
 from app.llm.tasks.classify_intent import mock as classify
 from app.llm.tasks.parse_edit import mock as parse_edit
+from app.services.review_evidence import product_fingerprint
 from tests.test_basket_flow import confirmed_session
 
 
@@ -38,6 +39,7 @@ def test_stale_dietitian_approval_is_not_reused_after_new_allergy(client, alex):
         db.add(EscalationCase(
             verdict_id=0, basket_id=0, household_id=household.id, product_id=schnitzel.id, reason="test",
             status=CaseStatus.resolved, resolution="passed", requirements=restrictions,
+            evidence={"product_fingerprint": product_fingerprint(schnitzel)},
         ))
         db.flush()
         assert ctx.compliance.screen_product(schnitzel, restrictions, household.id).status == "compliant"
@@ -68,3 +70,22 @@ def test_best_nutrition_negotiation_offers_a_budget_that_works(client, riley):
 def test_offline_router_understands_absolute_budget_edits():
     assert classify({"text": "Actually, make it $80", "state": {"has_basket": True}})["intent"] == "edit_basket"
     assert parse_edit({"text": "Actually, make it $80", "items": []})["budget_change"] == {"mode": "absolute", "amount": 80.0}
+
+
+def test_gap_explanation_does_not_claim_the_basket_is_ready(client, riley, monkeypatch):
+    from app.agents.context import AgentContext
+    from app.agents.technical_manager import TechnicalManagerAgent
+    from app.core.db import SessionLocal
+    from app.domain import Basket
+    from app.llm import get_llm
+    from app.llm.base import LLMResult
+    from tests.test_basket_flow import confirmed_session
+    sid = confirmed_session(client, riley, "$60 for 3 days, two meals per day for myself")
+    bid = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]["id"]
+    monkeypatch.setattr(TechnicalManagerAgent, "think", lambda *a, **k: LLMResult(data="You are good to go!", provider="test", model="test"))
+    with SessionLocal() as db:
+        basket = db.get(Basket, bid)
+        basket.notes = {**basket.notes, "facts": {**basket.notes["facts"], "nutrition_adequate": False}}
+        text = AgentContext(db=db, llm=get_llm()).manager.explain_for(basket)["text"]
+        assert "good to go" not in text
+        assert "Nutrition targets are not yet met" in text

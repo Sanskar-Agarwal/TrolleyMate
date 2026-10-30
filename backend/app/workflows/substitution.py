@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from app.domain import Basket, BasketItem, PriceQuote, Product, Substitution
 from app.domain.enums import BasketStatus, ItemCompliance, QuoteStatus, SubReason, SubStatus
-from app.services.catalogue import optimisable_products, product_tokens
+from app.services.catalogue import disliked_by, optimisable_products, product_tokens
 from app.services.dietary_rules import RESTRICTION_RULES
 from app.services.session_state import active_constraints, household_of
 
@@ -78,6 +78,7 @@ def propose(agent, item: BasketItem, reason: str = SubReason.user_requested) -> 
         p for p in optimisable_products(db)
         if p.id != original.id and (original.id, p.id) not in rejected and p.id not in in_basket
         and (p.substitution_group == original.substitution_group or p.category == original.category)
+        and not disliked_by(p, payload.get("preferences", []))
     ]
     screened = ctx.compliance.screen(pool, restrictions, household_id=household.id, session_id=session.id) if pool else {}
     compliant = [p for p in pool if screened[p.id].status == ItemCompliance.compliant]

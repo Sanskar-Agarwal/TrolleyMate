@@ -11,7 +11,8 @@ recommendation to the shopper in plain, friendly language (3-5 short sentences).
 Use ONLY the facts provided. Do not add reasons, prices or claims that are not in
 the facts. If a fact needed for an explanation is missing, or `evidence_missing`
 lists anything, say plainly that part of the reasoning is unavailable — never guess
-it. When a safety `verdict` is given, mention its outcome. No markdown headings."""
+it. scheduled_meals counts meals for the whole household; person_meals is only
+an adult-equivalent portion count for sizing, not the number of scheduled meals. When a safety `verdict` is given, mention its outcome. No markdown headings."""
 
 
 def build_user(ctx: dict) -> str:
@@ -38,7 +39,7 @@ def mock(ctx: dict) -> str:
     n = f.get("nutrition") or {}
     if n:
         parts.append(
-            f"It covers {f.get('person_meals', '?')} person-meals with about {n.get('protein_g', 0):.0f} g of protein "
+            f"It provides about {n.get('protein_g', 0):.0f} g of protein "
             f"and {n.get('veg_serves', 0):.0f} vegetable serves."
         )
     if f.get("excluded"):
@@ -48,6 +49,8 @@ def mock(ctx: dict) -> str:
     verdict = f.get("verdict")
     if verdict:
         parts.append(f"The latest safety check was {verdict['status']} ({round(verdict['confidence'] * 100)}% confidence).")
+    if f.get("nutrition_adequate") is False:
+        parts.append("Nutrition targets are not yet met. Repair the gaps or explicitly accept an allowed nutrition exception before accepting the basket; mandatory dietary restrictions still apply.")
     parts.extend(_missing(f))
     return " ".join(parts)
 

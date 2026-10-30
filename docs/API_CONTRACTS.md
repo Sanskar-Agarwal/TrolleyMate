@@ -4,7 +4,7 @@ Agreed with the area owners in sprint 1 (KAN-25). Serializers live in
 `backend/app/api/common.py`; TypeScript mirrors are in `frontend/src/api/types.ts`. Change both
 in the same pull request.
 
-Current behavior checked against main `947a59c` on 29 October 2026. All routes below use
+Current behavior updated on Sanskar, based on main `54182b0`, on 30 October 2026. All routes below use
 the `/api` prefix. FastAPI's `/docs` is the complete request-schema reference.
 
 ## Permission matrix
@@ -18,7 +18,7 @@ the `/api` prefix. FastAPI's `/docs` is the complete request-schema reference.
 | Review case detail (`/escalations/{id}`) | 403 | read any case by id | read any case |
 | Begin / request info / resolve a case | 403 | only when assigned to them | any case (fallback reviewer) |
 | Accept a nutrition exception | own basket only | 404 for another shopper's basket | 403 for another shopper's basket |
-| Audit log (`/audit`) | own sessions, no payload | empty list with the seeded account | everything, incl. raw prompts |
+| Audit log (`/audit`) | own sessions, no payload | empty list with the seeded account | all records; private intake/routing payloads redacted |
 | Audit stats (`/audit/stats`) | 403 | 403 | read |
 
 Protected routes return **401** without a valid token. Health, model status, goal and dietary
@@ -33,7 +33,7 @@ check. Reviewer role checks and case-assignment checks govern review actions ind
 ## Build and negotiation
 
 `POST /sessions/{id}/basket` accepts `goal` and an optional UUID `operation_id`.
-`POST /sessions/{id}/negotiate` accepts the chosen `option_id`, `budget` and/or `days`, an
+`POST /sessions/{id}/negotiate` accepts the chosen `option_id`, `budget`, `days` and/or `meal_count`, an
 optional `goal`, and the same optional operation token. The client creates a new token for
 each attempt. Both return one of these bodies, with `trace`:
 
@@ -132,3 +132,40 @@ Stored plans are hidden when the basket snapshot or active constraints no longer
 - `resolution` is `passed` or `failed`. It's applied to the withheld item and reused for the
   same product and household only while it covers every current restriction at the same or a
   stricter severity. The current reuse key does not version the product's ingredient record.
+
+## Review evidence and price completeness — 30 October 2026
+
+Review cases include a `product_fingerprint` of the current product label, allergen tags,
+may-contain data, completeness and nested ingredients. A reused approval must match that
+fingerprint and cover every current restriction at the same or stricter severity. Legacy
+cases without a fingerprint require fresh verification. Resolving a case rejects changed
+product evidence or restrictions; re-verification refreshes the case and restarts review.
+
+Price-comparison options expose nullable `saving` and `saving_pct`. Both are null whenever
+the option or named baseline is incomplete. Partial totals remain visible and labelled.
+
+Negotiation's optional `meal_count` is the exact number of scheduled meals per person.
+The `reduce_days` option ID remains compatible, but may include a partial final day. Clients
+must submit the offered `days` and `meal_count` together. The confirmed constraints and
+meal planner preserve this count. Omitting it retains the ordinary full-day schedule.
+
+
+## Authentication and request protection
+
+All API writes (`POST`, `PUT`, `PATCH`, `DELETE`), including login and registration,
+require `X-TrolleyMate-Request: 1`. Send request bodies as `application/json`.
+Untrusted browser origins/referrers and cross-site writes are rejected with **403**;
+simple form content types receive **415**. Cookie authentication is not supported.
+Non-browser clients send the same header and explicit bearer token but need no Origin.
+
+Login/registration return an opaque `token`; send it as `Authorization: Bearer <token>`.
+Sessions expire after 30 minutes without authenticated requests, or eight hours regardless
+of activity. Activity timestamps are coalesced to one write per minute (idle expiry may be
+up to one minute earlier). A fourth login revokes the oldest active login by default.
+`POST /auth/logout` revokes the current token; `POST /auth/logout-all` revokes all tokens
+for the authenticated account. Both return `{ "signed_out": true }`.
+Expired/revoked tokens receive **401**. API responses are not cacheable.
+
+Throttled requests receive **429**, a `Retry-After` header in seconds and a user-facing
+message. Limits are persisted and shared across workers using the same SQLite files.
+See [Security controls](SECURITY.md) for configurable defaults and deployment boundaries.

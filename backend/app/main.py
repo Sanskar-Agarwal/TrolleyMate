@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import api_router
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
+from app.core.request_security import RequestSecurityMiddleware, init_limits
 from app.seed import seed_if_empty
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -25,6 +26,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    init_limits()
     if settings.seed_on_startup:
         with SessionLocal() as db:
             if seed_if_empty(db):
@@ -33,8 +35,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Trolley Mate API", version="0.2.0", lifespan=lifespan)
+app.add_middleware(RequestSecurityMiddleware)
 app.add_middleware(
-    CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False, allow_methods=["*"], allow_headers=["*"]
 )
 app.include_router(api_router)
 

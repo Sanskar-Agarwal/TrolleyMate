@@ -57,13 +57,18 @@ def find_products(db: Session, text: str, limit: int = 5) -> list[Product]:
     return [p for score, p in scored if score == best_score][:limit]
 
 
+def matching_items(basket: Basket, target: str) -> list[BasketItem]:
+    exact = [i for i in basket.items if i.product.name.casefold() == target.strip().casefold()]
+    if exact:
+        return exact
+    scored = [(match_score(i.product, target), i) for i in basket.items]
+    best = max((score for score, _ in scored), default=0)
+    return [i for score, i in scored if score == best and score > 0]
+
+
 def match_item(basket: Basket, target: str) -> BasketItem | None:
-    best, best_score = None, 0.0
-    for item in basket.items:
-        score = match_score(item.product, target)
-        if score > best_score:
-            best, best_score = item, score
-    return best
+    matches = matching_items(basket, target)
+    return matches[0] if len(matches) == 1 else None
 
 
 def disliked_by(p: Product, preferences: list[str]) -> str | None:

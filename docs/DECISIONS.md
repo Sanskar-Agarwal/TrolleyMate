@@ -68,13 +68,17 @@ rationale is retained; the boundaries below describe the current prototype.
   volume. The default image runs one Uvicorn process; deployment assumptions such as
   process-local workflow state must be reconsidered before adding workers or replicas.
 
-## D5 — Auth: signed bearer tokens with three roles
+## D5 — Auth: revocable bearer sessions with three roles
 
-- **Chosen:** PBKDF2 password hashes and HMAC-signed tokens carrying `shopper`,
-  `dietitian` or `founder`. If `SECRET_KEY` is unset or a recognised placeholder, a random
-  signing key is stored in `backend/.secret_key` and reused while that file persists.
-  This file is outside Docker's `/data` volume, so replacing a container can invalidate
-  existing tokens unless a stable `SECRET_KEY` is supplied or the key file is persisted.
-- **Why:** enough to demonstrate role separation (shopper vs authorised reviewer vs
-  founder audit) without an external identity provider. See [API contracts](API_CONTRACTS.md) for the
-  permission matrix.
+- **Chosen (updated 30 October 2026):** salted PBKDF2-HMAC-SHA256 password hashes
+  at 600,000 iterations and opaque random bearer tokens. Only token digests are stored;
+  roles (`shopper`, `dietitian`, `founder`) are read from the user record. Old signed
+  tokens are retired and existing password hashes upgrade on successful login.
+- **Limits:** three concurrent logins, 30-minute idle expiry and eight-hour absolute expiry.
+  Server-side sign-out revokes one or all sessions. CSRF checks and database-backed
+  request limits protect API writes and authentication. See [security](SECURITY.md).
+- **Persistence:** login sessions live in the application database. Rate counters use an
+  adjacent SQLite `.limits` file so long basket writes do not block counter updates.
+  `SECRET_KEY` now keys hashed rate-limit identities; use one stable key across workers.
+- **Why:** demonstrate role separation and revocable access without an external identity
+  provider. See [API contracts](API_CONTRACTS.md) for the permission matrix.

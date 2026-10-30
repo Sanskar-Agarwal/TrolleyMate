@@ -39,6 +39,7 @@ export interface ConstraintDraft {
   budget?: number | null;
   household_size?: number | null;
   meals_per_day?: number | null;
+  meal_count?: number | null;
   days?: number | null;
   restrictions?: Restriction[];
   nutritional_targets?: { nutrient: string; minimum_per_day: number }[];
@@ -178,6 +179,7 @@ export interface NegotiationOption {
   budget?: number;
   days?: number;
   person_meals?: number;
+  meal_count?: number;
 }
 
 export interface Negotiation {
@@ -252,8 +254,8 @@ export interface ComparisonOption {
   name: string;
   retailer_id: number | null;
   total: number;
-  saving: number;
-  saving_pct: number;
+  saving: number | null;
+  saving_pct: number | null;
   complete: boolean;
   unpriced: string[];
   is_split: boolean;

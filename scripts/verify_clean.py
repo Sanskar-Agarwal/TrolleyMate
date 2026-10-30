@@ -85,6 +85,7 @@ def http(method: str, url: str, body: dict | None = None, token: str | None = No
     req = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
+    req.add_header("X-TrolleyMate-Request", "1")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     try:

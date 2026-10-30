@@ -37,3 +37,6 @@ Thumbs.db
 
 # Submission archives built by scripts/package_submission.py
 /release/
+
+# Persistent request-throttle state (never submission source)
+*.db.limits*

@@ -205,3 +205,19 @@ def test_a_system_reason_must_actually_hold(client, riley, reason, message):
     assert r.status_code == 400 and message in r.json()["detail"]
     with SessionLocal() as db:
         assert db.scalar(select(Substitution).where(Substitution.basket_item_id == item["id"])) is None
+
+
+def test_substitute_does_not_reintroduce_confirmed_dislike(client, riley):
+    from app.domain import ConstraintSetRecord
+
+    basket = build(client, riley)
+    item, first = first_pending(client, riley, basket)
+    excluded_name = first["replacement"]["name"]
+    with SessionLocal() as db:
+        session = db.get(ShoppingSession, basket["session_id"])
+        record = db.get(ConstraintSetRecord, session.active_constraint_set_id)
+        record.payload = {**record.payload, "preferences": [f"dislike:{excluded_name}"]}
+        db.commit()
+    # No rejection-memory entry: the preference itself must exclude this candidate.
+    again = propose(client, riley, basket["id"], item["id"]).json()["substitution"]
+    assert again["replacement"] is None or again["replacement"]["name"] != excluded_name

@@ -30,6 +30,7 @@ class NegotiateIn(BaseModel):
     option_id: str | None = None
     budget: float | None = Field(default=None, gt=0)
     days: int | None = Field(default=None, ge=1, le=31)
+    meal_count: int | None = Field(default=None, ge=1, le=155)
     goal: OptimisationGoal | None = None
     operation_id: UUID | None = None
 
@@ -78,7 +79,7 @@ def build_basket(session_id: int, body: BuildIn, ctx: AgentContext = Depends(age
 def negotiate(session_id: int, body: NegotiateIn, ctx: AgentContext = Depends(agent_context)) -> dict:
     s = own_session(ctx, session_id)
     return _controlled_build(ctx, session_id, body.operation_id,
-                             lambda: ctx.shopper.negotiate(s, option_id=body.option_id, budget=body.budget, days=body.days, goal=body.goal))
+                             lambda: ctx.shopper.negotiate(s, option_id=body.option_id, budget=body.budget, days=body.days, meal_count=body.meal_count, goal=body.goal))
 
 
 @router.post("/sessions/{session_id}/basket-builds/{operation_id}/cancel")
