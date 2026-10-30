@@ -186,7 +186,7 @@ those human gates remain explicit in the release checklist.
 | Design and interfaces | [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md) |
 | Team and decisions | [Team guide](docs/TEAM_GUIDE.md), [decision log](docs/DECISIONS.md) |
 | Feature behaviour | [Optimisation and meals](docs/OPTIMISATION_AND_MEALS.md), [compliance](docs/COMPLIANCE_VERDICT.md) |
-| Running and releasing | [Deployment](docs/DEPLOYMENT.md), [CI/CD](docs/CI_CD.md), [release checklist](docs/RELEASE_CHECKLIST.md) |
+| Running and releasing | [Deployment](docs/DEPLOYMENT.md), [CI/CD](docs/CI_CD.md), [release checklist](docs/RELEASE_CHECKLIST.md), [submission checklist](docs/SUBMISSION_CHECKLIST.md) |
 | Dated evidence | [Journey verification](docs/JOURNEY_VERIFICATION.md), [browser UAT](docs/UAT_2026-10-28.md), [agent evaluation](docs/evidence/agent-evaluation.md) |
 | Demo data | [Seed provenance](backend/app/seed/PROVENANCE.md) |
 

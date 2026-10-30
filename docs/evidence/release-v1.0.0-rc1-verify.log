@@ -1,0 +1,19 @@
+[18:36:53] Clean verification on win32, Python 3.13.7, work dir C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb
+[18:36:53] Staged archive D:\USYD\USYD Sem3\ELEC5620\Assignments\ELEC5620-Group5-TrolleyMate\release\TrolleyMate-Group5-v1.0.0-rc1.zip -> C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb\TrolleyMate-Group5-v1.0.0-rc1
+[18:37:03] ok (10s): C:\Python313\python.exe -m venv .venv
+[18:37:12] ok (9s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb\TrolleyMate-Group5-v1.0.0-rc1\backend\.venv\Scripts\python.exe -m pip install -q --upgrade pip
+[18:38:07] ok (55s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb\TrolleyMate-Group5-v1.0.0-rc1\backend\.venv\Scripts\python.exe -m pip install -q --no-deps -r requirements.lock
+[18:38:08] ok (1s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb\TrolleyMate-Group5-v1.0.0-rc1\backend\.venv\Scripts\python.exe -m pip check
+    No broken requirements found.
+[18:38:16] ok (8s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb\TrolleyMate-Group5-v1.0.0-rc1\backend\.venv\Scripts\python.exe -m pip install -q -r requirements-dev.txt
+[18:44:38] ok (382s): C:\Users\maazm\AppData\Local\Temp\trolleymate-clean-gzyjqdcb\TrolleyMate-Group5-v1.0.0-rc1\backend\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+    ...............................................s........x............... [ 30%] | ........................................................................ [ 61%] | ........................................................................ [ 91%] | ...................                                                      [100%]
+[18:44:56] ok (18s): npm ci --no-audit --no-fund
+    added 151 packages in 17s | npm WARN deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+[18:45:03] ok (7s): npm test
+    Test Files  4 passed (4) | Tests  20 passed (20) | Start at  18:45:00 | Duration  3.76s (transform 977ms, setup 0ms, import 3.59s, tests 1.52s, environment 6.66s)
+[18:45:15] ok (11s): npm run build
+    dist/assets/bricolage-grotesque-latin-500-normal-CV-uA8Lw.woff          27.28 kB | dist/assets/index-CrcARW8j.css                                          52.60 kB │ gzip:   9.74 kB | dist/assets/index-BkSw6V30.js                                          349.38 kB │ gzip: 107.86 kB | ✓ built in 2.60s
+[18:45:22] ok: no AI key -> Offline agent mode: rule-based answers, no AI provider; basket $16.73, 6 items, 5 agent steps; UI served at /
+[18:45:33] ok: AI provider unreachable -> Live AI (campus-qwen) with 2 offline fallback(s); basket still built ($16.73) with every AI step (1) flagged as a fallback
+[18:45:34] PASSED: clean build, tests, startup, offline mode and network-failure fallback all verified
