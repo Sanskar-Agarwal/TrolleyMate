@@ -38,7 +38,8 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")  # terminal colour codes from npm/vite outp
 
 def say(msg: str) -> None:
     line = f"[{datetime.now():%H:%M:%S}] {msg}"
-    print(line, flush=True)
+    # Build output contains box-drawing characters a cp1252 console can't encode.
+    print(line.encode(sys.stdout.encoding or "utf-8", "replace").decode(sys.stdout.encoding or "utf-8"), flush=True)
     LOG.append(line)
 
 
