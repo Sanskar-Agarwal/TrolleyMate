@@ -314,3 +314,33 @@ def test_household_size_correction_removes_stale_portion_assumptions(client, ale
     assert "portions" not in after["draft"]
     assert not any("adult serves" in note or "Shopping for 3" in note for note in after["assumptions"])
     assert {"tree_nuts", "lactose"} <= {r["restriction"] for r in after["draft"]["restrictions"] if r.get("locked")}
+
+
+def test_form_mode_blocks_chat_and_direct_text_edits_without_model_calls(client, alex, monkeypatch):
+    from app.agents.personal_shopper import PersonalShopperAgent
+
+    sid, before = _draft(client, alex)
+    rid = before["request_id"]
+    for budget in (100, 110, 120):
+        before = client.post(f"/api/requests/{rid}/correct", json={"patch": {"budget": budget}}, headers=alex).json()["intake"]
+    assert before["mode"] == "form" and before["correction_count"] == 3
+
+    def no_model(*args, **kwargs):
+        pytest.fail("Form mode must not call the model")
+
+    monkeypatch.setattr(PersonalShopperAgent, "think", no_model)
+    for message in ("reduce budget to 170", "Actually make it $50", "Start over: $30 for 3 days"):
+        response = client.post(f"/api/sessions/{sid}/chat", json={"text": message}, headers=alex)
+        assert response.status_code == 200
+        result = response.json()["response"]
+        assert "directly in the form" in result["reply"]
+        assert result["intake"] == before
+    for route, body in (("correct", {"text": "$170"}), ("correct", {"patch": {"budget": 170}}), ("clarify", {"text": "$170"})):
+        assert client.post(f"/api/requests/{rid}/{route}", json=body, headers=alex).status_code == 400
+    assert client.get(f"/api/sessions/{sid}", headers=alex).json()["intake"] == before
+    form = client.post(f"/api/requests/{rid}/form", json={"budget": 170}, headers=alex).json()["intake"]
+    assert form["draft"]["budget"] == 170 and form["correction_count"] == 3
+    assert {"lactose", "tree_nuts"} <= {r["restriction"] for r in form["draft"]["restrictions"] if r.get("locked")}
+    result = client.post(f"/api/sessions/{sid}/chat", json={"text": "make it $20"}, headers=alex).json()["response"]
+    assert result["intake"] == form  # saving the form must not re-enable chat edits
+    assert client.post(f"/api/requests/{rid}/confirm", headers=alex).status_code == 200

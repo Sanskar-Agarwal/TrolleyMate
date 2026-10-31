@@ -107,12 +107,23 @@ describe("intake dietary corrections", () => {
     expect(button("Confirm constraints").disabled).toBe(true);
   });
 
-  it.each(["text", "form"] as const)("declines an optional protein target through clarification in %s mode", async (mode) => {
-    await show(intake({ mode, questions: [{ field: "nutritional_targets", question: "How much protein?" }] }));
+  it("declines an optional protein target through clarification in text mode", async () => {
+    await show(intake({ mode: "text", questions: [{ field: "nutritional_targets", question: "How much protein?" }] }));
     fireEvent.click(button("No extra protein target"));
     expect(shop.clarify).toHaveBeenCalledExactlyOnceWith("No target");
     expect(shop.correct).not.toHaveBeenCalled();
     expect(shop.submitForm).not.toHaveBeenCalled();
+  });
+
+  it("uses form fields for outstanding questions once chat editing is disabled", async () => {
+    await show(intake({ mode: "form", stage: "awaiting_clarification", correction_count: 3,
+      questions: [{ field: "nutritional_targets", question: "How much protein?" }] }));
+    expect(screen.queryByLabelText("Your answer")).toBeNull();
+    expect(screen.getByText("How much protein?")).toBeTruthy();
+    fireEvent.click(button("Save form"));
+    expect(shop.submitForm).toHaveBeenCalledWith(expect.objectContaining({ nutritional_targets: [] }));
+    expect(shop.clarify).not.toHaveBeenCalled();
+    expect(shop.correct).not.toHaveBeenCalled();
   });
 
   it("requires unsupported legacy preferences to be corrected or removed", async () => {

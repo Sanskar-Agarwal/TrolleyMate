@@ -194,6 +194,8 @@ def start(agent, session: ShoppingSession, text: str) -> ShoppingRequest:
 
 def clarify(agent, req: ShoppingRequest, answer: str) -> ShoppingRequest:
     _ensure_draft(req)
+    if req.mode == InputMode.form:
+        raise IntakeError("Please edit your details directly in the form, then save and confirm them.")
     session = req.session
     pending = [q["field"] for q in req.pending_questions]
     result = agent.think(
@@ -223,6 +225,8 @@ def clarify(agent, req: ShoppingRequest, answer: str) -> ShoppingRequest:
 def correct(agent, req: ShoppingRequest, *, text: str | None = None, patch: dict | None = None) -> ShoppingRequest:
     """4a — a correction. The third one moves the request into structured-form mode."""
     _ensure_draft(req)
+    if req.mode == InputMode.form:
+        raise IntakeError("Please edit your details directly in the form, then save and confirm them.")
     if not (text and text.strip()) and not patch:
         raise IntakeError("Tell me what to change before submitting a correction.")
     session = req.session

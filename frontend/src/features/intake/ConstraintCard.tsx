@@ -89,7 +89,7 @@ export default function ConstraintCard() {
   });
   const invalidPreferences = fields.preferences.some((p) => !p.value.trim() || !PREFERENCE_KINDS.some((kind) => kind.id === p.kind));
   const formMode = intake.mode === "form";
-  const needsFormSave = formMode && intake.stage === "awaiting_form";
+  const needsFormSave = formMode && (intake.stage === "awaiting_form" || intake.questions.length > 0);
   const left = Math.max(0, intake.max_corrections - intake.correction_count);
   const missing = new Set([...intake.missing_fields, ...intake.questions.map((q) => q.field)]);
   const set = (k: NumberField) => (e: React.ChangeEvent<HTMLInputElement>) => setFields((f) => ({ ...f, [k]: e.target.value }));
@@ -117,7 +117,7 @@ export default function ConstraintCard() {
         </span>
       </div>
 
-      {intake.questions.length > 0 && (
+      {!formMode && intake.questions.length > 0 && (
         <form
           className="questions"
           onSubmit={(e) => {
@@ -152,6 +152,13 @@ export default function ConstraintCard() {
             )}
           </div>
         </form>
+      )}
+
+      {formMode && intake.questions.length > 0 && (
+        <div className="questions stack">
+          <strong>Please complete these details in the form below.</strong>
+          {intake.questions.map((q) => <span key={q.field}>{q.question}</span>)}
+        </div>
       )}
 
       <blockquote className="raw-request">“{intake.raw_text}”</blockquote>
