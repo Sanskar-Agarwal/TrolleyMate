@@ -37,3 +37,17 @@ typing-inspection==0.4.4
 uvicorn==0.54.0
 watchfiles==1.3.0
 websockets==17.2
+
+# OpenTelemetry tracing runtime and transitive dependencies
+charset-normalizer==3.5.2
+googleapis-common-protos==1.76.0
+opentelemetry-exporter-http-transport==0.66b1
+opentelemetry-exporter-otlp-common==0.66b1
+opentelemetry-exporter-otlp-proto-common==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1
+opentelemetry-proto==1.45.1
+opentelemetry-sdk==1.45.1
+opentelemetry-semantic-conventions==0.66b1
+protobuf==7.36.2
+requests==2.34.2
+urllib3==2.8.0

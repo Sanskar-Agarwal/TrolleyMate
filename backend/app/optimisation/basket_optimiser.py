@@ -21,6 +21,7 @@ import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
 
 from app.core.config import get_settings
+from app.core.tracing import traced
 from app.optimisation.strategies import OptimisationStrategy
 from app.optimisation.types import NUTRIENTS, Candidate, OptimisationResult, Requirements
 from app.services.build_control import checkpoint
@@ -34,6 +35,7 @@ class BasketOptimiser:
     def __init__(self, solver_timeout_ms: int | None = None):
         self.solver_timeout_ms = solver_timeout_ms or get_settings().solver_timeout_ms
 
+    @traced("basket.optimise")
     def solve(
         self,
         req: Requirements,

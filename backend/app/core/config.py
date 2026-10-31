@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # The repo-root .env is shared by docker compose; backend/.env (if any) wins.
     model_config = SettingsConfigDict(env_file=(REPO_DIR / ".env", BACKEND_DIR / ".env"), extra="ignore")
 
+    tracing_enabled: bool = False
+    tracing_endpoint: str = "http://127.0.0.1:4318/v1/traces"
+    tracing_sample_ratio: float = Field(default=1.0, ge=0, le=1)
     app_name: str = "Trolley Mate"
     environment: str = "development"
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'trolleymate.db').as_posix()}"
