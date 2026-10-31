@@ -39,6 +39,78 @@ rules and model responses. The [compliance guide](docs/COMPLIANCE_VERDICT.md) an
 The dietitian is a human review role. See [architecture](docs/ARCHITECTURE.md) for the
 component boundaries and the [team guide](docs/TEAM_GUIDE.md) for ownership and workflow.
 
+## Marker setup: Campus Qwen (recommended for assessment)
+
+The team used Groq during development and testing. Its connection settings are kept
+**commented out in `.env.example`** as a reference; they are not campus-Qwen settings.
+The submitted ZIP deliberately excludes `.env` and the team's API key. Please configure
+your own credentials locally. With the example unchanged, the application runs in
+`mock` mode; this is an offline fallback, not a live AI demonstration.
+
+1. Extract the ZIP and open a terminal in the folder containing `docker-compose.yml`.
+   Install and start Docker Desktop with Docker Compose v2.24 or later. The first build
+   needs internet access to download images and dependencies.
+2. Create your local configuration file (do not overwrite an existing `.env` containing
+   credentials you want to keep):
+
+   **macOS / Linux**
+   ```bash
+   cp .env.example .env
+   ```
+
+   **Windows PowerShell**
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+3. Open `.env` in a text editor. Replace `LLM_PROVIDER=mock` with the following campus
+   configuration, filling in the endpoint, model ID and key supplied in the ELEC5620
+   campus-Qwen proxy connection guide. Replace the placeholders; do not paste them literally.
+   Keep only one active assignment for each variable.
+
+   ```dotenv
+   LLM_PROVIDER=openai_compatible
+   LLM_BASE_URL=<campus OpenAI-compatible base URL from the course guide>
+   LLM_MODEL=<exact campus-Qwen model ID from the course guide>
+   LLM_API_KEY=<your own campus-Qwen API key>
+   LLM_FALLBACK_TO_MOCK=false
+   ```
+
+   Use the service's base URL, not a full `/chat/completions` URL. Do not reuse the
+   commented Groq endpoint or Groq model ID for campus Qwen. Connect to the university
+   network/VPN if required by the course guide. Disabling fallback for assessment makes
+   provider failures visible instead of substituting offline responses.
+4. Build and start the application and its trace dashboard:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build -d
+   ```
+
+   Open the application at **http://localhost:8000** and Jaeger at
+   **http://localhost:16686**. Use a demo account from the table below; all use `demo1234`.
+5. Verify a real AI request: sign in as `riley@trolleymate.demo` and submit a shopping
+   request. Inspect its agent activity/audit record for a successful model call without
+   fallback. The configured model badge alone does not prove a live call succeeded.
+   For connection failures, check the campus endpoint, model ID, key and required VPN,
+   then inspect `docker compose logs --tail=100 app`. The team tested Groq; a campus-Qwen
+   connection must be verified with the marker's credentials and network access.
+
+After changing `.env`, recreate the app container so it receives the new values:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --force-recreate app
+```
+
+Stop both containers while keeping saved database data:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml stop
+```
+
+To start them again, run the `up --build -d` command above. Keep your real `.env` privately
+on your laptop for the demonstration; do not include it in the submission or commit it.
+For optional offline testing, set `LLM_PROVIDER=mock`; no API key is required.
+
 ## Quick start
 
 Run these commands from the repository root. Use Python **3.12** and Node **20.19+ (20.x),
