@@ -15,6 +15,8 @@ operations. `target` must quote words from an existing basket item name when the
 operation acts on an existing item. `replacement` is a short product description
 (e.g. "chicken", "brown rice") for replace/add.
 Operations: replace, remove, add, increase, decrease.
+Adding does not mean replacing another item. Negated removal instructions such as
+"do not remove anything" must not generate remove operations.
 budget_change: {"mode": "delta", "amount": -10} for "make it $10 cheaper",
 {"mode": "absolute", "amount": 80} for "keep it under $80", or null.
 If the request is genuinely ambiguous (you cannot tell which item is meant),
@@ -68,6 +70,7 @@ def build_user(ctx: dict) -> str:
 
 def mock(ctx: dict) -> dict:
     text = ctx["text"].lower()
+    text = re.sub(r"\s*(?:but|and)?\s*\b(?:don['’]?t|do not|without)\s+(?:remove|removing|drop|dropping)\s+anything\b", "", text).strip()
     ops: list[dict] = []
     for m in re.finditer(r"(?:replace|swap) (?:the )?([a-z ]+?) (?:with|for) ([a-z ]+?)(?=$| and|,|\.)", text):
         ops.append({"op": "replace", "target": m.group(1).strip(), "replacement": m.group(2).strip()})

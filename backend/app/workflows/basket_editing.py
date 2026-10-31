@@ -36,8 +36,10 @@ def edit(agent, basket: Basket, text: str) -> dict:
     household = household_of(db, session)
     restrictions = ctx.compliance.restrictions_for(household, payload)
     current = {i.product_id: i.quantity for i in basket.items}
-    min_qty: dict[int, int] = {}
-    max_qty: dict[int, int] = {}
+    # Add-only edits preserve existing quantities as hard constraints.
+    additive = bool(plan["operations"]) and all(op["op"] in ("add", "increase") for op in plan["operations"]) and not plan.get("budget_change")
+    min_qty: dict[int, int] = dict(current) if additive else {}
+    max_qty: dict[int, int] = dict(current) if additive else {}
     excluded: set[int] = set()
     applied, conflicts = [], []
 
@@ -69,10 +71,14 @@ def edit(agent, basket: Basket, text: str) -> dict:
             if product is None:
                 conflicts.append(f"No '{replacement}' option is safe for your household's dietary rules.")
                 continue
-            min_qty[product.id] = 1
+            min_qty[product.id] = min_qty.get(product.id, current.get(product.id, 0)) + 1
+            if additive:
+                max_qty[product.id] = min_qty[product.id]
             applied.append(f"added {product.name}")
         elif kind == "increase":
             min_qty[item.product_id] = item.quantity + 1
+            if additive:
+                max_qty[item.product_id] = min_qty[item.product_id]
             applied.append(f"more {item.product.name}")
         elif kind == "decrease":
             max_qty[item.product_id] = max(0, item.quantity - 1)

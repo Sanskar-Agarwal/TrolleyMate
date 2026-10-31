@@ -51,10 +51,7 @@ export default function AuditPage() {
           </div>
           <div className="stat" style={{ borderTopColor: "var(--sky)" }}>
             <span className="stat-n mono">{s.llm.calls}</span>
-            <span className="small">
-              LLM calls · {s.llm.provider}:{s.llm.model}
-              {s.llm.fallbacks > 0 ? ` · ${s.llm.fallbacks} fell back` : ""}
-            </span>
+            <span className="small">LLM calls</span>
           </div>
         </div>
       )}

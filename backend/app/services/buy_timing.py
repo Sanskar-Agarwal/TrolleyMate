@@ -24,7 +24,7 @@ MIN_WEEKS = 6  # weeks of history needed before we predict anything
 PATTERN_SHARE = 0.75  # the discount must show up on the same weekday in ≥75% of weeks
 MIN_SAVING = 0.5
 HISTORY_WINDOW = timedelta(weeks=8, days=1)
-DEMO_NOTE = "Demo price history: generated for the demonstration, not observed at the retailer."
+DEMO_NOTE = "Estimates use seeded price history, not observed retailer prices."
 
 
 def is_demo(history: list[PriceQuote]) -> bool:
@@ -75,7 +75,7 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
             advice.append({**base, "action": "none",
                            "reason": f"Not enough price history to predict ({len(weeks)} of {MIN_WEEKS} weeks needed)."})
             continue
-        source = "In the demo price history" if summary["demo"] else "In recorded prices at this store"
+        source = "Based on seeded historical prices" if summary["demo"] else "In recorded prices at this store"
 
         specials_by_day: dict[int, list[PriceQuote]] = defaultdict(list)
         for q in history:
@@ -111,7 +111,7 @@ def advise(db: Session, basket: Basket, now: datetime | None = None) -> list[dic
                 "expected_saving": saving,
                 "expected_price": special_price,
                 "confidence": round(share, 2),
-                "reason": f"{evidence}, so {outcome}." + (f" {DEMO_NOTE}" if summary["demo"] else ""),
+                "reason": f"{evidence}, so {outcome}.",
             }
         )
     return advice

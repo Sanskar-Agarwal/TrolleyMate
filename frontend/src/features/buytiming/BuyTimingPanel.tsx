@@ -26,16 +26,16 @@ export default function BuyTimingPanel() {
     <div className="stack" style={{ maxWidth: 820 }}>
       <div className="stack" style={{ "--gap": "4px" } as React.CSSProperties}>
         <span className="eyebrow">AI Market Analyst · buy timing</span>
-        <h2>{waits.length ? `Wait on ${waits.length} item${waits.length === 1 ? "" : "s"} to save about ${money(total)}` : "Now is a good time to buy"}</h2>
+        <h2>{waits.length ? `Wait on ${waits.length} item${waits.length === 1 ? "" : "s"} to save about ${money(total)}` : "No waiting recommendation"}</h2>
         <p className="muted small">
           Based on recurring discounts at the store each item comes from. Daily staples and all perishables are left out.
           Advice only: your basket doesn't change.
         </p>
       </div>
       {history_note && (
-        <div className="notice notice-amber">
+        <div className="muted small">
           <span>
-            <strong>Demo data.</strong> {history_note} These patterns are illustrations, not forecasts.
+            {history_note}
           </span>
         </div>
       )}
@@ -50,7 +50,6 @@ export default function BuyTimingPanel() {
               Wait {a.wait_days}d · {a.pattern_day}
               {a.wait_until ? ` (${a.wait_until})` : ""}
             </span>
-            {a.history?.demo && <span className="chip">Demo history</span>}
             <span className="mono small">save ~{money(a.expected_saving)}</span>
           </div>
         </div>
