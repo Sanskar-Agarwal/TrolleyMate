@@ -281,3 +281,23 @@
     align-items: flex-start;
   }
 }
+
+/* Native dialog provides focus trapping and makes the background inert. */
+.accepted-basket-dialog {
+  margin: auto;
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  padding: clamp(20px, 4vw, 32px);
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--bd) solid var(--edge);
+  border-radius: 20px;
+  box-shadow: 8px 8px 0 var(--edge);
+}
+.accepted-basket-dialog::backdrop { background: rgb(15 30 23 / 55%); }
+.accepted-basket-options { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.accepted-basket-options .btn { margin-top: auto; }
+@media (max-width: 560px) {
+  .accepted-basket-options { grid-template-columns: 1fr; }
+}

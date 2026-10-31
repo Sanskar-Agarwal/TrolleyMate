@@ -9,6 +9,7 @@ import ExplainDrawer from "../explain/ExplainDrawer";
 import { useShop } from "../shop/ShopContext";
 import SubstitutionDrawer from "../substitution/SubstitutionDrawer";
 import Docket from "./Docket";
+import AcceptedBasketDialog from "./AcceptedBasketDialog";
 import { GoalRadios } from "./GoalPicker";
 import "./basket.css";
 
@@ -24,10 +25,11 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 export default function BasketView() {
-  const { state, busy, build, run, setBasket } = useShop();
+  const { state, busy, error, build, run, setBasket, setView, newSession } = useShop();
   const basket = state!.basket!;
   const [explain, setExplain] = useState<{ itemId?: number } | null>(null);
   const [swapFor, setSwapFor] = useState<BasketItem | null>(null);
+  const [showNextSteps, setShowNextSteps] = useState(false);
   const [rebuild, setRebuild] = useState(false);
   const [goal, setGoal] = useState<Goal>(basket.goal);
 
@@ -144,12 +146,29 @@ export default function BasketView() {
       <div className="stack basket-side" style={{ "--gap": "16px" } as React.CSSProperties}>
         <Docket
           basket={basket}
-          onAccept={() => run("Accepting basket", () => baskets.accept(basket.id), { toast: () => ["Basket accepted. Happy shopping!"] }).then((r) => r && setBasket(r.basket))}
+          onAccept={() => run("Accepting basket", () => baskets.accept(basket.id), { toast: () => ["Basket accepted"] }).then((r) => {
+            if (r) {
+              setBasket(r.basket);
+              setShowNextSteps(true);
+            }
+          })}
           busy={!!busy}
         />
+        {basket.status === "accepted" && (
+          <button className="btn btn-primary" disabled={!!busy} onClick={() => setShowNextSteps(true)}>Next steps</button>
+        )}
         {basket.nutrition && <NutritionPanel nutrition={basket.nutrition} />}
       </div>
 
+      {showNextSteps && basket.status === "accepted" && (
+        <AcceptedBasketDialog
+          busy={!!busy}
+          error={error}
+          onClose={() => setShowNextSteps(false)}
+          onPlaceOrder={() => void newSession()}
+          onMealPlan={() => { setShowNextSteps(false); setView("meals"); }}
+        />
+      )}
       {explain && <ExplainDrawer basketId={basket.id} itemId={explain.itemId} onClose={() => setExplain(null)} />}
       {swapFor && <SubstitutionDrawer item={swapFor} onClose={() => setSwapFor(null)} />}
     </div>
