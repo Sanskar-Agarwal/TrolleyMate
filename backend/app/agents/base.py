@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
+from app.core.tracing import operation
 from app.llm import LLMResult
 
 if TYPE_CHECKING:
@@ -32,7 +33,8 @@ class Agent(ABC):
         return session_snapshot(self.db, s)
 
     def think(self, task: str, context: dict) -> LLMResult:
-        return self.llm.run(task, context)
+        with operation("agent.think", {"agent.role": self.key}):
+            return self.llm.run(task, context)
 
     def log(
         self,

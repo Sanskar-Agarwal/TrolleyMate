@@ -17,6 +17,7 @@ from datetime import datetime
 
 from sqlalchemy import func, select
 
+from app.core.tracing import traced
 from app.domain import Basket, BasketItem, ConstraintSetRecord, ShoppingSession
 from app.domain.enums import BasketStatus, ItemCompliance, SessionStatus, VerdictStatus
 from app.domain.requests_constraints import ConstraintSet
@@ -40,6 +41,7 @@ class BuildOutcome:
     message: str | None = None
 
 
+@traced("basket.build")
 def build(
     agent,
     session: ShoppingSession,

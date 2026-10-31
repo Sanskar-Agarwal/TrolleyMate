@@ -1,0 +1,14 @@
+# Optional tracing: docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+services:
+  app:
+    environment:
+      TRACING_ENABLED: "true"
+      TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+    depends_on:
+      jaeger:
+        condition: service_started
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4318:4318"

@@ -5,7 +5,7 @@ restrictions into an itemised basket. AI agents coordinate deterministic pricing
 optimisation and dietary checks, with human review for unresolved ingredient uncertainty.
 
 **Stack:** React + TypeScript (Vite), FastAPI, SQLAlchemy/SQLite, SciPy MILP and configurable
-hosted or local language models.
+hosted or local language models. Optional OpenTelemetry tracing exports to Jaeger.
 
 ## What the prototype does
 
@@ -72,6 +72,12 @@ missing and preserves existing configuration and database contents.
 
 All demo accounts use `demo1234`. New shoppers can also register. The
 [release checklist](docs/RELEASE_CHECKLIST.md) includes the current seven-minute demo route.
+
+## Optional observability
+
+Use [OpenTelemetry and Jaeger](docs/OBSERVABILITY.md) to inspect API, agent, AI-call
+and optimiser timings in a local trace dashboard. Tracing is disabled by default; the
+guide includes a Docker Compose override and a short presentation demonstration.
 
 ## Run with Docker
 

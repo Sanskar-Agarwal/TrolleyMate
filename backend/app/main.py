@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
+from app.core import tracing
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
 from app.core.request_security import RequestSecurityMiddleware, init_limits
@@ -31,7 +32,11 @@ async def lifespan(_: FastAPI):
         with SessionLocal() as db:
             if seed_if_empty(db):
                 logging.getLogger("trolleymate").info("Loaded demo data")
-    yield
+    tracing.initialise(settings)
+    try:
+        yield
+    finally:
+        tracing.shutdown()
 
 
 app = FastAPI(title="Trolley Mate API", version="0.2.0", lifespan=lifespan)
@@ -39,6 +44,7 @@ app.add_middleware(RequestSecurityMiddleware)
 app.add_middleware(
     CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False, allow_methods=["*"], allow_headers=["*"]
 )
+app.add_middleware(tracing.TracingMiddleware)
 app.include_router(api_router)
 
 @app.exception_handler(ValueError)
