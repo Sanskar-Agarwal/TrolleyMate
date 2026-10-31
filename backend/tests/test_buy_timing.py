@@ -156,8 +156,9 @@ def test_demo_history_is_labelled_and_not_a_forecast(basket_item):
         set_history(db, db.get(BasketItem, item_id), 8)
         a = advice_for(db, basket_id, item_id)
     assert a["action"] == "wait" and a["history"]["demo"]
-    assert a["reason"].startswith("In the demo price history")
-    assert "if that pattern held" in a["reason"] and buy_timing.DEMO_NOTE in a["reason"]
+    assert a["reason"].startswith("Based on seeded historical prices")
+    assert "if that pattern held" in a["reason"]
+    assert buy_timing.DEMO_NOTE not in a["reason"]  # one shared provenance note in the UI
     assert "should save" not in a["reason"]
 
 
