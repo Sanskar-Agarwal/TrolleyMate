@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 // What the agents actually do on a basket build (see backend workflows/basket_builder.py),
 // in shopper language. Shown in order while the request is in flight.
 const BUILD_STEPS = [
-  "Checking prices at 3 stores",
+  "Checking retailer prices",
   "Removing anything unsafe for your household",
   "Finding the best combination for your budget",
   "Double-checking every item",
@@ -11,7 +11,7 @@ const BUILD_STEPS = [
 ];
 
 /** A friendly "working on it" sticker while the agents are busy. */
-export default function WorkingCard({ label }: { label: string }) {
+export default function WorkingCard({ label, onCancel, cancelling = false }: { label: string; onCancel?: () => void; cancelling?: boolean }) {
   const building = label === "Building your basket";
   const [step, setStep] = useState(0);
 
@@ -32,7 +32,7 @@ export default function WorkingCard({ label }: { label: string }) {
         </svg>
       </span>
       <div className="stack" style={{ "--gap": "6px", flex: 1 } as React.CSSProperties}>
-        <strong>{label}…</strong>
+        <strong>{cancelling ? "Cancelling after the current step" : label}…</strong>
         {building && (
           <ol className="working-steps">
             {BUILD_STEPS.map((s, i) => (
@@ -43,6 +43,9 @@ export default function WorkingCard({ label }: { label: string }) {
           </ol>
         )}
       </div>
+      {onCancel && <button className="btn btn-sm" onClick={onCancel} disabled={cancelling}>
+        {cancelling ? "Cancellation requested" : "Cancel build"}
+      </button>}
     </div>
   );
 }

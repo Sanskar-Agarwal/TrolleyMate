@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Comparison } from "../../api/types";
 import PriceComparison from "./PriceComparison";
+import { pricing } from "../../api/endpoints";
 
 afterEach(cleanup);
 
@@ -44,4 +45,16 @@ describe("cheapest from each store (UC-05)", () => {
     const harvest = screen.getByText("Turkey Mince 500g").closest(".split-store") as HTMLElement;
     expect(within(harvest).getByText("special")).toBeTruthy();
   });
+});
+
+
+it("does not advertise savings when the baseline is incomplete", async () => {
+  const options = comparison.options.map((o, i) => ({ ...o, saving: null, saving_pct: null,
+    complete: i !== 0, unpriced: i === 0 ? ["Brown Rice 1kg"] : [] }));
+  vi.mocked(pricing.compare).mockResolvedValueOnce({ ...comparison, options, cheapest: options[2], trace: [] });
+  render(<PriceComparison />);
+  expect(await screen.findByText(/has the lowest complete total/)).toBeTruthy();
+  expect(screen.getAllByText("Savings unavailable")).toHaveLength(2);
+  expect(screen.getByText("$20.00 (partial)")).toBeTruthy();
+  expect(screen.queryByText(/saves \$5/)).toBeNull();
 });

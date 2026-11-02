@@ -6,11 +6,9 @@ segment must work whatever day the demo falls on (1.2.10 hidden allergens; UC-06
 from datetime import date, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 
 import app.seed as seed
 from app.core.db import SessionLocal, reset_db
-from app.main import app
 from tests.conftest import login
 from tests.test_basket_flow import confirmed_session
 
@@ -30,7 +28,7 @@ def _seeded_as_if(day: date):
 
 
 @pytest.fixture(params=range(7), ids=["mon", "tue", "wed", "thu", "fri", "sat", "sun"])
-def demo(request, monkeypatch):
+def demo(request, monkeypatch, client):
     """The demo seed priced as on one weekday, and a signed-in client for each demo account."""
     reset_db()
     with monkeypatch.context() as m:
@@ -38,8 +36,7 @@ def demo(request, monkeypatch):
         with SessionLocal() as db:
             seed.seed_all(db)
             db.commit()
-    with TestClient(app) as client:
-        yield client, {who: login(client, f"{who}@trolleymate.demo") for who in ("alex", "sam", "maya")}
+    yield client, {who: login(client, f"{who}@trolleymate.demo") for who in ("alex", "sam", "maya")}
 
 
 def test_hidden_allergens_are_refused_and_the_uncertain_item_stays_unresolved(demo):

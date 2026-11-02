@@ -1,16 +1,22 @@
-# KAN-5 — Shopper journey verification (S05)
+# KAN-5 — Shopper journey verification, 27 October 2026 (S05)
 
 Release candidate on branch `Sanskar`, 27 October 2026. Owner: Sanskar. This is the evidence for
 S05 in the delivery plan: an end-to-end run, the defects it found, and requirement traceability.
+
+Sections 1–5 preserve the **27 October record**; their results are not a fresh run of current
+main. The numbered demo steps refer to the historical [demo script](DEMO_SCRIPT.md).
+For the latest verified version, use [README verification](../README.md#verification); for
+current presentation guidance, use the [seven-minute release checklist](RELEASE_CHECKLIST.md).
+Section 6 records the status update after the 29 October integration.
 
 ## 1. How the journey was run
 
 | Run | How | LLM | Result |
 |---|---|---|---|
 | Manual | Every step of [DEMO_SCRIPT.md](DEMO_SCRIPT.md) driven through the API against a freshly seeded DB (`python -m app.seed --reset`) | Real model (`openai_compatible`, Groq `qwen/qwen3.8-27b`) | 3 defects found, all fixed (section 2) |
-| Automated | `pytest tests/test_shopper_journey.py`: the same 14 steps as one test | Offline mock | Passes; runs in CI on every push |
+| Automated | `pytest tests/test_shopper_journey.py`: the same 14 steps as one test | Offline mock | Passed in this run; CI runs on pull requests and pushes to `main` |
 
-Re-run the manual check after `python -m app.seed --reset`; the automated one with:
+Use a disposable database for a manual rerun; do not reset a shared database. Run the automated check with:
 
 ```bash
 cd backend && .venv/bin/python -m pytest tests/test_shopper_journey.py
@@ -27,7 +33,7 @@ or the Campus Qwen proxy, or say the app is in fallback mode.
 |---|---|---|---|---|
 | 1 | 9 — *"Replace the lentils with chicken"* | Refused as a conflict with $31 of budget left, plus a confusing "maximum limit is 24 meals" message | The optimiser caps any one food group at 40% of protein servings. The edit pinned 3 packs of chicken (12 servings vs a cap of 11.2), so no basket was feasible | An explicit shopper pin may now exceed the soft variety cap (`basket_optimiser.py`) |
 | 2 | 7–8 — dietitian release | The basket kept saying *"… is held until a dietitian confirms"* after release; the explanation still listed it as withheld, with the old total | The review decision changed the item but not the basket's recorded notices and facts | `escalation._apply` clears the held notice and the `withheld` fact, adds a released/removed notice, and refreshes the total |
-| 3 | 5 — item held for review | No item was held, so steps 5, 7 and 8 had nothing to show | A *"change one field"* correction of the budget to $110 meant the solver no longer chose the schnitzel | Demo script now says to correct the budget to $90; the 4-store seed keeps the schnitzel chosen for $90–$105 and 5–7 days |
+| 3 | 5 — item held for review | No item was held, so steps 5, 7 and 8 had nothing to show | A *"change one field"* correction of the budget to $110 meant the solver no longer chose the schnitzel | The demo request was changed to $90 for this run. Current presenters must prepare a labelled review case; product selection is not guaranteed. |
 
 Known issues from the 24 Oct audit fixed in the same pass (KAN-2/KAN-3 scope):
 
@@ -82,7 +88,8 @@ store (`split_plan` in `MarketAnalystAgent.compare`).
 | 1.2.14 | Explanations & audit | `agents/technical_manager.py`, `api/audit.py` | `test_basket_flow.py::test_explanations_and_audit` | 6, 14 |
 | 1.2.15 | Dietitian review queue | `workflows/escalation.py`, `api/escalations.py` | `test_basket_flow.py`, `test_journey_fixes.py` | 5, 7–8 |
 
-Every row is also covered end to end by `test_shopper_journey.py`.
+`test_shopper_journey.py` samples this full journey. It does not exercise every acceptance
+criterion or failure branch; use the focused tests and the release acceptance matrix as well.
 
 ## 5. Audit of every ticket marked Done (27 Oct)
 
@@ -102,7 +109,7 @@ so the release was missing it. It's now merged into `Sanskar`, conflict-free, an
 | KAN-7 P01 solver contract | Pass | Fixture tests |
 | KAN-8 P02 substitutions | Fixed | Rejected swaps aren't re-offered and unsafe ones are never offered; the summary and explanation now follow an accepted swap |
 | KAN-9 P03 negotiation | Pass | The minimum extra budget really is the minimum ($0.50 less is infeasible) |
-| KAN-10 P04 buy timing | Pass | No "wait" advice for perishables; advice never changes the basket |
+| KAN-10 P04 buy timing | Pass recorded | The original audit reported no "wait" advice for perishables. Current code skips daily staples and prevents waiting beyond shelf life; this row does not prove that every perishable is excluded. Advice does not change the basket. |
 | KAN-13 C01 data contract | Pass | Provenance updated for 4 retailers (schema 1.1.0) |
 | KAN-14 C02 ingestion & units | Pass | Invalid sizes and units aren't normalised |
 | KAN-15 C03 savings | Pass | Every baseline works; incomplete options never claim savings |
@@ -119,44 +126,54 @@ so the release was missing it. It's now merged into `Sanskar`, conflict-free, an
 | KAN-29 M05 clean deployment | Pass after merge | `verify_clean.py` PASSED on the merged commit (pinned install, tests, build, offline and fallback startup) |
 | KAN-31 Docker & CI/CD | Pass | Image builds; container serves the UI and API from a clean start |
 
-## 6. What the codebase still doesn't do (27 Oct)
+## 6. Status update — 29 October 2026
 
-All 15 Stage 1 requirements have working code, tests and a demo step (section 4). The list below is
-what's missing or only simulated, checked against the code itself rather than Jira.
+This update supersedes the earlier gap list. Main `947a59c` includes the acceptance fixes from
+PR #13 and the safety evaluation/integration fixes from PR #14. The latest local results were
+416 backend tests and 57 frontend tests; [main CI run 40806441408](https://github.com/rkn321/ELEC5620-Group5-TrolleyMate/actions/runs/40806441408)
+passed and published the Docker image. See [README verification](../README.md#verification)
+for the versioned evidence. These results do not complete human release approval.
 
-**Gaps a marker could notice in the demo**
+### Previously listed gaps now implemented
 
-| Gap | Where | Impact |
-|---|---|---|
-| No real retailer data: all four stores are simulated from `seed/catalogue.json` | `services/pricing/price_sources.py` (`PartnerApiAdapter._fetch` TODO) | Say so in the demo; there's no public Coles/Woolworths API |
-| No account registration: only the seeded demo accounts can sign in | `api/auth.py` has login only | 1.2.13 says "accounts"; profiles work, sign-up doesn't exist |
-| Real-LLM run unreliable on the current key: Groq's free tier rate-limits (429) about half the calls during a basket build | `.env` | Use the Campus Qwen proxy (`.env.example` still has placeholders) or a paid key |
-| Meal plans can leave meals unplanned because the optimiser doesn't know about recipes | `optimisation/*` | Gaps are reported honestly (e.g. 11 of 14 meals) |
-| Portions don't scale by age group: a child counts as a full adult serve | `optimisation/types.py` | Over-buys for families with children |
-| Submission packaging script missing: `verify_clean.py --source release.zip` refers to `package_submission.py`, which doesn't exist | `scripts/` | Needed for the Canvas zip |
+| Area | Current evidence |
+|---|---|
+| Shopper registration | `api/auth.py` registration route and `test_registration.py` |
+| Age-based portions, quantity-safe meals and cancellation | `OPTIMISATION_AND_MEALS.md`, `test_meal_planning.py`, `test_build_cancellation.py` |
+| CSV/JSON import and configurable partner HTTP feed | `services/pricing/importer.py`, `price_sources.py`, `test_price_feeds.py`; default prices remain illustrative |
+| Missing unit-price labels and basket-edit change summaries | `PriceComparison.tsx`, `test_chat_features.py` |
+| Price questions and household changes through chat | `PersonalShopperAgent`, `test_chat_features.py` |
+| Learned preferences and retrieved allergen guidance | `test_preference_memory.py`, `test_allergen_guidance.py` |
+| Unsafe extras and substitution acceptance | Fixed 42-case [safety evaluation](evidence/agent-evaluation.md), plus two separate quantity-increase integration regressions |
+| Reviewer reassignment and local startup portability | `ReviewQueuePage.tsx`, `test_review_queue.py`, `scripts/run-backend.mjs` |
 
-**Smaller features from the team backlog (`TEAM_GUIDE.md`) that aren't built**
+### Current limits and remaining evidence
 
-- Substitution offers only one candidate, not the top 3; no proactive out-of-stock flags.
-- Negotiation has only two trade-off types (raise the budget, cover fewer days).
-- No price-history chart: `GET /api/products/{id}/history` exists, but the UI never calls it.
-- Buy timing uses a simple recurring-discount rule (no moving average or regression).
-- No CSV/JSON price importer.
-- Products whose unit price can't be normalised show "no price" but aren't explicitly flagged.
-- No before/after diff for a chat edit: the chat just says "Done — replaced X with Y".
-- No "Why is X cheaper at Y?" chat intent: `MarketAnalystAgent.explain_difference` exists but nothing calls it.
-- Preferences aren't learned from declined swaps (`Preference.source = "learned"` is never set).
-- No RAG over allergen guidance (FSANZ is only cited as the source of the nutrition targets).
-- Only 3 E-number additives are in the allergen knowledge base.
-- No LLM-written recipe steps on meal cards.
-- No toast for the shopper when a dietitian resolves a case.
-- No audit dashboard charts.
-- Household profile can't be edited from chat.
+- The seeded four-retailer catalogue/history is demonstration data. The importer and optional
+  HTTP adapter do not establish a live commercial retailer integration or actual stock availability.
+- Basket objectives use product-level estimates; the recipe planner uses quantities, durations
+  and shelf life but can still report unfilled meals. It does not generate full cooking instructions.
+- Substitution presents one candidate at a time. Negotiation offers budget increases or fewer
+  days. Top-three alternatives, proactive stock alerts and additional trade-off types remain
+  backlog ideas, not claims of delivered functionality.
+- Buy timing uses recurring weekday discounts, with no price-history chart. The service skips
+  daily staples and prevents deferral beyond a product's shelf life. Explicit insufficient-history
+  and out-of-stock substitution failure evidence remains part of KAN-11's review work.
+- No dedicated audit charts or automatic shopper toast for a dietitian decision is provided.
+  Live model availability must be checked for the chosen demo; the 27 October rate-limit result
+  is historical, and later live checks are recorded in [the 28 October UAT](UAT_2026-10-28.md).
+- CODEOWNERS now names the four configured owners; Peter's area still falls back to the default
+  owner. Branch protection, Jira integration, sprint reviews and tags require their own records.
+- GHCR publication supplies a runnable image. Hosted operation is separate; the checked demo
+  uses SQLite and one API process. See [deployment guidance](DEPLOYMENT.md) for setup and recovery.
+- KAN-12/18/30 still require retrospective/process evidence and the final contribution/submission
+  artifacts. A clean-build script is available; the final archive, checksum and extract/run result
+  must identify the actual selected release. The [release checklist](RELEASE_CHECKLIST.md) keeps
+  rehearsal, feedback, agreed contributions and sign-off unverified until supporting records exist.
 
-**Repo and process housekeeping**
+## 7. Acceptance audit — 30 October 2026
 
-- `.github/CODEOWNERS` still has the `@SANSKAR_GITHUB`-style placeholders for four of the five owners.
-- No sprint tags (`sprint-1`, `sprint-2`), although the demo script shows them as Agile evidence.
-- CI runs only on pull requests and pushes to `main`, so `Sanskar` needs a PR to `main` before it's CI-checked.
-- No hosted deployment or Postgres option: the image builds and runs locally only.
-- `.claude/launch.json` uses the Windows venv path, so it fails on macOS.
+The new [UAT and correction record](UAT_2026-10-30.md) supersedes earlier current-status
+claims. In particular, incomplete price comparisons now suppress savings against incomplete
+baselines; all perishables are excluded from timing advice; and human approvals require
+matching product evidence. Historical runs above retain their original dates and limitations.

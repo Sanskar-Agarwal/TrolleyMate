@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { ConstraintDraft } from "../../api/types";
+import type { ConstraintDraft, Restriction } from "../../api/types";
 import { useShop } from "../shop/ShopContext";
+import DietaryFields, { PREFERENCE_KINDS, type PreferenceField } from "./DietaryFields";
 
-type Fields = { budget: string; household_size: string; meals_per_day: string; days: string; protein: string };
+const NUMBER_FIELDS = ["budget", "household_size", "meals_per_day", "days", "protein"] as const;
+type NumberField = typeof NUMBER_FIELDS[number];
+type Fields = Record<NumberField, string> & { restrictions: Restriction[]; preferences: PreferenceField[] };
 
 function toFields(d: ConstraintDraft): Fields {
   const protein = d.nutritional_targets?.find((t) => t.nutrient === "protein_g")?.minimum_per_day;
@@ -12,6 +15,11 @@ function toFields(d: ConstraintDraft): Fields {
     meals_per_day: d.meals_per_day?.toString() ?? "",
     days: d.days?.toString() ?? "",
     protein: protein?.toString() ?? "",
+    restrictions: d.restrictions ?? [],
+    preferences: (d.preferences ?? []).map((preference) => {
+      const separator = preference.indexOf(":");
+      return separator < 0 ? { kind: "", value: preference } : { kind: preference.slice(0, separator), value: preference.slice(separator + 1) };
+    }),
   };
 }
 
@@ -25,6 +33,10 @@ function toPatch(f: Fields, draft: ConstraintDraft): Partial<ConstraintDraft> {
   };
   patch.nutritional_targets = (draft.nutritional_targets ?? []).filter((t) => t.nutrient !== "protein_g");
   if (f.protein.trim()) patch.nutritional_targets.push({ nutrient: "protein_g", minimum_per_day: Number(f.protein) });
+  const locked = (draft.restrictions ?? []).filter((r) => r.locked);
+  patch.restrictions = [...locked, ...f.restrictions.filter((r) => !locked.some((rule) => rule.restriction === r.restriction))]
+    .map(({ restriction, severity }) => ({ restriction, severity }));
+  patch.preferences = f.preferences.map((p) => `${p.kind ? `${p.kind}:` : ""}${p.value.trim()}`);
   return patch;
 }
 
@@ -35,32 +47,39 @@ export default function ConstraintCard() {
   const serverFields = toFields(intake.draft);
   const [fields, setFields] = useState<Fields>(serverFields);
   const [answer, setAnswer] = useState("");
-  const dirty = JSON.stringify(toPatch(fields, intake.draft)) !== JSON.stringify(toPatch(serverFields, intake.draft));
+  const patch = toPatch(fields, intake.draft);
+  const serverPatch = toPatch(serverFields, intake.draft);
+  const correction = Object.fromEntries(Object.entries(patch).filter(([key, value]) =>
+    JSON.stringify(value) !== JSON.stringify(serverPatch[key as keyof ConstraintDraft]))) as Partial<ConstraintDraft>;
+  const dirty = Object.keys(correction).length > 0;
 
   // When the server draft changes (an answer, a correction), take only the fields whose
   // server value actually changed, so unsaved edits to other fields survive. A new
   // request starts the card over.
-  const lastServer = useRef({ requestId: intake.request_id, fields: serverFields });
+  const questionKey = JSON.stringify(intake.questions);
+  const lastServer = useRef({ requestId: intake.request_id, fields: serverFields, questionKey });
   const serverKey = JSON.stringify(serverFields);
   useEffect(() => {
     const prev = lastServer.current;
-    lastServer.current = { requestId: intake.request_id, fields: serverFields };
+    lastServer.current = { requestId: intake.request_id, fields: serverFields, questionKey };
     if (prev.requestId !== intake.request_id) {
       setFields(serverFields);
+      setAnswer("");
       return;
     }
+    if (prev.questionKey !== questionKey) setAnswer("");
     setFields((local) => {
-      const next = { ...local };
+      let next = { ...local };
       for (const k of Object.keys(serverFields) as (keyof Fields)[]) {
-        if (serverFields[k] !== prev.fields[k]) next[k] = serverFields[k];
+        if (JSON.stringify(serverFields[k]) !== JSON.stringify(prev.fields[k])) next = { ...next, [k]: serverFields[k] };
       }
       return next;
     });
     // serverKey captures every value serverFields is built from
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverKey, intake.request_id]);
+  }, [serverKey, questionKey, intake.request_id]);
 
-  const invalid = (Object.keys(fields) as (keyof Fields)[]).filter((key) => {
+  const invalid = NUMBER_FIELDS.filter((key) => {
     if (!fields[key].trim()) return key !== "protein";
     const n = Number(fields[key]);
     return !Number.isFinite(n) || n <= 0 ||
@@ -68,17 +87,19 @@ export default function ConstraintCard() {
       (key === "days" && (!Number.isInteger(n) || n > 31)) ||
       (key === "meals_per_day" && n > 5);
   });
+  const invalidPreferences = fields.preferences.some((p) => !p.value.trim() || !PREFERENCE_KINDS.some((kind) => kind.id === p.kind));
   const formMode = intake.mode === "form";
+  const needsFormSave = formMode && (intake.stage === "awaiting_form" || intake.questions.length > 0);
   const left = Math.max(0, intake.max_corrections - intake.correction_count);
   const missing = new Set([...intake.missing_fields, ...intake.questions.map((q) => q.field)]);
-  const set = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => setFields((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: NumberField) => (e: React.ChangeEvent<HTMLInputElement>) => setFields((f) => ({ ...f, [k]: e.target.value }));
 
-  const field = (k: keyof Fields, label: string, suffix: string, attrs: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+  const field = (k: NumberField, label: string, suffix: string, attrs: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <label className={`docket-field${missing.has(k === "protein" ? "nutritional_targets" : k) ? " needs" : ""}`}>
       <span className="eyebrow">{label}</span>
       <span className="docket-input">
         {k === "budget" && <span className="mono">$</span>}
-        <input className="mono" inputMode={k === "days" || k === "household_size" ? "numeric" : "decimal"} aria-invalid={invalid.includes(k)} aria-describedby={invalid.includes(k) ? "intake-validation" : undefined} value={fields[k]} onChange={set(k)} placeholder="?" {...attrs} />
+        <input className="mono" disabled={!!busy} inputMode={k === "days" || k === "household_size" ? "numeric" : "decimal"} aria-invalid={invalid.includes(k)} aria-describedby={invalid.includes(k) ? "intake-validation" : undefined} value={fields[k]} onChange={set(k)} placeholder="?" {...attrs} />
         <span className="small muted">{suffix}</span>
       </span>
     </label>
@@ -96,12 +117,12 @@ export default function ConstraintCard() {
         </span>
       </div>
 
-      {intake.questions.length > 0 && (
+      {!formMode && intake.questions.length > 0 && (
         <form
           className="questions"
           onSubmit={(e) => {
             e.preventDefault();
-            if (answer.trim()) void clarify(answer).then(() => setAnswer(""));
+            if (answer.trim() && !busy) void clarify(answer);
           }}
         >
           <span className="questions-badge" aria-hidden="true">?</span>
@@ -126,8 +147,18 @@ export default function ConstraintCard() {
                 Answer
               </button>
             </div>
+            {intake.questions.some((q) => q.field === "nutritional_targets") && !fields.protein.trim() && (
+              <div><button className="btn btn-sm" type="button" disabled={!!busy} onClick={() => void clarify("No target")}>No extra protein target</button></div>
+            )}
           </div>
         </form>
+      )}
+
+      {formMode && intake.questions.length > 0 && (
+        <div className="questions stack">
+          <strong>Please complete these details in the form below.</strong>
+          {intake.questions.map((q) => <span key={q.field}>{q.question}</span>)}
+        </div>
       )}
 
       <blockquote className="raw-request">“{intake.raw_text}”</blockquote>
@@ -140,20 +171,10 @@ export default function ConstraintCard() {
         {field("protein", "Protein", "g / person / day (optional)")}
       </div>
 
+      <DietaryFields key={intake.request_id} restrictions={fields.restrictions} preferences={fields.preferences} disabled={!!busy}
+        onRestrictions={(restrictions) => setFields((f) => ({ ...f, restrictions }))}
+        onPreferences={(preferences) => setFields((f) => ({ ...f, preferences }))} />
       <div className="stack" style={{ "--gap": "8px" } as React.CSSProperties}>
-        <span className="eyebrow">Never in the basket</span>
-        <div className="row" style={{ "--gap": "6px" } as React.CSSProperties}>
-          {(intake.draft.restrictions ?? []).length === 0 && <span className="small muted">No restrictions.</span>}
-          {(intake.draft.restrictions ?? []).map((r) => (
-            <span key={r.restriction} className="chip chip-beet" title={r.locked ? `From your household profile${r.members ? ` (${r.members.join(", ")})` : ""}: can't be removed here` : "From this request"}>
-              {r.locked && <span aria-hidden="true">🔒</span>}
-              {r.label ?? r.restriction} · {r.severity}
-            </span>
-          ))}
-        </div>
-        {(intake.draft.preferences ?? []).length > 0 && (
-          <p className="small muted">Preferences (soft): {intake.draft.preferences!.map((p) => p.replace(":", " ")).join(", ")}</p>
-        )}
         {intake.assumptions.map((a) => (
           <p key={a} className="small muted">
             Assumed: {a}
@@ -170,12 +191,12 @@ export default function ConstraintCard() {
         </button>
         <div className="row">
           {!formMode && <button className="btn" onClick={() => submitForm({})} disabled={!!busy}>Use a form instead</button>}
-          {dirty && (
-            <button className="btn" onClick={() => (formMode ? submitForm(toPatch(fields, intake.draft)) : correct(toPatch(fields, intake.draft)))} disabled={!!busy || invalid.length > 0}>
+          {(dirty || needsFormSave) && (
+            <button className="btn" onClick={() => (formMode ? submitForm(patch) : correct(correction))} disabled={!!busy || invalid.length > 0 || invalidPreferences}>
               {formMode ? "Save form" : "Apply correction"}
             </button>
           )}
-          <button className="btn btn-primary" onClick={confirm} disabled={!!busy || dirty || invalid.length > 0 || intake.missing_fields.length > 0 || intake.questions.length > 0}>
+          <button className="btn btn-primary" onClick={confirm} disabled={!!busy || dirty || needsFormSave || invalid.length > 0 || invalidPreferences || intake.missing_fields.length > 0 || intake.questions.length > 0}>
             Confirm constraints
           </button>
         </div>

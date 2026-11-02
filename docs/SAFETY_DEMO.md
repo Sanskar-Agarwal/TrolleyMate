@@ -12,7 +12,9 @@ Specials are priced by weekday, so the basket changes from day to day. Every ste
 seven weekdays by [`test_safety_demo.py`](../backend/tests/test_safety_demo.py). It also works in offline agent
 mode, so a campus VPN or LLM outage doesn't affect it.
 
-**Before presenting:** `cd backend && .venv/Scripts/python -m app.seed --reset`. With the main
+**Before presenting:** use a disposable demo database with fresh seed data and no saved dietitian approvals.
+Run `python -m app.seed --reset` from `backend` with its virtual environment active only against
+that disposable database; this deletes its existing data. With the historical
 [demo script](DEMO_SCRIPT.md), this segment takes the place of step 5, and step 7 there releases the item
 held here.
 
@@ -37,4 +39,5 @@ family of four for the week on $150, three meals a day. One of us is coeliac."*)
 The 42-case safety evaluation runs as `pytest tests/test_agent_evaluation.py`, with its observed results in
 [`evidence/agent-evaluation.md`](evidence/agent-evaluation.md).
 
-**After a rehearsal:** reset the data. Sam's request for information stays on the case.
+**After a rehearsal:** Sam's request for information stays on the case. Reset only your disposable
+demo database if you need to repeat the initial scenario.

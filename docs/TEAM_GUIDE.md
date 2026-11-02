@@ -2,7 +2,10 @@
 
 The code is split along the same lines as our Stage 1 contribution table: each person owns
 the ad-hoc requirements (1.2.x) they specified, end to end — agent logic, API, UI and tests.
-Every area already works in a basic form; your job is to **deepen** it, not start it.
+Use this guide for ownership and working conventions. For the current verified implementation,
+see [README verification](../README.md#verification); for presentation and human release gates,
+see [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). Ownership describes responsibility, not proof
+of an individual's completed contribution or agreement.
 
 ## 1. Ownership
 
@@ -26,7 +29,8 @@ Maaz is also **integration lead**: CI/CD, Docker, deployment, merging, release t
 | Reyon | `agents/nutrition_compliance.py`, `services/dietary_rules.py`, `api/compliance.py`, `api/preferences.py` | `assess_ingredient` | `compliance/`, `preferences/` |
 | Maaz | `core/*`, `main.py`, `agents/base.py`, `agents/context.py`, `agents/technical_manager.py`, `workflows/escalation.py`, `api/auth.py`, `api/households.py`, `api/escalations.py`, `api/audit.py`, `api/system.py`, `llm/service.py`, `llm/providers.py`, `domain/*` | `explain`, `supply_information`, `chat_reply` | `profile/`, `review/`, `admin/`, `explain/`, `components/`, `auth/` |
 
-`.github/CODEOWNERS` encodes this so the right person is asked to review automatically.
+`.github/CODEOWNERS` routes reviews to the configured GitHub owners. Peter's area currently
+falls back to the default owner; request Peter's review explicitly where appropriate.
 
 ### Shared files — coordinate before editing
 
@@ -34,50 +38,37 @@ These are touched by everyone, so keep edits small and in your own section:
 
 - `frontend/src/api/endpoints.ts` and `frontend/src/api/types.ts` — grouped by owner with comment headers
 - `backend/app/api/common.py` — serializers (change a shape → update `types.ts` in the same PR)
-- `backend/app/domain/*` — schema changes: tell the team, then everyone runs `python -m app.seed --reset`
+- `backend/app/domain/*` — coordinate schema changes and data updates. There are no migrations;
+  reset only a disposable development database after preserving any data that must be retained.
 - `backend/app/api/__init__.py`, `frontend/src/App.tsx` — routers/routes are already registered; you shouldn't need to touch them
 
-## 2. Backlog to start Sprint 1 with
+## 2. Delivery scope and remaining work
 
-Copy these into Jira as stories (`As a … I want … so that …`, MoSCoW label, definition of done).
-**M** = must for the demo, **S** = should, **C** = could.
+The original Sprint 1 suggestions mixed the Stage 1 requirements with extensions labelled
+Must/Should/Could. They are not a current list of unfinished requirements. Use Stage 1
+**1.2.1–1.2.15**, the accepted Jira criteria and the release checklist as the acceptance baseline.
 
-**Sanskar — Intake & optimisation**
-- M: Tune the `extract_constraints` prompt on the Campus Qwen model; add 15–20 real requests as a test set (`tests/test_intake.py`).
-- M: Improve the structured-form mode UI (edit restrictions/preferences, not just numbers).
-- S: Portion factors by age group (child ≈ 0.6 serve) in `Requirements.from_constraints`.
-- S: Make the optimiser recipe-aware so meal plans cover every meal (e.g. add "can form N recipes" constraints).
-- C: LLM-written recipe steps on each meal card.
+As of the 29 October integration:
 
-**Peter — Negotiation, substitution & buy-timing**
-- M: More trade-off types in `negotiation.analyse` (e.g. lower the protein target, drop to standard instead of organic).
-- M: Substitution shows the top 3 candidates, not just one; proactive out-of-stock flags.
-- S: Price-history chart on the "When to buy" tab (endpoint already exists: `GET /api/products/{id}/history`).
-- C: Better timing model (moving average / day-of-week regression with a confidence score).
+| Area | Implemented and evidenced | Boundaries or separate follow-up |
+|---|---|---|
+| Intake and optimisation | Editable dietary/preferences forms, five goals, age-based default portions, accepted-stock meal allocation, explicit gaps and cancellation | Full joint recipe/basket optimisation and generated cooking instructions remain extensions; live prompt checks must identify the model actually used |
+| Negotiation, substitution and timing | Budget/coverage options, one safe substitute with accept/decline, remembered declines, history-based timing | Top-three alternatives, extra trade-off types, proactive stock alerts and price-history charts remain extensions; KAN-11 still needs its complete failure-evidence matrix |
+| Pricing and editing | CSV/JSON importer, optional HTTP partner adapter, unit-price warnings, edit change summaries and price-question chat | Bundled prices/history are demonstration data; a real retailer connection needs its own data and verification |
+| Compliance and preferences | Composite/label screening, withheld uncertainty, nutrition-exception flow, learned preferences and retrieved allergen guidance | Knowledge-base and model limits are documented in the safety evaluation; these are prototype checks |
+| Platform and review | Shopper registration, profiles, reviewer reassignment, explanations/audit, household chat changes, Docker and GHCR publication | Hosting is separate from image publication; audit charts and automatic shopper review notifications remain extensions |
 
-**Chester — Pricing & conversational editing**
-- M: Real data ingestion: a CSV/JSON importer or a scraper behind `PartnerApiAdapter` (keep the `PriceSource` interface).
-- M: Flag products whose unit price can't be normalised in the comparison UI (1.2.7).
-- S: Before/after diff when a chat edit changes the basket.
-- S: "Why is X cheaper at Y?" chat intent using `MarketAnalystAgent.explain_difference`.
-
-**Reyon — Compliance, nutrition & preferences**
-- M: Grow the ingredient/allergen knowledge base (E-numbers, more composites) in `catalogue.json`; tests for each cascade.
-- M: "Accept this nutritional exception" flow (1.2.11 lets a shopper accept a gap explicitly).
-- S: Learn preferences from declined substitutions (`Preference.source = "learned"`).
-- C: Retrieval-augmented `assess_ingredient` over FSANZ allergen guidance (RAG — good for the advanced-tech marks).
-
-**Maaz — Platform, governance & human review**
-- M: Configure the Campus Qwen proxy in `.env`; run the whole demo on it; record which prompts misbehave.
-- M: Deploy (Render/Railway/Azure/AWS) from CI; Postgres option; branch protection; Jira ↔ GitHub link.
-- S: Notifications when a case is resolved (toast in the shopper UI); founder can reassign cases.
-- S: Audit dashboard charts (decisions per agent, fallback rate, confidence distribution).
-- C: Edit the household profile from the chat ("Jamie is now vegetarian").
+The outstanding Jira work includes Peter's KAN-11 failure-path evidence and KAN-12 recovery
+demo/three-iteration retrospective/contribution, Chester's KAN-18 process exports and contribution
+links, and Maaz's KAN-30 exact submission package, contribution form and extract/run evidence.
+Confirm current Jira details when planning work; this dated summary does not change ticket status.
+KAN-6 is marked Done in Jira, but the repository does not contain a completed all-member rehearsal
+or release agreement. The [release checklist](RELEASE_CHECKLIST.md) keeps those records unverified.
 
 ## 3. Git workflow
 
-We use **short-lived feature branches off `main`**, merged by pull request. No long-lived
-per-person branches — they drift and cause painful merges.
+Prefer **short-lived feature branches off `main`**, merged by pull request. Existing member
+branches have also been used; check the actual source and target before opening or merging a PR.
 
 ### One-time setup (each teammate)
 
@@ -87,22 +78,24 @@ git clone https://github.com/rkn321/ELEC5620-Group5-TrolleyMate.git
 
 Then run `scripts/setup.ps1` (Windows) or `scripts/setup.sh` (macOS/Linux). See the README.
 
-### Repo owner, one time (GitHub → Settings → Branches → Add rule for `main`)
+### Repository settings to verify
+
+The following are intended controls, not proof that the remote settings are enabled:
 
 - Require a pull request before merging, with **1 approval**
-- Require status checks to pass: `backend`, `frontend`
+- Require the current backend, frontend and Docker CI checks to pass
 - Do not allow force pushes
 
 Also connect Jira: Jira → Apps → **GitHub for Jira** → add the repo. Any branch, commit or PR
-containing an issue key (e.g. `TM-12`) then shows up on that Jira ticket — this is our evidence
-of iterative development for the Agile criterion.
+containing a valid issue key (e.g. `KAN-11`) can then appear on that Jira ticket. Keep actual
+review dates, feedback and scope changes alongside these links as iterative-development evidence.
 
 ### Every piece of work
 
 ```bash
 git switch main
 git pull
-git switch -c feat/TM-12-substitution-top-three
+git switch -c test/KAN-11-failure-paths
 ```
 
 Branch names: `<type>/<JIRA-KEY>-<short-description>`, where type is `feat`, `fix`, `chore`,
@@ -112,15 +105,18 @@ Commit early, with the Jira key first:
 
 ```bash
 git add -A
-git commit -m "TM-12: show top three substitute candidates"
-git push -u origin feat/TM-12-substitution-top-three
+git commit -m "KAN-11: verify substitution failure paths"
+git push -u origin test/KAN-11-failure-paths
 ```
 
 Open a PR (GitHub UI, or `gh pr create --fill`). CI runs tests, lint, build and a Docker smoke
-test. The area owner reviews (auto-requested via CODEOWNERS). **Squash and merge**, then delete
-the branch.
+test. Request the area owner's review, including an explicit request where CODEOWNERS falls
+back to the default owner. Use the team's agreed merge method and remove a feature branch only
+after its work is merged and it is no longer needed. Main pushes also publish the tested Docker
+image; pull requests do not publish. See [CI_CD.md](CI_CD.md).
 
-Keep your branch current while you work:
+For a branch you alone own, keep it current while you work. Coordinate before rewriting any
+shared branch history:
 
 ```bash
 git fetch origin
@@ -130,13 +126,17 @@ git push --force-with-lease
 
 ### Definition of done
 
-1. `pytest` and `npm run build` pass locally and in CI
+1. Backend `pytest`/Ruff and frontend `npm test`/`npm run build` pass; required CI checks pass
 2. New behaviour has at least one test (backend) or was clicked through in the browser (frontend)
 3. Works with `LLM_PROVIDER=mock` **and** has been tried once with the real LLM if prompts changed
 4. Agent decisions are logged through `agent.log(...)` so they appear in the audit log
-5. PR approved and merged; Jira ticket moved to Done
+5. PR reviewed and merged; Jira acceptance evidence linked before marking Done. Rehearsal,
+   retrospectives, contributions and release agreement need their own genuine records.
 
-### Sprints (to the 1 November code deadline)
+### Original sprint plan (to the 1 November code deadline)
+
+This was the planned schedule; it does not record completed reviews, hosting, tags or submission.
+The delivery scope now uses a published Docker image rather than a promised hosted URL.
 
 | Sprint | Dates | Goal |
 |---|---|---|
@@ -144,13 +144,9 @@ git push --force-with-lease
 | 2 | 21–27 Oct | **S** stories; deployed URL; demo script dry run |
 | 3 | 28 Oct–1 Nov | Bug fixes only, final tag `v1.0`, zip uploaded to Canvas |
 
-At each sprint end: review + retro (screenshot the Jira board), then tag:
-
-```bash
-git switch main && git pull
-git tag sprint-1
-git push origin sprint-1
-```
+Record each actual review and retrospective with its date, participants, decisions and Jira
+export. Create tags against the agreed commit only when the corresponding milestone is real;
+do not backdate records or create historical tags as a substitute for missing review evidence.
 
 ## 4. Conventions
 

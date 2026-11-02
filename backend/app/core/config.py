@@ -8,6 +8,7 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -18,12 +19,22 @@ class Settings(BaseSettings):
     # The repo-root .env is shared by docker compose; backend/.env (if any) wins.
     model_config = SettingsConfigDict(env_file=(REPO_DIR / ".env", BACKEND_DIR / ".env"), extra="ignore")
 
+    tracing_enabled: bool = False
+    tracing_endpoint: str = "http://127.0.0.1:4318/v1/traces"
+    tracing_sample_ratio: float = Field(default=1.0, ge=0, le=1)
     app_name: str = "Trolley Mate"
     environment: str = "development"
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'trolleymate.db').as_posix()}"
-    # Signs login tokens. Leave unset to auto-generate one (see get_settings).
+    # Keys rate-limit identifiers. Leave unset to auto-generate one (see get_settings).
     secret_key: str = ""
-    token_ttl_hours: int = 12
+    token_ttl_hours: int = Field(default=8, ge=1, le=168)
+    session_idle_minutes: int = Field(default=30, ge=1, le=1440)
+    max_active_sessions: int = Field(default=3, ge=1, le=20)
+    api_requests_per_minute: int = Field(default=300, ge=1)
+    account_writes_per_minute: int = Field(default=30, ge=1)
+    auth_attempts_per_minute: int = Field(default=10, ge=1)
+    account_login_attempts_per_quarter_hour: int = Field(default=10, ge=1)
+    registrations_per_hour: int = Field(default=5, ge=1)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     seed_on_startup: bool = True
     # Folder holding the built React app (`npm run build`). Served at / when present.
@@ -43,6 +54,9 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_retry_max_wait_s: float = 8.0
     llm_temperature: float = 0.2
+    llm_max_output_tokens: int = Field(default=768, ge=1, le=16384)
+    # Empty uses the provider default, except Groq Qwen uses instruct mode.
+    llm_reasoning_effort: str = ""
     # Ask OpenAI-compatible servers for JSON mode. Turn off if the server rejects it.
     llm_json_mode: bool = True
     # Live retailer/partner price feed for `partner_api` retailers (GET {url}/prices?retailer=&sku=).
@@ -64,6 +78,9 @@ class Settings(BaseSettings):
     price_max_age_hours: int = 24
     review_sla_minutes: int = 60
     solver_timeout_ms: int = 5000
+    # The seeded 8-week price history is generated for the demo, not observed at a retailer, so buy-timing
+    # advice built on it is labelled as demo data (1.2.6). Set false once real recorded history is imported.
+    demo_price_history: bool = True
 
     @property
     def cors_origin_list(self) -> list[str]:

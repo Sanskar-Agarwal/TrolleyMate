@@ -91,7 +91,7 @@ jobs:
 
           base = "http://127.0.0.1:8000"
           def fetch(path, data=None, token=None):
-              headers = {"Content-Type": "application/json"}
+              headers = {"Content-Type": "application/json", "X-TrolleyMate-Request": "1"}
               if token:
                   headers["Authorization"] = f"Bearer {token}"
               payload = json.dumps(data).encode() if data is not None else None

@@ -11,7 +11,8 @@ export class ApiError extends Error {
 
 export function getToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY); // Retire legacy persistent bearer tokens.
+    return sessionStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
@@ -19,8 +20,8 @@ export function getToken(): string | null {
 
 export function setToken(token: string | null): void {
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
   } catch {
     /* storage unavailable (private mode): the session just won't persist */
   }
@@ -29,7 +30,7 @@ export function setToken(token: string | null): void {
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = { Accept: "application/json", "X-TrolleyMate-Request": "1" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (init.body !== undefined) headers["Content-Type"] = "application/json";

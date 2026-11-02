@@ -21,8 +21,10 @@ import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
 
 from app.core.config import get_settings
+from app.core.tracing import traced
 from app.optimisation.strategies import OptimisationStrategy
 from app.optimisation.types import NUTRIENTS, Candidate, OptimisationResult, Requirements
+from app.services.build_control import checkpoint
 
 
 class BasketOptimiser:
@@ -33,6 +35,7 @@ class BasketOptimiser:
     def __init__(self, solver_timeout_ms: int | None = None):
         self.solver_timeout_ms = solver_timeout_ms or get_settings().solver_timeout_ms
 
+    @traced("basket.optimise")
     def solve(
         self,
         req: Requirements,
@@ -46,6 +49,7 @@ class BasketOptimiser:
     ) -> OptimisationResult:
         """min_qty / max_qty pin product quantities (from conversational edits);
         `prefer` nudges the solver to keep current items so an edit doesn't reshuffle everything."""
+        checkpoint()
         started = time.perf_counter()
         min_qty, max_qty, prefer = min_qty or {}, max_qty or {}, prefer or set()
         pool = [c for c in candidates if math.isfinite(c.price) and c.price > 0 and c.compliance != "violation"]
@@ -134,12 +138,26 @@ class BasketOptimiser:
             bounds=Bounds(lower, upper),
             options={"time_limit": self.solver_timeout_ms / 1000, "disp": False},
         )
+        checkpoint()
         elapsed = int((time.perf_counter() - started) * 1000)
         if result.x is None:
-            message = "Timed out before finding a basket." if result.status == 1 else "No basket satisfies every constraint."
-            return OptimisationResult(False, message=message, solver_ms=elapsed, requirements=req)
+            reason = "timeout" if result.status == 1 else None if result.status == 2 else "solver_error"
+            message = ("The search timed out before finding a valid basket." if reason == "timeout" else
+                       "The solver could not complete the search." if reason else "No basket satisfies every constraint.")
+            return OptimisationResult(False, message=message, solver_ms=elapsed, requirements=req, failure_reason=reason)
 
-        items = [(c, int(round(q))) for c, q in zip(pool, result.x, strict=True) if round(q) > 0]
+        # A time-limited solve can return a valid incumbent. Check the integer
+        # basket against every hard constraint before exposing it as a result.
+        quantities = np.rint(result.x)
+        valid = np.all(np.isfinite(quantities)) and np.all(quantities >= lower) and np.all(quantities <= upper)
+        if rows:
+            values = np.array(rows) @ quantities
+            valid = valid and np.all(values >= np.array(lbs) - 1e-7) and np.all(values <= np.array(ubs) + 1e-7)
+        if not valid:
+            return OptimisationResult(False, message="The solver returned an unverified candidate.", solver_ms=elapsed,
+                                      requirements=req, failure_reason="solver_error")
+
+        items = [(c, int(q)) for c, q in zip(pool, quantities, strict=True) if q > 0]
         total = round(sum(c.price * q for c, q in items), 2)
         nutrition = {k: round(sum(c.nutrient(k) * q for c, q in items), 1) for k in NUTRIENTS}
         metrics = {
@@ -147,7 +165,7 @@ class BasketOptimiser:
                 sum(c.role_units * q for c, q in items if c.role) - (req.protein_servings + req.carb_servings + req.veg_serves), 1
             ),
             "prep_minutes": round(sum(c.product.prep_minutes_per_serving * c.product.servings * q for c, q in items)),
-            "objective": round(float(result.fun), 3),
+            "objective": round(float(cost @ quantities), 3),
         }
         return OptimisationResult(True, items, total, nutrition, metrics, solver_ms=elapsed, requirements=req)
 

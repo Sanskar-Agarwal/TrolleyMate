@@ -17,6 +17,7 @@ from datetime import datetime
 from functools import lru_cache
 
 from app.core.config import Settings, get_settings
+from app.core.tracing import operation
 from app.llm.base import LLMError, LLMProvider, LLMResult, extract_json, strip_thinking
 from app.llm.tasks import TASKS
 
@@ -86,6 +87,14 @@ class LLMService:
         }
 
     def run(self, task_name: str, ctx: dict) -> LLMResult:
+        # Attribute values are operational identifiers, never the prompt/context.
+        with operation("ai.task", {"ai.task": task_name if task_name in TASKS else "unknown",
+                                   "ai.provider": self.provider_name, "ai.model": self.model_name}) as span:
+            result = self._run(task_name, ctx)
+            span.set_attribute("ai.fallback", result.fell_back)
+            return result
+
+    def _run(self, task_name: str, ctx: dict) -> LLMResult:
         task = TASKS[task_name]
         self.calls += 1
         started = time.perf_counter()
@@ -98,7 +107,8 @@ class LLMService:
             )
 
         try:
-            raw = self.provider.generate(system=prompt["system"], user=prompt["user"], schema=task.schema)
+            with operation("ai.provider.call"):
+                raw = self.provider.generate(system=prompt["system"], user=prompt["user"], schema=task.schema)
             if task.schema is None:
                 data = strip_thinking(raw)
             else:

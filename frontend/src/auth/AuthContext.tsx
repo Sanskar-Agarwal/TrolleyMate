@@ -8,7 +8,7 @@ interface AuthValue {
   ready: boolean;
   signIn: (email: string, password: string) => Promise<User>;
   register: (details: { display_name: string; email: string; password: string; household_name?: string }) => Promise<User>;
-  signOut: () => void;
+  signOut: (all?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -49,7 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.user;
   }, []);
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async (all = false) => {
+    await auth.logout(all);
     setToken(null);
     setUser(null);
   }, []);

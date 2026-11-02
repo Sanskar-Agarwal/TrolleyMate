@@ -70,3 +70,9 @@ def test_the_form_ready_table_needs_every_student_id_and_is_written_outside_the_
 def test_refreshing_the_evidence_keeps_everything_the_team_wrote():
     text = "intro\n<!-- evidence:start -->\nold\n<!-- evidence:end -->\nthe team's notes\n"
     assert contributions.replace_evidence(text, "new") == "intro\n<!-- evidence:start -->\nnew\n<!-- evidence:end -->\nthe team's notes\n"
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_nonfinite_shares_cannot_pass_the_total_check(value):
+    shares = contributions.read_shares(table({**AGREED, MEMBERS[0]: f"{value} | 20 | 20 | 20"}))
+    assert contributions.problems(shares) == ["C1 Implementation: every share must be between 0% and 100%"]

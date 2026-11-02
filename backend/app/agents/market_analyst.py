@@ -13,6 +13,7 @@ from app.agents.base import Agent
 from app.core.config import get_settings
 from app.domain import Basket, PriceQuote, Product, Retailer
 from app.domain.enums import QuoteStatus
+from app.llm.tasks.market_insight import grounded_insight
 from app.optimisation.types import Candidate
 from app.services import buy_timing
 from app.services.pricing.normalisation import normalise
@@ -148,10 +149,11 @@ class MarketAnalystAgent(Agent):
         base_total = round(totals[baseline.id], 2)
 
         def option(name: str, total: float, rid: int | None, missing: list[str], is_split: bool = False) -> dict:
-            saving = round(base_total - total, 2)
+            comparable = not missing and not unpriced[baseline.id]
+            saving = round(base_total - total, 2) if comparable else None
             return {
                 "name": name, "retailer_id": rid, "total": round(total, 2), "saving": saving,
-                "saving_pct": round(saving / base_total * 100, 1) if base_total else 0.0,
+                "saving_pct": (round(saving / base_total * 100, 1) if base_total else 0.0) if comparable else None,
                 "complete": not missing, "unpriced": missing, "is_split": is_split,
             }
 
@@ -161,23 +163,28 @@ class MarketAnalystAgent(Agent):
         cheapest = min(complete, key=lambda o: o["total"]) if complete else None
 
         insight = None
-        if cheapest:
-            result = self.think(
-                "market_insight",
-                {
-                    "baseline": baseline.name, "cheapest": cheapest, "item_winners": winners,
-                    "options": [{k: o[k] for k in ("name", "total", "saving", "saving_pct", "complete")} for o in options],
-                    "unpriced": sorted({p for o in options for p in o["unpriced"]}),
-                },
-            )
-            insight = result.data
+        if cheapest and cheapest["saving"] is not None:
+            single_stores = [o for o in complete if not o["is_split"]]
+            insight_context = {
+                "baseline": baseline.name, "cheapest": cheapest, "item_winners": winners,
+                "options": [{k: o[k] for k in ("name", "total", "saving", "saving_pct", "complete")} for o in options],
+                "unpriced": sorted({p for o in options for p in o["unpriced"]}),
+                "split_saving_vs_cheapest_store": round(min(o["total"] for o in single_stores) - round(split_total, 2), 2)
+                    if single_stores and not split_unpriced else None,
+            }
+            result = self.think("market_insight", insight_context)
+            insight = grounded_insight(result.data, insight_context)
+            if insight != result.data:
+                self.log("validate_price_insight", "Unsupported AI financial figure replaced with computed comparison",
+                         basket_id=b.id, session_id=b.session_id)
             self.log(
                 "compare_prices",
                 f"{cheapest['name']} cheapest at ${cheapest['total']:.2f} vs {baseline.name} ${base_total:.2f}",
                 rationale=insight, basket_id=b.id, session_id=b.session_id, llm=result, confidence=1.0,
             )
         else:
-            self.log("compare_prices", "Comparison incomplete: key items unpriced at every retailer", basket_id=b.id, session_id=b.session_id)
+            insight = "Savings unavailable: some items have no price at the baseline retailer or no complete option exists. Partial totals are not comparable."
+            self.log("compare_prices", insight, basket_id=b.id, session_id=b.session_id)
 
         return {
             "basket_id": b.id,
@@ -222,11 +229,14 @@ class MarketAnalystAgent(Agent):
     # --- Buy timing (1.2.6) -----------------------------------------------
 
     def buy_timing(self, b: Basket) -> list[dict]:
+        """Advice only: reads price history and never touches the basket."""
         advice = buy_timing.advise(self.db, b)
         waits = [a for a in advice if a["action"] == "wait"]
+        demo = any(a.get("history", {}).get("demo") for a in advice)
         self.log(
             "buy_timing",
-            f"{len(waits)} item(s) worth waiting for" if waits else "No timing advice worth acting on",
+            (f"{len(waits)} item(s) worth waiting for" if waits else "No timing advice worth acting on")
+            + (" (demo price history)" if demo else ""),
             rationale="; ".join(a["reason"] for a in waits)[:500],
             basket_id=b.id, session_id=b.session_id, payload={"advice": advice},
         )

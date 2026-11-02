@@ -23,7 +23,9 @@ from app.domain import (
     User,
 )
 from app.domain.enums import CaseStatus, UserRole
+from app.services.audit_privacy import audit_payload
 from app.services.pricing.normalisation import UnitPrice
+from app.workflows.substitution import item_flags
 
 
 def done(ctx: AgentContext, data: dict) -> dict:
@@ -93,7 +95,7 @@ def household_out(h: Household) -> dict:
     }
 
 
-def item_out(i: BasketItem, quote: PriceQuote | None = None) -> dict:
+def item_out(i: BasketItem, quote: PriceQuote | None = None, flags: list[str] | None = None) -> dict:
     p = i.product
     unit = UnitPrice(quote.unit_price, quote.unit_basis).label() if quote and quote.unit_price is not None else None
     return {
@@ -111,6 +113,7 @@ def item_out(i: BasketItem, quote: PriceQuote | None = None) -> dict:
         "compliance": i.compliance,
         "withheld": i.withheld,
         "rationale": i.rationale,
+        "flags": flags or [],  # system reasons a substitute is due (UC-04 trigger)
     }
 
 
@@ -118,6 +121,7 @@ def basket_out(ctx: AgentContext, b: Basket) -> dict:
     quotes = {q.id: q for q in ctx.db.scalars(select(PriceQuote).where(PriceQuote.id.in_([i.quote_id for i in b.items if i.quote_id])))}
     cases = ctx.db.scalars(select(EscalationCase).where(EscalationCase.basket_id == b.id)).all()
     notes = b.notes or {}
+    flags = item_flags(b, quotes)
     return {
         "id": b.id,
         "session_id": b.session_id,
@@ -126,7 +130,7 @@ def basket_out(ctx: AgentContext, b: Basket) -> dict:
         "total": b.total,
         "budget": b.budget,
         "remaining": round((b.budget or 0) - b.total, 2) if b.budget is not None else None,
-        "items": [item_out(i, quotes.get(i.quote_id)) for i in b.items],
+        "items": [item_out(i, quotes.get(i.quote_id), flags.get(i.id)) for i in b.items],
         "summary": notes.get("summary"),
         "nutrition": ctx.compliance.current_nutrition(b) or notes.get("nutrition"),  # as the basket is now (1.2.11)
         "requirements": notes.get("requirements"),
@@ -190,5 +194,5 @@ def audit_out(r: AuditRecord, *, full: bool) -> dict:
         "provider": r.provider, "session_id": r.session_id, "basket_id": r.basket_id,
     }
     if full:
-        out["payload"] = r.payload
+        out["payload"] = audit_payload(r.payload, r.action)
     return out

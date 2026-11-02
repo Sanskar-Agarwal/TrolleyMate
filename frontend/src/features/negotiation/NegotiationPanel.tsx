@@ -5,7 +5,7 @@ import "./negotiation.css";
 
 /** UC-03: "Stretch my budget": the request can't be met; offer trade-offs, never on safety. */
 export default function NegotiationPanel() {
-  const { negotiation, negotiate, busy, state } = useShop();
+  const { negotiation, negotiate, cancelNegotiation, busy, state } = useShop();
   const n = negotiation!;
   const c = state?.constraints?.payload;
   const [budget, setBudget] = useState(String(c?.budget ?? n.budget ?? ""));
@@ -24,9 +24,9 @@ export default function NegotiationPanel() {
               key={o.id}
               className="option"
               disabled={!!busy}
-              onClick={() => negotiate({ option_id: o.id, budget: o.budget, days: o.days })}
+              onClick={() => negotiate({ option_id: o.id, budget: o.budget, days: o.days, meal_count: o.meal_count })}
             >
-              <span className="eyebrow">{o.id === "increase_budget" ? "Spend a little more" : "Cover fewer days"}</span>
+              <span className="eyebrow">{o.id === "increase_budget" ? "Spend a little more" : "Cover fewer meals"}</span>
               <strong>{o.label}</strong>
               <span className="small muted">{o.detail}</span>
             </button>
@@ -53,6 +53,12 @@ export default function NegotiationPanel() {
         </button>
       </form>
       {n.shortfall != null && <p className="small muted mono">Shortfall at current settings: {money(n.shortfall)}</p>}
+      {n.timed_out && <p className="small muted">The search hit its time limit, so an option may be missing.</p>}
+      <div className="row">
+        <button className="btn btn-ghost btn-sm" onClick={() => void cancelNegotiation()} disabled={!!busy}>
+          Keep my request as it is
+        </button>
+      </div>
       <p className="small muted">Allergies and dietary restrictions are never part of the trade-off.</p>
     </div>
   );

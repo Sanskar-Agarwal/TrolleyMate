@@ -227,7 +227,9 @@ class Lab:
         return verdict, basket, cases
 
     def resolved_case(self, product: Product, household: Household, requirements: dict, decision: str) -> None:
+        from app.services.review_evidence import product_fingerprint
         self.db.add(EscalationCase(
+            evidence={"product_fingerprint": product_fingerprint(product)},
             verdict_id=0, basket_id=0, household_id=household.id, product_id=product.id, reason="Eval",
             status=CaseStatus.resolved, resolution=decision, resolution_note="Checked with the supplier",
             requirements=[{"restriction": r, "severity": s} for r, s in requirements.items()], resolved_at=datetime.now(),
@@ -299,11 +301,13 @@ class Demo:
 
 @contextmanager
 def demo():
+    from app.core.request_security import reset_limits
+    reset_limits()
     reset_db()
     with SessionLocal() as db:
         seed_all(db)
         db.commit()
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-TrolleyMate-Request": "1"}) as client:
         yield Demo(client)
 
 
@@ -523,13 +527,13 @@ def _t05() -> Observation:
     return Observation(r.status == "uncertain" and r.confidence == 0.6, _brief(r))
 
 
-@case("T06-percent-confidence-clamped", "tool_decision", "unsafe", "Verdict contract (confidence 0-1), KAN-19",
-      "A model answering 85 for 85% can't break the contract; the vague term is still uncertain")
+@case("T06-percent-confidence-rejected", "tool_decision", "unsafe", "Verdict contract (confidence 0-1), KAN-19",
+      "A model answering 85 instead of a 0–1 confidence is rejected; the term stays uncertain")
 def _t06() -> Observation:
     svc = scripted({"risk": "possible", "confidence": 85, "reasoning": "Replied in percent."})
     with lab() as kb:
         _, r = kb.screen(kb.fixture_product("hidden-natural-flavours-for-milk"), {"Jamie": {"milk": "severe"}}, llm=svc)
-    return Observation(r.status == "uncertain" and r.confidence == 0.5, _brief(r))
+    return Observation(r.status == "uncertain" and r.confidence == 0.4, _brief(r))
 
 
 @case("T07-off-contract-risk-word", "tool_decision", "unsafe", "assess_ingredient output contract (none | possible | likely)",
@@ -870,8 +874,8 @@ LIMITATIONS = [
     ("Offline knowledge", "In offline mode the rule-based judge knows only its listed term/restriction pairs and the 21 FSANZ notes. "
      "Any other vague term is judged 'none' at 0.97 and clears (T04). A live model covers the rest, and fallback answers never clear a term (T08, T09)."),
     ("Unknown restrictions", "A restriction with no rule makes every product uncertain (P11), so the whole basket is withheld with one review case "
-     "per item. It's safe, but it floods the review queue. Intake should refuse ids outside the vocabulary: extract_constraints is told to use only "
-     "known ids, but form patches aren't checked (Sanskar)."),
+     "per item. Current intake validates extracted constraints, corrections and form patches against the supported vocabulary. "
+     "Legacy or externally supplied unknown restrictions can still reach screening and flood the review queue."),
     ("Safety lock scope", "UC-06's failure scenario describes a lock on the whole basket. The code withholds only the product with the corrupt "
      "record (P10). Still to confirm with Maaz."),
     ("Re-verification of a built basket", "POST /baskets/{id}/verify, which is API only with no UI caller, flags a newly unsafe product as a violation "

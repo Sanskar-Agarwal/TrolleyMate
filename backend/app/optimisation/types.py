@@ -99,6 +99,7 @@ class Requirements:
     breakfast_servings: float
     # Shopper targets for nutrients without a default requirement (e.g. fibre_g), as basket totals.
     extra_minimums: dict[str, float] = field(default_factory=dict)
+    meal_count: int | None = None  # exact scheduled meals per person after a confirmed trade-off
     portions: float = 0.0  # adult-equivalent eaters; 0 means "same as household_size" (older saved baskets)
 
     KCAL_PER_MEAL = 550
@@ -113,10 +114,13 @@ class Requirements:
         portions = float(p.get("portions") or size)
         d = int(days if days is not None else p.get("days") or 7)
         mpd = float(p.get("meals_per_day") or 2)
-        schedule = meal_schedule(d, mpd)
-        person_meals = math.ceil(portions * sum(len(slots) for slots in schedule) - 1e-9)
+        count = p.get("meal_count")
+        schedule = meal_schedule(d, mpd, count)
         breakfast = math.ceil(portions * sum("Breakfast" in slots for slots in schedule) - 1e-9)
-        main = person_meals - breakfast
+        # Round each role up independently: rounding breakfast must never take a
+        # fractional child's lunch/dinner portion away from the main requirement.
+        main = math.ceil(portions * sum(sum(slot != "Breakfast" for slot in slots) for slots in schedule) - 1e-9)
+        person_meals = main + breakfast
         defaults = {"kcal": cls.KCAL_PER_MEAL * person_meals, "protein_g": cls.PROTEIN_PER_MAIN * main,
                     "veg_serves": cls.VEG_PER_MAIN * main}
         extra: dict[str, float] = {}
@@ -124,7 +128,7 @@ class Requirements:
             nutrient = normalise_nutrient(t["nutrient"])
             if nutrient is None:
                 continue  # intake flags targets we can't check; they never reach a confirmed set
-            total = float(t["minimum_per_day"]) * portions * d
+            total = float(t["minimum_per_day"]) * size * d
             if nutrient in defaults:
                 defaults[nutrient] = max(defaults[nutrient], total)
             else:
@@ -138,11 +142,16 @@ class Requirements:
             protein_servings=main, carb_servings=main,
             breakfast_servings=math.ceil(1.6 * breakfast),
             extra_minimums=extra,
+            meal_count=count,
             portions=portions,
         )
 
+    @property
+    def scheduled_meals(self) -> int:
+        return sum(map(len, meal_schedule(self.days, self.meals_per_day, self.meal_count)))
+
     def as_dict(self) -> dict:
-        return {k: getattr(self, k) for k in self.__dataclass_fields__}
+        return {**{k: getattr(self, k) for k in self.__dataclass_fields__}, "scheduled_meals": self.scheduled_meals}
 
 
 @dataclass
@@ -155,3 +164,9 @@ class OptimisationResult:
     message: str = ""
     solver_ms: int = 0
     requirements: Requirements | None = None
+    failure_reason: str | None = None  # timeout | solver_error; None means proven/structural infeasibility
+
+    @property
+    def timed_out(self) -> bool:
+        """The solver hit its time limit: no answer, which is not proof of infeasibility (UC-02 ext 2b/3b)."""
+        return self.failure_reason == "timeout"

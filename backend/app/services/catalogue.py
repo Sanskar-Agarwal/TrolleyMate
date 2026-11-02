@@ -43,19 +43,32 @@ def optimisable_products(db: Session) -> list[Product]:
 
 
 def find_products(db: Session, text: str, limit: int = 5) -> list[Product]:
+    """Return equally strongest matches, without silently broadening a specific request.
+
+    Compliance can choose between generic "milk" matches, but rejecting "almond milk"
+    must not make a weaker, unrelated milk match become the requested product.
+    """
     scored = [(match_score(p, text), p) for p in db.scalars(select(Product))]
     scored = [sp for sp in scored if sp[0] > 0]
     scored.sort(key=lambda sp: (-sp[0], sp[1].id))
-    return [p for _, p in scored[:limit]]
+    if not scored:
+        return []
+    best_score = scored[0][0]
+    return [p for score, p in scored if score == best_score][:limit]
+
+
+def matching_items(basket: Basket, target: str) -> list[BasketItem]:
+    exact = [i for i in basket.items if i.product.name.casefold() == target.strip().casefold()]
+    if exact:
+        return exact
+    scored = [(match_score(i.product, target), i) for i in basket.items]
+    best = max((score for score, _ in scored), default=0)
+    return [i for score, i in scored if score == best and score > 0]
 
 
 def match_item(basket: Basket, target: str) -> BasketItem | None:
-    best, best_score = None, 0.0
-    for item in basket.items:
-        score = match_score(item.product, target)
-        if score > best_score:
-            best, best_score = item, score
-    return best
+    matches = matching_items(basket, target)
+    return matches[0] if len(matches) == 1 else None
 
 
 def disliked_by(p: Product, preferences: list[str]) -> str | None:

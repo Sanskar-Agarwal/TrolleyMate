@@ -4,6 +4,10 @@ What the AI Nutrition & Compliance agent returns to the other agents, and how it
 requirements 1.2.10, 1.2.11 and 1.2.12, UC-06, UC-02 extension 4b (nutrition exceptions), and Stage 1
 diagrams 7.4, 8.4 and 9.4.
 
+Current contract checked against main `947a59c` on 29 October 2026. The KAN-23 evaluation
+below retains its original 42-case run and `540bdc7` baseline; those are historical results,
+not the current full-suite count.
+
 | | |
 |---|---|
 | Schema | [`backend/app/services/compliance_verdict.py`](../backend/app/services/compliance_verdict.py) |
@@ -22,7 +26,11 @@ diagrams 7.4, 8.4 and 9.4.
 |---|---|---|
 | `compliant` | No restriction conflict found, evidence complete | May enter the basket |
 | `violation` | A known conflict with a mandatory restriction | Excluded |
-| `uncertain` | Evidence missing, vague or untrustworthy, or a check that couldn't be completed | Withheld; never inserted automatically (UC-06 ext 2a) |
+| `uncertain` | Evidence missing, vague or untrustworthy, or a check that couldn't be completed | May be stored in a pending candidate as a withheld row; excluded from its usable total/nutrition and cannot be accepted (UC-06 ext 2a) |
+
+These checks apply to the household/request restrictions being screened. With no restrictions,
+`screen_product` returns `compliant` without checking ingredient completeness; this is not a
+general certification of a product's safety or data quality.
 
 **Per basket** — state machine 9.4 final states; stored as `ComplianceVerdict.status`:
 
@@ -58,11 +66,11 @@ outside this contract.
   unreadable ingredient record or may-contain statement, or a composite that contains itself. The product
   is uncertain, so it is withheld and escalated; the readable rest of the record is still checked, so a
   known conflict still fails it.
-- `contains` also covers a product whose own label names a restricted allergen when no ingredient record
+- `contains` also covers a product whose label tags (`Product.tags`) name a restricted allergen when no ingredient record
   carries it (`The product is labelled shellfish, though no listed ingredient carries it`). A free-from
   claim (`gluten-free`, `dairy_free`) is never read as an allergen, and never clears one either.
 - `ambiguous` is a vague label term the model judged `likely` (violation) or `possible` (uncertain). A
-  `none` clears the term only at the safety threshold (0.95) or above. Below it, the term stays `ambiguous`
+  `none` clears the term only at `COMPLIANCE_SAFETY_THRESHOLD` (default 0.95) or above. Below it, the term stays `ambiguous`
   and the product is uncertain.
 - `check_failed` is a vague term the model couldn't judge, because the call failed, the reply was off the
   contract, or only the offline fallback answered and it found nothing. The fallback's rules can't vouch
@@ -72,13 +80,18 @@ outside this contract.
 - May-contain statements are matched in label words: `Tree Nuts`, `peanut` and `dairy` count as
   `tree_nuts`, `peanuts` and `milk`.
 - `ingredient` is the cascade path through composite ingredients.
+- Deliberately configured offline mode uses the rule-based judge, including its limited known terms.
+  A failed live call is different: its fallback `none` cannot clear the term. Provider setup failure
+  enters `offline_unconfigured` and is disclosed by `/api/system/llm`; it is not a successful live check.
 - A `violation` or `uncertain` product must carry at least one finding. Unknown keys are rejected,
   so a new piece of evidence has to be added to the schema first.
 
 ## Nutrition coverage (1.2.11)
 
 Energy, protein, vegetables and staples are checked against targets already scaled to the
-household size and meal schedule (`Requirements.from_constraints`). Withheld items don't count.
+household size and meal schedule (`Requirements.from_constraints`). Default food quantities use
+adult-equivalent portions, with breakfast and main quantities rounded independently. Explicit
+per-person daily targets use full headcount. Withheld items don't count.
 
 - `coverage`: one entry per target, `{nutrient, required, provided, coverage_pct, met, accepted}`
 - `gaps`: exactly the unmet targets, each with `short_by`
@@ -105,8 +118,8 @@ changes item compliance: a withheld item stays withheld and the basket can't be 
 or explicitly accepted (400 otherwise, naming the open gaps), and the Accept button is disabled
 with the same message. The check runs on the basket as it is now, not on the summary saved when it
 was built. That summary goes stale when a dietitian releases or removes an item, or when extras are
-added after an edit, so basket reads (`basket_out`) report current nutrition too, and the button and
-the server always agree.
+added after an edit, so basket reads (`basket_out`) report current nutrition too. The UI consumes
+that current coverage and the server checks it again on acceptance.
 
 ## Prototype nutrition targets
 
@@ -134,8 +147,10 @@ protein figure, never lower it.
 | Missing information | 6 | no ingredient list, an empty list marked complete, an unreadable record, precautionary labels |
 | Conflicting restrictions | 7 | different severities across members, a request trying to relax the profile, vegan + halal |
 
-One case is specified ahead of the code and runs as a strict xfail until it lands: animal rennet in
-parmesan should be a `violation` for vegetarians (knowledge-base growth).
+The former animal-rennet expected failure is now a passing regression: `animal_rennet` is forbidden
+for vegetarian and vegan rules, and the seed parmesan composite includes it. Dedicated tests cover
+both diets and the seed cascade. The seed change applies to newly created demo data; startup does
+not migrate an existing database's ingredient graph.
 
 ## Basket verification (KAN-20)
 
@@ -208,8 +223,9 @@ accounts, which have no household, get 404 as well. Forgetting a preference dele
 records for preference changes name the kind and id only (`Forgot a dislike preference (#12)`), never
 the value, so the preference log keeps no copy of a forgotten value. This follows the Stage 1
 cross-tree constraint "Taste & Preference Memory implies Enhanced Data Protection". Records of
-sessions that already applied a preference keep it: their confirmed constraint set, the intake audit
-payload and the basket facts.
+sessions that already applied a preference retain their confirmed instructions and basket facts.
+Intake/routing prompts and raw replies are now omitted from oversight payloads; preference-keyed
+payload data is redacted on write and read. Forgetting also scrubs those fields in the owner's legacy audit payloads. This does not erase confirmed shopping history.
 
 | Acceptance criterion | Tests |
 |---|---|
@@ -255,8 +271,21 @@ python -m tests.agent_evaluation --markdown ../docs/evidence/agent-evaluation.md
 
 **Observed results:** [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md) has every case,
 with what was expected, what was observed, and the same set run on main (`540bdc7`) beside it.
-**42 of 42 pass** on this branch. **26 of 42 pass on main**: the 16 that fail there are the gaps this
-ticket found and fixed.
+The recorded KAN-23 branch run passed **42 of 42**; its historical main baseline `540bdc7` passed
+**26 of 42**. The 16 baseline failures identify gaps fixed by that ticket. KAN-23 is now merged
+into main; these numbers must not be read as a comparison with today's main.
+
+### Integration follow-up — 29 October 2026
+
+Two additional regressions in `test_agent_evaluation.py` cover increasing an unsafe pantry item
+after a new allergy and increasing an already-withheld snack. The final extras set is screened
+after all add/increase/decrease quantity changes, so a pin cannot reinsert either product as
+compliant. The item is left out with an explanation. These tests are outside the fixed 42-case
+evaluation and do not alter its historical counts.
+
+Current intake also rejects unsupported restriction ids in extraction, corrections and structured
+form patches. The animal-rennet fix above predates this integration. Historical limitations in
+the generated evaluation report describe that report's original snapshot.
 
 ### Gaps found and fixed
 
@@ -279,8 +308,9 @@ ticket found and fixed.
 
 An uncertain item is withheld, left out of the total and nutrition, and escalated to the dietitian (S02,
 T10). While it is withheld the basket can't be accepted or meal-planned (S03). No shopper can start or
-decide its review (S04), and only a dietitian's `passed` releases it (S05). Rebuilding the basket keeps it
-withheld under the same case (S06). A chat edit (S07) or an earlier swap (S10) can't bring it back as safe,
+decide its review (S04); a `passed` decision from an authorised dietitian or founder releases it (S05).
+Rebuilding the basket keeps it withheld under the same case (S06). A chat edit (S07) or an earlier
+swap (S10) can't bring it back as safe,
 and an outage can't clear it (S15). `test_agent_evaluation.py` names these cases, so one can't drop out
 of the set unnoticed.
 
@@ -289,17 +319,24 @@ of the set unnoticed.
 Recorded with the results in the evidence file. The ones that matter most:
 
 - **Offline knowledge.** In offline mode the rule-based judge clears any vague term it has no rule or
-  note for (`none` at 0.97, T04). A live model covers the rest.
+  note for (`none` at 0.97, T04). A live model can assess additional terms, but its confidence is not
+  a guarantee of correctness.
 - **Unknown restrictions** make every product uncertain (P11). That's safe, but it floods the review
-  queue. Intake should refuse restriction ids outside the vocabulary (Sanskar's area).
+  queue. Current intake rejects unsupported ids in extraction, corrections and form patches;
+  legacy or externally supplied data can still reach this screening safeguard.
 - **Re-verifying a built basket** (`POST /baskets/{id}/verify`, API only) fails it and blocks
   acceptance (S14). It still leaves the unsafe product in the total and labels the basket `verified`.
 - **Safety lock scope.** UC-06's failure scenario locks the whole basket. The code withholds only the
-  affected product. Still to confirm with Maaz.
+  affected product, while acceptance and meal-plan gates block a basket containing withheld items.
+  This difference from the design remains an explicit prototype limitation.
+- **Reused human decisions.** Reuse checks product id, household id, restriction severity coverage and a fingerprint of
+  the reviewed product/ingredient evidence. Changed evidence invalidates approval reuse. Legacy
+  cases without a fingerprint must be re-verified; an active review must restart if its evidence changes.
 - **Prompt injection.** Label text reaches the model verbatim. The output contract, the 0.95 threshold
   and the FSANZ notes limit what a confident wrong answer can do. They don't remove the risk.
-- **Not yet run against a live model.** Model failures are scripted. A run on the Campus Qwen model is
-  still to do.
+- **Evaluation model coverage.** This 42-case safety evaluation uses scripted model replies and
+  outages. The separate [28 October UAT](UAT_2026-10-28.md) records live intake/routing and a shopper
+  journey; it is not a live-model run of this safety evaluation or a Campus Qwen evaluation.
 
 | Acceptance criterion | Evidence |
 |---|---|
@@ -320,3 +357,12 @@ with `Finding.refusal()`:
 An uncertain product reads *... can't be confirmed safe for your household yet: ...*. Before this, the request
 fell through to a weaker match, so *"add honey muesli bars"* added Honey 500g and *"add sugar free mints"* added
 Free Range Eggs. The unsafe product was never added, but the shopper wasn't told it had been refused.
+
+### Acceptance audit — 30 October 2026
+
+Out-of-range model confidence (including 85 rather than 0.85) is rejected as an incomplete
+check instead of clamped to a confident answer. The T06 evaluation scenario now expects
+`uncertain` with a `check_failed` finding. The historical evaluation report retains the
+original run; current suite results are recorded in [the new UAT report](UAT_2026-10-30.md).
+Additional tests cover changed product data before and during human review, all supported
+custom nutrition minimums, and private intake/routing audit payloads.

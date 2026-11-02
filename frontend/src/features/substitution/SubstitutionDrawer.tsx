@@ -8,28 +8,41 @@ import { money } from "../../lib/format";
 import { useShop } from "../shop/ShopContext";
 import "./substitution.css";
 
-/** UC-04: propose a compliant swap and state its trade-off; the shopper accepts or declines. */
+const FLAG_LABEL: Record<string, string> = {
+  out_of_stock: "Out of stock",
+  over_budget: "Basket is over budget",
+  failed_review: "Failed dietary review",
+};
+
+/** UC-04: propose a compliant swap and state its trade-off; the shopper accepts or declines.
+ * A system-flagged item (out of stock, over budget, failed review) is proposed for that reason. */
 export default function SubstitutionDrawer({ item, onClose }: { item: BasketItem; onClose: () => void }) {
   const { state, run, setBasket, busy } = useShop();
   const basketId = state!.basket!.id;
   const [sub, setSub] = useState<Substitution | null>(null);
   const asked = useRef(false);
+  const reason: string = item.flags?.[0] ?? "user_requested";
 
   useEffect(() => {
     if (asked.current) return; // StrictMode runs effects twice in dev; only propose once
     asked.current = true;
-    run("Finding a safe substitute", () => substitutions.propose(basketId, item.id), { refresh: false }).then((r) => {
+    run("Finding a safe substitute", () => substitutions.propose(basketId, item.id, reason), { refresh: false }).then((r) => {
       if (r) {
         setSub(r.substitution);
         setBasket(r.basket);
       }
     });
-  }, [basketId, item.id, run, setBasket]);
+  }, [basketId, item.id, reason, run, setBasket]);
 
   async function decide(accept: boolean) {
     if (!sub) return;
     const r = await run(accept ? "Swapping it in" : "Keeping the original", () => (accept ? substitutions.accept(sub.id) : substitutions.reject(sub.id)), {
-      toast: () => (accept ? [`Swapped in ${sub.replacement?.name}`] : ["Kept the original. We won't suggest that swap again.", "info"]),
+      toast: (r) =>
+        !accept
+          ? ["Kept the original. We won't suggest that swap again.", "info"]
+          : r.substitution.status === "accepted"
+            ? [`Swapped in ${sub.replacement?.name}`]
+            : [r.substitution.trade_off, "info"],
     });
     if (r) {
       setBasket(r.basket);
@@ -40,12 +53,13 @@ export default function SubstitutionDrawer({ item, onClose }: { item: BasketItem
   const saving = sub?.facts.saving ?? 0;
   return (
     <Drawer title={`Substitute for ${item.product.name}`} eyebrow="AI Personal Shopper" onClose={onClose}>
+      {reason !== "user_requested" && <div className="notice notice-amber">{FLAG_LABEL[reason]}</div>}
       {!sub && <Skeleton rows={3} height={22} label="Checking alternatives against your household's dietary rules" />}
 
       {sub?.status === "discarded" && (
         <div className="stack">
           <div className="notice notice-amber">{sub.trade_off}</div>
-          <button className="btn" onClick={onClose}>Keep {item.product.name}</button>
+          <button className="btn" onClick={onClose}>{reason === "out_of_stock" || reason === "failed_review" ? "Close" : `Keep ${item.product.name}`}</button>
         </div>
       )}
 

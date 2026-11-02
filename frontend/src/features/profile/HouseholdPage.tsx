@@ -115,7 +115,7 @@ export default function HouseholdPage() {
       const r = await fn();
       setData(r.household);
       setEditing(null);
-      toast("Saved. This applies from your next shop.");
+      toast("Household changes saved.");
     } catch (e) {
       const message = (e as Error).message;
       setError(message.includes("hasn't changed") ? message : `${message} Your saved profile hasn't changed.`);

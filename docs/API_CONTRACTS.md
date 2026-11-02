@@ -1,23 +1,76 @@
-# Interface contracts — households, permissions, audit, review cases
+# Interface contracts — shopping, permissions, audit and review
 
 Agreed with the area owners in sprint 1 (KAN-25). Serializers live in
 `backend/app/api/common.py`; TypeScript mirrors are in `frontend/src/api/types.ts`. Change both
 in the same pull request.
+
+Current behavior updated on Sanskar, based on main `54182b0`, on 30 October 2026. All routes below use
+the `/api` prefix. FastAPI's `/docs` is the complete request-schema reference.
 
 ## Permission matrix
 
 | Resource | Shopper | Dietitian | Founder |
 |---|---|---|---|
 | Own household, members, preferences | read / write | — (no household) | — (no household) |
-| Own sessions, baskets, explanations | read / write | — | read |
-| Other shoppers' sessions and baskets | 404 | 404 | read |
+| Own sessions, baskets, explanations | read / write | — (no shopper session) | see founder access below |
+| Other shoppers' sessions and baskets | 404 | 404 | read / write through the shared ownership helper |
 | Review queue (`/escalations`) | 403 | own + unassigned cases | all cases, can assign |
+| Review case detail (`/escalations/{id}`) | 403 | read any case by id | read any case |
 | Begin / request info / resolve a case | 403 | only when assigned to them | any case (fallback reviewer) |
-| Audit log (`/audit`) | own sessions, no payload | none | everything, incl. raw prompts |
+| Accept a nutrition exception | own basket only | 404 for another shopper's basket | 403 for another shopper's basket |
+| Audit log (`/audit`) | own sessions, no payload | empty list with the seeded account | all records; private intake/routing payloads redacted |
 | Audit stats (`/audit/stats`) | 403 | 403 | read |
 
-Unauthenticated requests get **401**. Records that exist but belong to someone else return
-**404** rather than 403, so ids can't be probed.
+Protected routes return **401** without a valid token. Health, model status, goal and dietary
+vocabulary routes, plus registration/login, are public. Session and basket ownership failures
+return **404**. Staff have no household in the seed data, so `/households/me` returns 404 for
+those accounts; household access is based on the account's linked household.
+
+Founder access is an explicit bypass in `own_session`, inherited by basket and chat routes;
+it is not a read-only permission. The nutrition-exception endpoint adds a separate shopper-id
+check. Reviewer role checks and case-assignment checks govern review actions independently.
+
+## Build and negotiation
+
+`POST /sessions/{id}/basket` accepts `goal` and an optional UUID `operation_id`.
+`POST /sessions/{id}/negotiate` accepts the chosen `option_id`, `budget`, `days` and/or `meal_count`, an
+optional `goal`, and the same optional operation token. The client creates a new token for
+each attempt. Both return one of these bodies, with `trace`:
+
+| `status` | Additional fields | Meaning |
+|---|---|---|
+| `ok` | `basket` | A candidate was committed; inspect its status and withheld items before acceptance. |
+| `infeasible` | `negotiation` | No basket fits; review the computed trade-offs. |
+| `retryable` | `reason: timeout \| solver_error`, `message` | Search did not produce a verified candidate; keep existing basket and choices. |
+| `cancelled` | `message`, empty `trace` | Request transaction rolled back, preserving the previous basket and constraints. |
+
+`POST /sessions/{id}/basket-builds/{operation_id}/cancel` returns `cancellation_requested`
+or `already_finished` with `outcome: committed | cancelled | failed`, plus an empty `trace`.
+An acknowledgement is not completion: the UI stays busy until the original build returns.
+The final cancellation check and commit share a lock, so a completed commit cannot be reported
+as cancelled. A pre-start cancellation also prevents that token's later build from doing work.
+Duplicate or concurrent builds for the same session return **409**.
+
+This registry is process-local: one API worker, 1,024 recent operations, 20-minute retention
+with active builds retained until completion. Cancellation waits for the current solver/provider
+call. Receipts are not durable across restart or expiry; closing a tab does not cancel a build.
+See [optimisation details](OPTIMISATION_AND_MEALS.md).
+
+## Meal plan
+
+`POST /baskets/{id}/meal-plan` returns `{meal_plan, trace}`; `GET` on the same route returns
+the latest current plan or **404**. Generation requires an accepted basket under the active
+constraint set, with every item compliant and no withheld items. It rechecks current household
+restrictions before planning.
+
+The plan includes `days`, `requested`, `planned`, `missing`, `goal`, `total_minutes`,
+`portions_per_meal`, `reused`, `leftovers`, `expired_unused`, `perishable_first`,
+`assumed_at_home` and `suggested_additions`. Planned meals carry `ingredients` with actual
+allocated `{name, servings}` quantities, alongside `uses`, `optional`, `minutes` and household
+headcount `servings`. Adult-equivalent portions control ingredient consumption. Required
+ingredients are reserved before optional extras; partial packs can combine without double counting.
+Missing meals remain explicit, and suggested additions never change the basket automatically.
+Stored plans are hidden when the basket snapshot or active constraints no longer match.
 
 ## Household (`GET /api/households/me`)
 
@@ -74,6 +127,45 @@ Unauthenticated requests get **401**. Records that exist but belong to someone e
 ```
 
 - `status` follows State machine 9.5: `open → assigned → under_review ⇄ awaiting_information → resolved`.
-- An assignment that isn't started within `REVIEW_SLA_MINUTES` returns to `open`.
+- Reading the review queue sweeps assignments not started within `REVIEW_SLA_MINUTES`:
+  they return to `open`, then assignment is retried with a different available reviewer.
 - `resolution` is `passed` or `failed`. It's applied to the withheld item and reused for the
-  same product and household only while it covers every current restriction.
+  same product and household only while it covers every current restriction at the same or a
+  stricter severity. The current reuse key does not version the product's ingredient record.
+
+## Review evidence and price completeness — 30 October 2026
+
+Review cases include a `product_fingerprint` of the current product label, allergen tags,
+may-contain data, completeness and nested ingredients. A reused approval must match that
+fingerprint and cover every current restriction at the same or stricter severity. Legacy
+cases without a fingerprint require fresh verification. Resolving a case rejects changed
+product evidence or restrictions; re-verification refreshes the case and restarts review.
+
+Price-comparison options expose nullable `saving` and `saving_pct`. Both are null whenever
+the option or named baseline is incomplete. Partial totals remain visible and labelled.
+
+Negotiation's optional `meal_count` is the exact number of scheduled meals per person.
+The `reduce_days` option ID remains compatible, but may include a partial final day. Clients
+must submit the offered `days` and `meal_count` together. The confirmed constraints and
+meal planner preserve this count. Omitting it retains the ordinary full-day schedule.
+
+
+## Authentication and request protection
+
+All API writes (`POST`, `PUT`, `PATCH`, `DELETE`), including login and registration,
+require `X-TrolleyMate-Request: 1`. Send request bodies as `application/json`.
+Untrusted browser origins/referrers and cross-site writes are rejected with **403**;
+simple form content types receive **415**. Cookie authentication is not supported.
+Non-browser clients send the same header and explicit bearer token but need no Origin.
+
+Login/registration return an opaque `token`; send it as `Authorization: Bearer <token>`.
+Sessions expire after 30 minutes without authenticated requests, or eight hours regardless
+of activity. Activity timestamps are coalesced to one write per minute (idle expiry may be
+up to one minute earlier). A fourth login revokes the oldest active login by default.
+`POST /auth/logout` revokes the current token; `POST /auth/logout-all` revokes all tokens
+for the authenticated account. Both return `{ "signed_out": true }`.
+Expired/revoked tokens receive **401**. API responses are not cacheable.
+
+Throttled requests receive **429**, a `Retry-After` header in seconds and a user-facing
+message. Limits are persisted and shared across workers using the same SQLite files.
+See [Security controls](SECURITY.md) for configurable defaults and deployment boundaries.

@@ -57,7 +57,7 @@ class LowestCost(OptimisationStrategy):
         return c.price
 
     def item_reason(self, c: Candidate) -> str:
-        return f"Lowest price per serving for its role (${c.price_per_serving:.2f}/serving at {c.retailer.name})"
+        return f"Selected for the lowest total basket cost (${c.price_per_serving:.2f}/serving at {c.retailer.name})"
 
 
 class BestNutrition(OptimisationStrategy):
@@ -97,7 +97,7 @@ class LeastWaste(OptimisationStrategy):
 
     def item_reason(self, c: Candidate) -> str:
         life = "keeps well" if not c.product.perishable else f"use within {c.product.shelf_life_days} days"
-        return f"Pack size fits your meal count with little left over ({life})"
+        return f"Selected to reduce excess servings and perishable stock ({life})"
 
 
 class FastestToCook(OptimisationStrategy):

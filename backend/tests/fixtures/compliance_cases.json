@@ -104,8 +104,7 @@
       "about": "Traditional parmesan is made with animal rennet, so it isn't vegetarian.",
       "product": {"name": "Shaved Parmesan", "ingredients": ["parmesan"]},
       "members": {"Priya": {"vegetarian": "moderate"}},
-      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["vegetarian"], "paths": ["parmesan → animal rennet"]},
-      "pending": "Knowledge-base growth: the vegetarian and vegan rules don't cover animal rennet yet."
+      "expect": {"status": "violation", "kinds": ["contains"], "restrictions": ["vegetarian"], "paths": ["parmesan → animal rennet"]}
     },
     {
       "id": "composite-pesto-two-allergens",

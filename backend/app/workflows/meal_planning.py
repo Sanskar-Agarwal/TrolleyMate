@@ -28,6 +28,10 @@ def generate(agent, basket: Basket) -> MealPlan:
         raise ValueError("Resolve all dietary reviews before planning meals.")
     household = household_of(agent.db, session)
     restrictions = agent.ctx.compliance.restrictions_for(household, record.payload)
+    # Profile restrictions may have changed since the basket was accepted.
+    if any(agent.ctx.compliance.screen_product(i.product, restrictions, household.id).status != ItemCompliance.compliant
+           for i in basket.items):
+        raise ValueError("Your dietary profile changed. Rebuild and accept a safe basket before planning meals.")
     req = (basket.notes or {}).get("requirements", {})
     result = meal_planner.plan(
         basket,
@@ -35,6 +39,7 @@ def generate(agent, basket: Basket) -> MealPlan:
         portions=float(req.get("portions") or 0) or None,
         days=int(req.get("days", 7)),
         meals_per_day=float(req.get("meals_per_day", 2)),
+        meal_count=req.get("meal_count"),
     )
     # Recommended additional items for the meals that couldn't be planned (never auto-added).
     suggestions: dict[str, str] = {}

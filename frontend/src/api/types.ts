@@ -39,6 +39,7 @@ export interface ConstraintDraft {
   budget?: number | null;
   household_size?: number | null;
   meals_per_day?: number | null;
+  meal_count?: number | null;
   days?: number | null;
   restrictions?: Restriction[];
   nutritional_targets?: { nutrient: string; minimum_per_day: number }[];
@@ -83,6 +84,7 @@ export interface BasketItem {
   compliance: "compliant" | "violation" | "uncertain" | "unchecked";
   withheld: boolean;
   rationale: string;
+  flags: ("out_of_stock" | "over_budget" | "failed_review")[];
 }
 
 export interface Nutrition {
@@ -176,6 +178,8 @@ export interface NegotiationOption {
   detail: string;
   budget?: number;
   days?: number;
+  person_meals?: number;
+  meal_count?: number;
 }
 
 export interface Negotiation {
@@ -186,6 +190,7 @@ export interface Negotiation {
   days: number;
   person_meals: number;
   shortfall: number | null;
+  timed_out?: boolean;
 }
 
 export interface MealSlot {
@@ -194,6 +199,7 @@ export interface MealSlot {
   recipe_id?: string;
   servings?: number;
   minutes?: number;
+  ingredients?: { name: string; servings: number }[];
   uses?: string[];
   optional?: string[];
   missing?: string[];
@@ -202,6 +208,9 @@ export interface MealSlot {
 export interface MealPlan {
   id: number;
   basket_id: number;
+  goal?: Goal;
+  total_minutes?: number;
+  portions_per_meal?: number;
   summary: string;
   days: { day: number; meals: MealSlot[] }[];
   requested: number;
@@ -234,7 +243,7 @@ export interface Substitution {
   status: "pending" | "accepted" | "rejected" | "discarded";
   reason: string;
   trade_off: string;
-  facts: { saving?: number; notes?: string[]; retailer?: string; unit_price?: number; unit_basis?: string };
+  facts: { saving?: number; notes?: string[]; retailer?: string; unit_price?: number; unit_basis?: string; no_alternative?: boolean };
   basket_item_id: number;
   original: { id: number; name: string };
   replacement: { id: number; name: string } | null;
@@ -245,8 +254,8 @@ export interface ComparisonOption {
   name: string;
   retailer_id: number | null;
   total: number;
-  saving: number;
-  saving_pct: number;
+  saving: number | null;
+  saving_pct: number | null;
   complete: boolean;
   unpriced: string[];
   is_split: boolean;
@@ -282,9 +291,12 @@ export interface TimingAdvice {
   action: "wait" | "buy_now" | "none" | "skip";
   reason: string;
   wait_days?: number;
+  wait_until?: string;
   pattern_day?: string;
   expected_saving?: number;
   confidence?: number;
+  /** The timestamped history behind the advice; demo means generated, not observed at the retailer. */
+  history?: { weeks: number; quotes: number; from: string | null; to: string | null; demo: boolean };
 }
 
 /** The recorded inputs an explanation cites (KAN-27). Missing kinds are listed, never filled in. */

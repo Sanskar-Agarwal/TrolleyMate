@@ -1,14 +1,16 @@
 """Rebuild and run Trolley Mate from a clean copy of the source, the way the Week 13 demo will.
 
     python scripts/verify_clean.py                      # clean copy of the current commit (git archive HEAD)
-    python scripts/verify_clean.py --source release.zip # a submission archive (see package_submission.py)
+    python scripts/verify_clean.py --source release.zip # verify an existing submission archive
     python scripts/verify_clean.py --log docs/evidence/clean-deploy.log
 
 Steps: stage the source in an empty temp folder -> fresh Python venv from the pinned lockfile ->
 pip check -> backend tests (offline mock) -> npm ci, frontend tests and production build ->
 start the server with no AI key and check health, the built UI, demo sign-in and a full basket
 build -> start it again with an unreachable AI provider and check the fallback is labelled.
-Needs Python 3.11+, Node 20+ and git (for the default source). Owner: Maaz (KAN-29).
+Use Python 3.12 and Node 20.19+ (20.x), 22.12+ (22.x), or 24+; git is needed for the
+default source. Initial dependency installation needs registry access. See docs/DEPLOYMENT.md
+for archive preparation. Owner: Maaz (KAN-29).
 """
 
 from __future__ import annotations
@@ -36,7 +38,8 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")  # terminal colour codes from npm/vite outp
 
 def say(msg: str) -> None:
     line = f"[{datetime.now():%H:%M:%S}] {msg}"
-    print(line, flush=True)
+    # Build output contains box-drawing characters a cp1252 console can't encode.
+    print(line.encode(sys.stdout.encoding or "utf-8", "replace").decode(sys.stdout.encoding or "utf-8"), flush=True)
     LOG.append(line)
 
 
@@ -82,6 +85,7 @@ def http(method: str, url: str, body: dict | None = None, token: str | None = No
     req = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
+    req.add_header("X-TrolleyMate-Request", "1")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     try:

@@ -43,6 +43,7 @@ from app.services.compliance_verdict import VerdictEvidence, outcome
 from app.services.dietary_rules import RESTRICTION_RULES, label, label_tag, normalise_restriction, violating_tags
 from app.services.nutrition_targets import TARGETS_VERSION
 from app.services.preference_memory import KINDS, favoured_by, matches, restriction_hint
+from app.services.review_evidence import product_fingerprint
 
 # (ingredient, restriction, provider) → LLM judgement. Shared across requests: label
 # semantics don't change, and this keeps real-LLM screening fast.
@@ -224,12 +225,13 @@ class NutritionComplianceAgent(Agent):
         """1.2.11 — compares what the (non-withheld) basket provides against the requirements, which
         are already scaled to the household size and meal schedule. A gap only counts as acceptable
         while an exception the shopper accepted still covers it (see accept_nutrition_exception)."""
-        provided = {k: 0.0 for k in ("kcal", "protein_g", "veg_serves", "staple_serves", "fibre_g")}
+        provided = {k: 0.0 for k in ("kcal", "protein_g", "veg_serves", "staple_serves", "fibre_g", "carbs_g", "fat_g")}
         for item in b.items:
             if not item.withheld:
                 for k in provided:
                     provided[k] += _contribution(item.product, k) * item.quantity
         required = {"kcal": req.kcal, "protein_g": req.protein_g, "veg_serves": req.veg_serves, "staple_serves": req.carb_servings}
+        required.update(req.extra_minimums)
         exceptions = list((b.notes or {}).get("nutrition_exceptions", []))
         accepted_short = {e["nutrient"]: e["short_by"] for e in exceptions}
         coverage = []
@@ -480,7 +482,11 @@ class NutritionComplianceAgent(Agent):
         against every restriction that applies now, at the same severity or stricter. A decision
         reviewed before a new allergy was added, or before one became more severe, says nothing
         about the stricter rule, so it must not be reused."""
+        fingerprint = product_fingerprint(self.db.get(Product, product_id))
+
         def covers(case: EscalationCase) -> bool:
+            if (case.evidence or {}).get("product_fingerprint") != fingerprint:
+                return False
             reviewed = {r["restriction"]: _SEVERITY_RANK.get(r.get("severity"), 0) for r in case.requirements}
             return all(
                 r["restriction"] in reviewed and reviewed[r["restriction"]] >= _SEVERITY_RANK.get(r.get("severity"), 3)
@@ -569,9 +575,7 @@ def _unchecked(term: str, restriction: str, why: str) -> dict:
 
 
 def _read_judgement(data, term: str, restriction: str) -> dict:
-    """The model's reply as {risk, confidence, reasoning}. A real model may answer 85 for 85%, so the
-    confidence is clamped to 0-1. A reply off the contract (a risk word other than none, possible or
-    likely; a confidence that isn't a number) is "unchecked", never read as safe."""
+    """Validate the model contract. Out-of-range confidence cannot establish safety."""
     try:
         risk = str(data["risk"]).strip().lower()
         confidence = float(data["confidence"])
@@ -580,9 +584,9 @@ def _read_judgement(data, term: str, restriction: str) -> dict:
         return _unchecked(term, restriction, "The AI ingredient check gave an unreadable answer")
     if risk not in ("none", "possible", "likely"):
         return _unchecked(term, restriction, f"The AI ingredient check answered off the contract (risk '{data['risk']}')")
-    if not math.isfinite(confidence):
+    if not math.isfinite(confidence) or not 0 <= confidence <= 1:
         return _unchecked(term, restriction, "The AI ingredient check gave no usable confidence")
-    return {"risk": risk, "confidence": min(max(confidence, 0.0), 1.0), "reasoning": reasoning}
+    return {"risk": risk, "confidence": confidence, "reasoning": reasoning}
 
 
 def _gap_suggestion(nutrient: str) -> str:

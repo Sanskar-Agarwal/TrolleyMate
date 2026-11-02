@@ -186,6 +186,17 @@
       "name": "parmesan",
       "tags": [
         "milk"
+      ],
+      "components": [
+        "milk",
+        "animal rennet",
+        "salt"
+      ]
+    },
+    {
+      "name": "animal rennet",
+      "tags": [
+        "animal_rennet"
       ]
     },
     {

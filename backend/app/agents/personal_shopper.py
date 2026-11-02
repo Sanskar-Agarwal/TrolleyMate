@@ -48,6 +48,9 @@ class PersonalShopperAgent(Agent):
     def negotiate(self, s: ShoppingSession, **choice) -> basket_builder.BuildOutcome:
         return negotiation.apply(self, s, **choice)
 
+    def cancel_negotiation(self, s: ShoppingSession) -> dict:
+        return negotiation.cancel(self, s)
+
     # UC-04
     def find_substitute(self, item: BasketItem, reason: str = "user_requested") -> Substitution:
         return substitution.propose(self, item, reason)
@@ -68,6 +71,14 @@ class PersonalShopperAgent(Agent):
 
     # Supervisor-controlled routing for free-text chat
     def handle_message(self, s: ShoppingSession, text: str) -> dict:
+        draft = next((r for r in reversed(s.requests) if r.status == "draft"), None)
+        if draft is not None and draft.mode == "form":
+            # Enforce the workflow boundary before any model can reclassify an edit.
+            reply = _intake_reply(draft)
+            _remember(s, "user", text)
+            _remember(s, "assistant", reply)
+            return {"intent": "correct_request", "kind": "intake", "intake": intake.state(draft), "reply": reply}
+
         state = self.perceive(s)
         decision = self.think("classify_intent", {"text": text, "state": state})
         intent = decision.data["intent"]
@@ -75,13 +86,18 @@ class PersonalShopperAgent(Agent):
         _remember(s, "user", text)
 
         basket = basket_builder.current_basket(self, s)
-        draft = next((r for r in reversed(s.requests) if r.status == "draft"), None)
         response: dict = {"intent": intent, "reply": decision.data.get("reply", "")}
 
-        if intent == "clarify_answer" and draft is not None:
+        if intent == "cancel_request" and draft is not None:
+            req = self.cancel(draft)
+            response.update(kind="intake", intake=intake.state(req), reply="Cancelled — your previous confirmed constraints are unchanged.")
+        elif intent == "correct_request" and draft is not None:
+            req = self.correct(draft, text=text)
+            response.update(kind="intake", intake=intake.state(req), reply=_intake_reply(req))
+        elif intent == "clarify_answer" and draft is not None:
             req = self.clarify(draft, text)
             response.update(kind="intake", intake=intake.state(req), reply=_intake_reply(req))
-        elif intent == "new_request" or (intent == "clarify_answer" and draft is None) or (basket is None and intent in ("edit_basket", "explain", "meal_plan", "compare_prices")):
+        elif intent == "new_request" or (intent in ("clarify_answer", "correct_request") and draft is None) or (basket is None and intent in ("edit_basket", "explain", "meal_plan", "compare_prices")):
             req = self.extract_constraints(s, text)
             response.update(kind="intake", intake=intake.state(req), reply=_intake_reply(req))
         elif intent == "edit_basket":
@@ -177,8 +193,8 @@ def _remember(s: ShoppingSession, role: str, text: str) -> None:
 
 
 def _intake_reply(req: ShoppingRequest) -> str:
+    if req.mode == "form":
+        return "Please edit your details directly in the form, then save and confirm them. Chat edits are disabled for this request."
     if req.pending_questions:
         return " ".join(q["question"] for q in req.pending_questions)
-    if req.mode == "form" and req.stage == "awaiting_form":
-        return "Let's do this one field by field — please check the form."
     return "Here's what I understood. Check it and confirm, or tell me what to change."

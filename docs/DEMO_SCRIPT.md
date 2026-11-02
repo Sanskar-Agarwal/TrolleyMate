@@ -1,22 +1,35 @@
-# Week 13 demo script (≈ 8 minutes)
+# Historical Week 13 walkthrough — 27 October 2026 (≈ 8 minutes)
 
-Run from the Canvas zip on the demo machine:
+This numbered walkthrough is retained because [JOURNEY_VERIFICATION.md](JOURNEY_VERIFICATION.md)
+refers to its steps. **Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current seven-minute
+presentation, preparation and acceptance gates.** The optional [safety segment](SAFETY_DEMO.md)
+covers named allergen refusals and unresolved human review. The table below describes the planned older
+walkthrough; it is not a record of a completed team rehearsal or Canvas submission.
+
+Product choices, held items and price-history examples depend on the selected version and
+database. The old expectation that a particular request selects schnitzel is not guaranteed.
+Use a labelled prepared review case when needed. Show Jira exports, review records and sprint
+tags only if those artifacts actually exist; step 15 does not establish that they were produced.
+
+For current setup, follow the [README](../README.md#quick-start). The historical local Docker
+command was:
 
 ```bash
 docker compose up --build          # → http://localhost:8000
 ```
 
-or without Docker: `scripts/setup.ps1` then `scripts/dev.ps1` (→ http://localhost:5173).
-Reset data before presenting: `cd backend && .venv/Scripts/python -m app.seed --reset`.
-If the campus VPN / LLM is unavailable, the app keeps working on the offline agent mode — say so.
+The Windows walkthrough used `scripts/setup.ps1` then `scripts/dev.ps1`
+(→ http://localhost:5173). Current setup also supports macOS/Linux. Prepare a disposable demo
+database; never reset a shared database for a presentation. State whether the selected run is
+live, degraded or offline, and respect any withheld-stock gate during a provider failure.
 
 | # | Do | Say (criterion) |
 |---|---|---|
 | 1 | Sign in as **Alex** (household: Alex lactose-intolerant, Jamie tree-nut allergy). Open **Household** briefly. | UC-10: profiles drive every shop. Mandatory restrictions vs soft preferences. (C1) |
 | 2 | **Shop** → type *"I have $100 for this week, two meals a day for us two. High protein please."* | Perception: the LLM extracts budget/days/meals, merges household allergies, and **asks** about "high protein" instead of assuming. Point at the activity feed. (C2) |
-| 3 | Answer *"120g"*, then correct the budget to **$90** to show a correction, then **Confirm**. (With this protein target the schnitzel for step 5 is chosen only on Wednesdays and Saturdays, whatever the budget: see step 5.) | UC-01 state machine: clarifications ≠ corrections; third correction switches to a form. (C1) |
+| 3 | Answer *"120g"*, then correct the budget to **$90** to show a correction, then **Confirm**. (Keep the 2 people / 7 days so the schnitzel in step 5 is still chosen.) | UC-01 state machine: clarifications ≠ corrections; third correction switches to a form. (C1) |
 | 4 | Pick **Balanced** → **Build my basket**. | The primary workflow: Market Analyst prices 4 retailers (refreshes stale FreshCo quotes), Compliance screens (milk/almond/pesto excluded — expand "left out for safety"), MILP solver optimises, Compliance verifies. (C1, C4: optimisation solver) |
-| 5 | Show the **schnitzel held for a dietitian**. If nothing is held (any day but Wednesday or Saturday), run the [safety segment](SAFETY_DEMO.md) here instead: its *"$120 for the week, two meals a day"* shop holds the schnitzel on every weekday and also shows hidden allergens refused. Carry on from step 6 with that basket. | Human approval gate: incomplete ingredient data → confidence 40% < 95% threshold → escalated, withheld from the total. (C2) |
+| 5 | Show the **schnitzel held for a dietitian**. | Human approval gate: incomplete ingredient data → confidence 40% < 95% threshold → escalated, withheld from the total. (C2) |
 | 6 | Click **Why this basket?** and **Why this?** on an item. | UC-07: explanations generated only from recorded facts. (C2) |
 | 7 | Sign out → **Dr Sam Patel** → open the case → *Request info* → **Safe — release**. | UC-06 extension, State machine 9.5; the compliance agent answers the dietitian. Do this **before** editing the basket, so the released item is still in it. |
 | 8 | Sign in as **Alex** again: item released, basket now "Safe-checked" and can be accepted. | The human decision is applied and remembered for this household. |

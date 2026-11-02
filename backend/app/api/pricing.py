@@ -8,6 +8,7 @@ from app.agents.context import AgentContext
 from app.api.common import done, not_found, own_basket
 from app.core.deps import agent_context
 from app.domain import PriceQuote, Product
+from app.services.buy_timing import DEMO_NOTE
 from app.services.pricing.normalisation import UnitPrice
 
 router = APIRouter(tags=["pricing"])
@@ -70,4 +71,6 @@ def comparison(basket_id: int, baseline_id: int | None = Query(default=None), ct
 
 @router.get("/baskets/{basket_id}/buy-timing")
 def buy_timing(basket_id: int, ctx: AgentContext = Depends(agent_context)) -> dict:
-    return done(ctx, {"advice": ctx.analyst.buy_timing(own_basket(ctx, basket_id))})
+    advice = ctx.analyst.buy_timing(own_basket(ctx, basket_id))
+    demo = any(a.get("history", {}).get("demo") for a in advice)
+    return done(ctx, {"advice": advice, "demo_history": demo, "history_note": DEMO_NOTE if demo else None})

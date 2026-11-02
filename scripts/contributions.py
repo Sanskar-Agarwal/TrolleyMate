@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import re
 import subprocess
 import sys
@@ -171,7 +172,7 @@ def problems(shares: dict[str, list[float | None]]) -> list[str]:
         blank = [m for m, row in shares.items() if row[i] is None]
         if blank:
             found.append(f"{code} {name}: no share agreed for {', '.join(blank)}")
-        elif any(v < 0 or v > 100 for v in column):
+        elif any(not math.isfinite(v) or v < 0 or v > 100 for v in column):
             found.append(f"{code} {name}: every share must be between 0% and 100%")
         elif abs(sum(column) - 100) > 0.01:
             found.append(f"{code} {name}: totals {sum(column):g}%, not 100%")

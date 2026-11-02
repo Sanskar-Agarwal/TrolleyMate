@@ -119,6 +119,31 @@ def test_fixture_case(screen, case):
         assert {r["restriction"]: r["severity"] for r in restrictions} == expect["applied"]
 
 
+@pytest.mark.parametrize("restriction", ["vegetarian", "vegan"])
+def test_animal_rennet_is_excluded_for_both_diets(screen, restriction):
+    _, finding = screen({
+        "product": {"name": "Animal-rennet ingredient", "ingredients": ["animal rennet"]},
+        "members": {"Shopper": {restriction: "moderate"}},
+    })
+    assert finding.status == "violation"
+    assert any(f.get("restriction") == restriction for f in finding.findings)
+
+
+def test_seed_parmesan_cascade_includes_animal_rennet(client):
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        parmesan = db.scalar(select(Ingredient).where(Ingredient.name == "parmesan"))
+        product = Product(sku="TEST-PARMESAN", name="Seed parmesan", category="dairy", pack_size=1, unit="each",
+                          tags=[], may_contain=[], data_complete=True, ingredients=[parmesan])
+        db.add(product)
+        db.flush()
+        finding = AgentContext(db=db, llm=get_llm()).compliance.screen_product(
+            product, [{"restriction": "vegetarian", "severity": "moderate"}])
+        assert finding.status == "violation"
+        assert any(f.get("ingredient") == "parmesan → animal rennet" for f in finding.findings)
+
+
 # --- Verdict contract -----------------------------------------------------------
 
 
@@ -146,17 +171,18 @@ def test_contract_rejects_unexplained_or_unknown_evidence():
         )
 
 
-def test_out_of_range_llm_confidence_is_clamped(screen, monkeypatch):
+@pytest.mark.parametrize("risk", ["none", "possible"])
+def test_out_of_range_llm_confidence_is_unchecked(screen, monkeypatch, risk):
     """A real model may answer 85 meaning 85%. That must not break the contract (and with it
     basket verification), and the vague ingredient must still be withheld as uncertain."""
-    reply = {"risk": "possible", "confidence": 85, "reasoning": "Replied in percent."}
+    reply = {"risk": risk, "confidence": 85, "reasoning": "Replied in percent."}
     monkeypatch.setitem(TASKS, "assess_ingredient", dataclasses.replace(TASKS["assess_ingredient"], mock=lambda ctx: reply))
     monkeypatch.setattr(nutrition_compliance, "_INGREDIENT_CACHE", {})
 
     _, finding = screen(next(c for c in CASES if c["id"] == "hidden-natural-flavours-for-milk"))
     result = ProductResult.model_validate(finding.as_dict())
     assert result.status == "uncertain"
-    assert result.confidence == 0.5  # 1 - clamped 1.0 * 0.5
+    assert result.confidence == 0.4
 
 
 def test_stored_verdict_matches_the_contract(client, alex):
@@ -183,7 +209,7 @@ def test_nutrition_coverage_reports_every_target():
         item({"kcal": 2300, "protein_g": 100, "veg_serves": 2}, quantity=2),
         item({"kcal": 9000, "protein_g": 900, "veg_serves": 90}, withheld=True),  # withheld items don't count
     ])
-    req = SimpleNamespace(kcal=4400, protein_g=176, veg_serves=16, carb_servings=8)
+    req = SimpleNamespace(kcal=4400, protein_g=176, veg_serves=16, carb_servings=8, extra_minimums={})
     with SessionLocal() as db:
         report = NutritionCoverage.model_validate(AgentContext(db=db, llm=get_llm()).compliance.assess_nutrition(basket, req))
 

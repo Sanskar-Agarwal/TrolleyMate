@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.domain import Basket, Product, ShoppingSession
 from app.domain.enums import ItemCompliance
-from app.services.catalogue import find_products, match_item, match_score
+from app.services.catalogue import find_products, match_item, match_score, matching_items
 from app.services.session_state import active_constraints, household_of
 
 
@@ -24,13 +24,22 @@ def edit(agent, basket: Basket, text: str) -> dict:
     if not plan["operations"] and not plan.get("budget_change"):
         return {"status": "clarify", "question": plan.get("clarification_question") or "What would you like to change?"}
 
+    # Validate every target before any mutation; a compound edit is atomic.
+    for op in plan["operations"]:
+        if op["op"] in ("remove", "replace", "increase", "decrease") and op.get("target"):
+            matches = matching_items(basket, op["target"])
+            if len(matches) > 1:
+                return {"status": "clarify", "question": "Which product do you mean: "
+                        + ", ".join(i.product.name for i in matches) + "? Please use the full name."}
     record = active_constraints(db, session)
     payload = dict(record.payload)
     household = household_of(db, session)
     restrictions = ctx.compliance.restrictions_for(household, payload)
     current = {i.product_id: i.quantity for i in basket.items}
-    min_qty: dict[int, int] = {}
-    max_qty: dict[int, int] = {}
+    # Add-only edits preserve existing quantities as hard constraints.
+    additive = bool(plan["operations"]) and all(op["op"] in ("add", "increase") for op in plan["operations"]) and not plan.get("budget_change")
+    min_qty: dict[int, int] = dict(current) if additive else {}
+    max_qty: dict[int, int] = dict(current) if additive else {}
     excluded: set[int] = set()
     applied, conflicts = [], []
 
@@ -70,10 +79,14 @@ def edit(agent, basket: Basket, text: str) -> dict:
             if product is None:
                 conflicts.append(refusal)
                 continue
-            min_qty[product.id] = 1
+            min_qty[product.id] = min_qty.get(product.id, current.get(product.id, 0)) + 1
+            if additive:
+                max_qty[product.id] = min_qty[product.id]
             applied.append(f"added {product.name}")
         elif kind == "increase":
             min_qty[item.product_id] = item.quantity + 1
+            if additive:
+                max_qty[item.product_id] = min_qty[item.product_id]
             applied.append(f"more {item.product.name}")
         elif kind == "decrease":
             max_qty[item.product_id] = max(0, item.quantity - 1)
@@ -88,26 +101,28 @@ def edit(agent, basket: Basket, text: str) -> dict:
         payload["budget"] = round(max(new, 1.0), 2)
         applied.append(f"budget ${payload['budget']:.2f}")
 
-    if conflicts and not applied:
+    if conflicts:
         return {"status": "conflict", "message": " ".join(conflicts), "suggestions": []}
 
     # Pantry/snack items aren't solver candidates: they're added directly after the solve. Keep the
     # ones already in the basket (unless this edit removes or reduces them) and reserve their cost,
     # so the solved basket plus these extras still fits the budget.
     extras = {pid: q for pid, q in current.items() if _category(db, pid) in ("pantry", "snack") and pid not in excluded}
-    # A carried-over extra is screened again, like a new "add": the household's restrictions or the
-    # product's data may have changed since it was added, and a withheld one must stay out (KAN-23).
-    for pid in list(extras):
-        product = db.get(Product, pid)
-        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
-            del extras[pid]
-            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
     for pid in [p for p in min_qty if _category(db, p) in ("pantry", "snack")]:
         extras[pid] = max(extras.get(pid, 0), min_qty.pop(pid))
     for pid, hi in max_qty.items():
         if pid in extras:
             extras[pid] = min(extras[pid], hi)
     extras = {pid: q for pid, q in extras.items() if q > 0}
+    # Screen the final quantities, including "increase" pins. Screening only the
+    # carried-over extras lets those pins reinsert an unsafe or withheld product.
+    for pid in list(extras):
+        product = db.get(Product, pid)
+        if ctx.compliance.screen_product(product, restrictions, household.id).status != ItemCompliance.compliant:
+            del extras[pid]
+            conflicts.append(f"{product.name} was left out: it no longer passes your household's dietary checks.")
+            applied = [f"removed {product.name} after dietary checks" if change in (f"more {product.name}", f"less {product.name}")
+                       else change for change in applied]
     reserve = _extras_cost(agent, extras)
     budget = payload.get("budget")
     if budget is not None and reserve > float(budget) + 1e-6:
@@ -124,6 +139,8 @@ def edit(agent, basket: Basket, text: str) -> dict:
         agent, session, basket.goal, payload_override=payload, origin="edit",
         min_qty=min_qty, max_qty=max_qty, exclude_products=excluded, prefer=set(current) - excluded, reserve=reserve,
     )
+    if outcome.status == "retryable":
+        return {"status": "conflict", "message": outcome.message, "suggestions": []}
     if outcome.status != "ok":
         neg = outcome.negotiation or {}
         return {
@@ -135,6 +152,7 @@ def edit(agent, basket: Basket, text: str) -> dict:
     new_basket = outcome.basket
     if extras:
         _add_extras(agent, new_basket, extras)
+        basket_builder.refresh_explanation(agent, new_basket)
     return {"status": "ok", "basket": new_basket, "applied": applied, "conflicts": conflicts,
             "diff": basket_diff(basket, new_basket)}
 
