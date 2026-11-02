@@ -2,7 +2,8 @@
 
 This numbered walkthrough is retained because [JOURNEY_VERIFICATION.md](JOURNEY_VERIFICATION.md)
 refers to its steps. **Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current seven-minute
-presentation, preparation and acceptance gates.** The table below describes the planned older
+presentation, preparation and acceptance gates.** The optional [safety segment](SAFETY_DEMO.md)
+covers named allergen refusals and unresolved human review. The table below describes the planned older
 walkthrough; it is not a record of a completed team rehearsal or Canvas submission.
 
 Product choices, held items and price-history examples depend on the selected version and

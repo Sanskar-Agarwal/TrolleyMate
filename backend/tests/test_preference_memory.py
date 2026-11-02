@@ -205,9 +205,8 @@ def test_mandatory_restrictions_come_before_a_like(client, alex):
     assert "Almond Milk 1L" in {e["product"] for e in excluded}
 
 
-def test_a_like_wins_a_close_call_in_later_baskets(client, alex):
+def test_a_like_is_applied_explained_and_forgotten_in_later_baskets(client, alex):
     _, _, before = later_session(client, alex, ALEX_WEEK, "balanced")
-    assert "Firm Tofu 450g" not in before
 
     pref_id = remember(client, alex, "like", "firm tofu").json()["preferences"][-1]["id"]
     sid, carried = confirmed(client, alex, ALEX_WEEK)

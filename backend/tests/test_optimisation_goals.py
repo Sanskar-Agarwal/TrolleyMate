@@ -80,3 +80,17 @@ def test_explicit_per_person_target_is_not_reduced_by_child_portion_factor():
                                  {"nutrient": "fibre_g", "minimum_per_day": 30}]}))
     assert req.protein_g == 720
     assert req.extra_minimums["fibre_g"] == 180
+
+
+def test_preference_wins_a_close_price_call_without_overriding_budget():
+    req, candidates = goal_fixture()
+    candidates[1] = replace(candidates[1], price=1.01)
+    solver = BasketOptimiser()
+    strategy = strategy_for("lowest_cost")
+    baseline = solver.solve(req, strategy, candidates)
+    preferred = solver.solve(req, strategy, candidates, prefer={2, 5})
+    constrained = solver.solve(replace(req, budget=1.0), strategy, candidates, prefer={2, 5})
+    assert [(c.product.id, q) for c, q in baseline.items] == [(1, 1)]
+    assert [(c.product.id, q) for c, q in preferred.items] == [(2, 1)]
+    assert [(c.product.id, q) for c, q in constrained.items] == [(1, 1)]
+    assert baseline.feasible and preferred.feasible and constrained.feasible

@@ -36,7 +36,8 @@ def test_unsafe_exact_chat_addition_is_declined_without_changing_basket(client, 
     assert response.status_code == 200, response.text
     result = response.json()["response"]
     assert result["kind"] == "edit" and result["edit"]["status"] == "conflict"
-    assert "almond milk" in result["reply"] and "safe" in result["reply"]
+    assert "almond milk" in result["reply"].casefold() and "safe" in result["reply"]
+    assert "almonds (tree nuts)" in result["reply"]
     state = client.get(f"/api/sessions/{sid}", headers=alex).json()
     assert state["basket"]["id"] == before["id"]
     assert state["basket"]["items"] == before["items"]

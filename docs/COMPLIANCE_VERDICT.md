@@ -1,4 +1,4 @@
-# Compliance verdict contract (KAN-19, KAN-20, KAN-21, KAN-22, KAN-23)
+# Compliance verdict contract (KAN-19 to KAN-24)
 
 What the AI Nutrition & Compliance agent returns to the other agents, and how it was evaluated. Covers
 requirements 1.2.10, 1.2.11 and 1.2.12, UC-06, UC-02 extension 4b (nutrition exceptions), and Stage 1
@@ -15,6 +15,7 @@ not the current full-suite count.
 | Preference rules | [`backend/app/services/preference_memory.py`](../backend/app/services/preference_memory.py) |
 | Fixture catalogue | [`backend/tests/fixtures/compliance_cases.json`](../backend/tests/fixtures/compliance_cases.json) |
 | Evaluation set (KAN-23) | [`backend/tests/agent_evaluation.py`](../backend/tests/agent_evaluation.py), with results in [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md) |
+| Safety demo (KAN-24) | [`docs/SAFETY_DEMO.md`](SAFETY_DEMO.md), checked for every weekday by [`test_safety_demo.py`](../backend/tests/test_safety_demo.py) |
 | Tests | [`test_compliance_contract.py`](../backend/tests/test_compliance_contract.py), [`test_compliance_verification.py`](../backend/tests/test_compliance_verification.py), [`test_nutrition_coverage.py`](../backend/tests/test_nutrition_coverage.py), [`test_preference_memory.py`](../backend/tests/test_preference_memory.py), [`test_agent_evaluation.py`](../backend/tests/test_agent_evaluation.py), [`PreferencesPanel.test.tsx`](../frontend/src/features/preferences/PreferencesPanel.test.tsx) |
 
 ## Verdicts
@@ -342,6 +343,20 @@ Recorded with the results in the evidence file. The ones that matter most:
 | Run a fixed evaluation set covering perception, tool-based decisions and system actions, including unsafe/uncertain inputs and failed tools | `test_agent_evaluation.py`: the set's make-up is pinned (42 cases, every capability × input kind), and every case runs in CI |
 | Record observed results and limitations | [`docs/evidence/agent-evaluation.md`](evidence/agent-evaluation.md): expected, observed and the main baseline per case, plus limitations |
 | Uncertain items stay withheld pending authorised review | S02–S07, S10, S15 and T10, listed in `WITHHELD_UNTIL_REVIEW` |
+
+## Safety demo and refusals that say why (KAN-24)
+
+[`SAFETY_DEMO.md`](SAFETY_DEMO.md) is a three-minute segment for the week 13 demo. It shows hidden allergens
+refused and an uncertain item left unresolved, not presented as safe. Specials are priced by weekday, so
+[`test_safety_demo.py`](../backend/tests/test_safety_demo.py) runs the segment once for every weekday.
+
+**A refused chat request names what was found.** When a chat edit asks for a product the household can't have,
+`basket_editing.compliant_match` (Chester's file) now considers only the best-matching products, and refuses
+with `Finding.refusal()`:
+*Honey Muesli Bars 6pk isn't safe for your household: contains whey powder (lactose); contains almonds (tree nuts).*
+An uncertain product reads *... can't be confirmed safe for your household yet: ...*. Before this, the request
+fell through to a weaker match, so *"add honey muesli bars"* added Honey 500g and *"add sugar free mints"* added
+Free Range Eggs. The unsafe product was never added, but the shopper wasn't told it had been refused.
 
 ### Acceptance audit — 30 October 2026
 

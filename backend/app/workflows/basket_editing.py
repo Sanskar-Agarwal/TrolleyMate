@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.domain import Basket, Product, ShoppingSession
 from app.domain.enums import ItemCompliance
-from app.services.catalogue import find_products, match_item, matching_items
+from app.services.catalogue import find_products, match_item, match_score, matching_items
 from app.services.session_state import active_constraints, household_of
 
 
@@ -43,11 +43,19 @@ def edit(agent, basket: Basket, text: str) -> dict:
     excluded: set[int] = set()
     applied, conflicts = [], []
 
-    def compliant_match(description: str, not_this: int | None = None):
-        for p in find_products(db, description, limit=6):
-            if p.id != not_this and ctx.compliance.screen_product(p, restrictions, household.id).status == ItemCompliance.compliant:
-                return p
-        return None
+    def compliant_match(description: str, not_this: int | None = None) -> tuple[Product | None, str]:
+        """The best match that is safe for the household, or None and why not. Only the best-matching
+        products are considered: if they aren't safe, say why rather than quietly falling back to a
+        weaker match ("add honey muesli bars" must not add honey) (KAN-24)."""
+        found = [p for p in find_products(db, description, limit=6) if p.id != not_this]
+        best = [p for p in found if match_score(p, description) == match_score(found[0], description)]
+        refusals = []
+        for p in best:
+            finding = ctx.compliance.screen_product(p, restrictions, household.id)
+            if finding.status == ItemCompliance.compliant:
+                return p, ""
+            refusals.append(finding.refusal())
+        return None, refusals[0] if refusals else f"No '{description}' option is safe for your household's dietary rules."
 
     for op in plan["operations"]:
         kind, target, replacement = op["op"], op.get("target"), op.get("replacement")
@@ -59,17 +67,17 @@ def edit(agent, basket: Basket, text: str) -> dict:
             excluded.add(item.product_id)
             applied.append(f"removed {item.product.name}")
         elif kind == "replace":
-            product = compliant_match(replacement or "", not_this=item.product_id)
+            product, refusal = compliant_match(replacement or "", not_this=item.product_id)
             if product is None:
-                conflicts.append(f"No '{replacement}' option is safe for your household's dietary rules.")
+                conflicts.append(refusal)
                 continue
             excluded.add(item.product_id)
             min_qty[product.id] = max(current.get(product.id, 0) + 1, item.quantity if product.category == item.product.category else 1)
             applied.append(f"replaced {item.product.name} with {product.name}")
         elif kind == "add":
-            product = compliant_match(replacement or target or "")
+            product, refusal = compliant_match(replacement or target or "")
             if product is None:
-                conflicts.append(f"No '{replacement}' option is safe for your household's dietary rules.")
+                conflicts.append(refusal)
                 continue
             min_qty[product.id] = min_qty.get(product.id, current.get(product.id, 0)) + 1
             if additive:
