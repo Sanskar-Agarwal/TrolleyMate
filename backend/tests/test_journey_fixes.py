@@ -107,6 +107,16 @@ def test_pantry_additions_respect_budget_and_survive_later_edits(client, riley):
     # must not vanish when the next edit rebuilds the basket.
     sid = confirmed_session(client, riley, "$7 for 1 day, dinner only for myself")
     b = client.post(f"/api/sessions/{sid}/basket", json={"goal": "lowest_cost"}, headers=riley).json()["basket"]
+    # Exhaust the budget using today's actual total rather than a weekday-dependent price.
+    from app.core.db import SessionLocal
+    from app.domain import Basket, ShoppingSession
+    from app.services.session_state import active_constraints
+
+    with SessionLocal() as db:
+        constraints = active_constraints(db, db.get(ShoppingSession, sid))
+        constraints.payload = {**constraints.payload, "budget": b["total"]}
+        db.get(Basket, b["id"]).budget = b["total"]
+        db.commit()
     refused = client.post(f"/api/baskets/{b['id']}/edit", json={"text": "add olive oil"}, headers=riley).json()
     assert refused["status"] == "conflict"
     assert client.get(f"/api/baskets/{b['id']}", headers=riley).json()["total"] == b["total"]
